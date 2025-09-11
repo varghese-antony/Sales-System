@@ -83,7 +83,7 @@ export default function Outdoor() {
       >
         {categories.map((category, index) => (
           <div key={index} className='my-4 bg-gray-50 p-10 rounded-2xl'>
-            <h1 id={category['Outdoor']} className="capitalize">{category.Outdoor}</h1>
+            <h1 id={category['Outdoor'].toLowerCase().replace(/\s+/g, '-')} className="capitalize">{category.Outdoor}</h1>
             <hr className='my-4'/>
             <div className="flex gap-4 flex-wrap text-balance">
               {/* Filter product types by this specific category */}
