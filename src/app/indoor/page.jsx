@@ -1,3 +1,6 @@
+'use client'
+
+import { useEffect, useState } from 'react'
 import { ProductCard } from "@/components/ProductCard"
 import {
   Accordion,
@@ -5,41 +8,99 @@ import {
   AccordionItem,
   AccordionTrigger,
 } from "@/components/ui/accordion"
+import { Skeleton } from "@/components/ui/skeleton"
+import { Alert, AlertDescription } from "@/components/ui/alert"
 
 export default function Indoor() {
+  const [categories, setCategories] = useState([])
+  const [categoriesWithProducts, setCategoriesWithProducts] = useState([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState(null)
+
+  useEffect(() => {
+    async function fetchCategoriesAndProducts() {
+      try {
+        setLoading(true)
+        
+        // First fetch: Get distinct categories
+        const categoriesResponse = await fetch('https://n8n.werposolutions.com/webhook/get-distinct?table=indoor&column=Indoor')
+        if (!categoriesResponse.ok) {
+          throw new Error(`HTTP error! status: ${categoriesResponse.status}`)
+        }
+        const categoriesData = await categoriesResponse.json()
+        
+        // Set categories immediately for UI
+        setCategories(categoriesData)
+        
+        // Second fetch: Get distinct product types for each category
+        const productTypesResponse = await fetch('https://n8n.werposolutions.com/webhook/get-distinct?table=indoor&column=Product Type')
+        if (!productTypesResponse.ok) {
+          throw new Error(`HTTP error! status: ${productTypesResponse.status}`)
+        }
+        const productTypesData = await productTypesResponse.json()
+        
+        // Combine categories with their product types
+        // Assuming product types are already grouped by their category context
+        setCategoriesWithProducts(productTypesData)
+        
+      } catch (error) {
+        console.error('Error fetching indoor data:', error)
+        setError('Failed to load indoor products. Please try again later.')
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    fetchCategoriesAndProducts()
+    
+  }, [])
+
+  if (loading) {
+    return (
+      <div className='container mx-auto space-y-4'>
+        <Skeleton className="h-10 w-full" />
+        <Skeleton className="h-32 w-full" />
+        <Skeleton className="h-10 w-full" />
+        <Skeleton className="h-32 w-full" />
+      </div>
+    )
+  }
+
+  if (error) {
+    return (
+      <div className='container mx-auto'>
+        <Alert variant="destructive">
+          <AlertDescription>{error}</AlertDescription>
+        </Alert>
+      </div>
+    )
+  }
+
   return (
     <div className='container mx-auto'>
-    <Accordion
-      type="single"
-      collapsible
-      className="w-full"
-      defaultValue="item-1"
-    >
-      <AccordionItem value="item-1">
-        <AccordionTrigger>Bulb</AccordionTrigger>
-        <AccordionContent className="flex gap-4 flex-wrap text-balance">
-          <ProductCard title="Bulb" link="/indoor/bulb" />
-          <ProductCard title="Bulb" link="/indoor/bulb" />
-          <ProductCard title="Bulb" link="/indoor/bulb" />
-        </AccordionContent>
-      </AccordionItem>
-      <AccordionItem value="item-2">
-        <AccordionTrigger>Lamp</AccordionTrigger>
-        <AccordionContent className="flex gap-4 text-balance">
-          <ProductCard title="Lamp" link="/indoor/lamp" />
-          <ProductCard title="Lamp" link="/indoor/lamp" />      
-          <ProductCard title="Lamp" link="/indoor/lamp" />
-        </AccordionContent>
-      </AccordionItem>
-      <AccordionItem value="item-3" >
-        <AccordionTrigger>Ceiling Lights</AccordionTrigger>
-        <AccordionContent className="flex gap-4 text-balance">
-          <ProductCard title="Ceiling Light" link="/indoor/ceiling-light" />
-          <ProductCard title="Ceiling Light" link="/indoor/ceiling-light" />
-          <ProductCard title="Ceiling Light" link="/indoor/ceiling-light" />
-        </AccordionContent>
-      </AccordionItem>
-    </Accordion>
+      <div
+        className="w-full"
+      >
+        {categories.map((category, index) => (
+          <div key={index} className='my-4 bg-gray-50 p-10 rounded-2xl'>
+            <h1 id={category['Indoor']} className="capitalize">{category.Indoor}</h1>
+            <hr className='my-4'/>
+            <div className="flex gap-4 flex-wrap text-balance">
+              {/* Filter product types by this specific category */}
+              {categoriesWithProducts
+                .filter(productType => productType.Indoor === category.Indoor)
+                .map((productType, typeIndex) => (
+                  <ProductCard 
+                    key={typeIndex} 
+                    title={productType['Product Type']} 
+                    link={`/indoor/${productType['Product Type']}`}
+                  />
+                ))
+              }
+            </div>
+          </div>
+        ))}
+      </div>
     </div>
   )
 }

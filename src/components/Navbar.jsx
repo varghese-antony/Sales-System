@@ -52,7 +52,29 @@ const components = [
   },
 ]
 
+import { useEffect, useState } from "react"
+
 export function Navbar() {
+  const [indoorCategories, setIndoorCategories] = useState([])
+  const [outdoorCategories, setOutdoorCategories] = useState([])
+
+  useEffect(() => {
+    async function fetchCategories() {
+      try {
+        const indoorResponse = await fetch('https://n8n.werposolutions.com/webhook/get-distinct?table=indoor&column=Indoor')
+        const indoorData = await indoorResponse.json()
+        setIndoorCategories(indoorData)
+
+        const outdoorResponse = await fetch('https://n8n.werposolutions.com/webhook/get-distinct?table=outdoor&column=Outdoor')
+        const outdoorData = await outdoorResponse.json()
+        setOutdoorCategories(outdoorData)
+      } catch (error) {
+        console.error("Failed to fetch categories:", error)
+      }
+    }
+    fetchCategories()
+  }, [])
+
   return (
     <div className="flex p-4 m-8 border-2 rounded-md">
       <Link href={'/'} className="text-2xl font-bold">Lighting Catalogue</Link>
@@ -77,12 +99,10 @@ export function Navbar() {
                   </Link>
                 </NavigationMenuLink>
               </li>
-              <ListItem href="/" title="Lamp">
-              </ListItem>
-              <ListItem href="/" title="Bulb">
-              </ListItem>
-              <ListItem href="/" title="Ceiling Light">
-              </ListItem>
+              {indoorCategories.map((category, index) => (
+                <ListItem key={index} href={`/indoor#${category['Indoor'].toLowerCase().replace(/\s+/g, '-')}`} title={category['Indoor']}>
+                </ListItem>
+              ))}
             </ul>
           </NavigationMenuContent>
         </NavigationMenuItem>
@@ -105,12 +125,10 @@ export function Navbar() {
                   </Link>
                 </NavigationMenuLink>
               </li>
-              <ListItem href="/" title="Lamp">
-              </ListItem>
-              <ListItem href="/" title="Bulb">
-              </ListItem>
-              <ListItem href="/" title="Ceiling Light">
-              </ListItem>
+              {outdoorCategories.map((category, index) => (
+                <ListItem key={index} href={`/outdoor#${category['Outdoor'].toLowerCase().replace(/\s+/g, '-')}`} title={category['Outdoor']}>
+                </ListItem>
+              ))}
             </ul>
           </NavigationMenuContent>
         </NavigationMenuItem>
