@@ -1,9 +1,9 @@
 "use client"
-import { useState, useEffect } from "react"
+import React, { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 
 export default function OutdoorProductPage({ params }) {
-  const slug = typeof params === 'object' && params !== null ? params.slug : React.use(params).slug
+  const {slug} = React.use(params)
   
   const [products, setProducts] = useState([])
   const [selectedFilters, setSelectedFilters] = useState({})

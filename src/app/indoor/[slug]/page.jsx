@@ -4,7 +4,6 @@ import { Button } from "@/components/ui/button"
 
 export default function IndoorProductPage({ params }) {
   const {slug} = React.use(params)
-  console.log(params)
   
   const [products, setProducts] = useState([])
   const [selectedFilters, setSelectedFilters] = useState({})
