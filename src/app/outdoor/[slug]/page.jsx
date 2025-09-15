@@ -79,7 +79,7 @@ export default function OutdoorProductPage({ params }) {
       <div className='container mx-auto py-8'>
         <h1 className='text-3xl font-bold mb-8'>Product Details</h1>
         <div className='grid gap-6 border rounded-lg p-6 shadow-sm'>
-          {Object.keys(finalProduct).map(key => (
+           {Object.keys(finalProduct).filter(key => !['MOQ', 'COST-China/DDP-USA', 'COST-Thailand/Vietnam', 'Photo'].includes(key)).map(key => (
             <div key={key} className='flex justify-between'>
               <span className='font-semibold'>{key}:</span>
               <span>{finalProduct[key] ? finalProduct[key] : 'N/A'}</span>
@@ -96,6 +96,7 @@ export default function OutdoorProductPage({ params }) {
 
   return (
     <div className='container mx-auto py-8'>
+    <h1>{productType}</h1>
       <h1 className='text-3xl font-bold mb-8'>Select {currentKey}</h1>
       
       {isLoading ? (

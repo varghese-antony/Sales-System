@@ -11,7 +11,7 @@ export default function IndoorProductPage({ params }) {
   const [finalProduct, setFinalProduct] = useState(null)
   const [isLoading, setIsLoading] = useState(false)
 
-  const productType = slug.replace("%20", ' ')
+  const productType = slug.replaceAll("%20", ' ')
 
   const desiredKeys = [
     'Size', 'Power (W)', 'Voltage', 'CCT', 'CRI/RA', 'Lumen','Efficacy (lm/W)',
@@ -79,7 +79,7 @@ export default function IndoorProductPage({ params }) {
       <div className='container mx-auto py-8'>
         <h1 className='text-3xl font-bold mb-8'>Product Details</h1>
         <div className='grid gap-6 border rounded-lg p-6 shadow-sm'>
-          {Object.keys(finalProduct).map(key => (
+          {Object.keys(finalProduct).filter(key => !['MOQ', 'COST-China/DDP-USA', 'COST-Thailand/Vietnam', 'Photo'].includes(key)).map(key => (
             <div key={key} className='flex justify-between'>
               <span className='font-semibold'>{key}:</span>
               <span>{finalProduct[key] ? finalProduct[key] : 'N/A'}</span>
@@ -96,7 +96,8 @@ export default function IndoorProductPage({ params }) {
 
   return (
     <div className='container mx-auto py-8'>
-      <h1 className='text-3xl font-bold mb-8'>Select {currentKey}</h1>
+      <h1 className='text-3xl font-bold mb-8'>{productType.replaceAll("%20", ' ')}</h1>
+      <h1 className='text-xl font-bold mb-8'>Select {currentKey}</h1>
       
       {isLoading ? (
         <div>Loading...</div>

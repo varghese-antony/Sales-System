@@ -76,7 +76,7 @@ export function Navbar() {
   }, [])
 
   return (
-    <div className="flex p-4 m-8 border-2 rounded-md">
+    <div className="flex items-center justify-between p-4 m-8 border-2 rounded-md shadow-md bg-white">
       <Link href={'/'} className="text-2xl font-bold">Lighting Catalogue</Link>
     <NavigationMenu viewport={false}>
       <NavigationMenuList>
