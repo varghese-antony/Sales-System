@@ -1,6 +1,14 @@
 "use client"
 import React, { useState, useEffect } from "react"
+import { motion } from "framer-motion"
+import { OptionSelector } from "@/components/OptionSelector"
+import { ProductDetails } from "@/components/ProductDetails"
+import { LoadingSpinner } from "@/components/ui/loading"
+import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Button } from "@/components/ui/button"
+import { Badge } from "@/components/ui/badge"
+import { Sparkles, Home, ArrowLeft, RotateCcw } from "lucide-react"
+import Link from "next/link"
 
 export default function OutdoorProductPage({ params }) {
   const {slug} = React.use(params)
@@ -10,8 +18,9 @@ export default function OutdoorProductPage({ params }) {
   const [currentStep, setCurrentStep] = useState(0)
   const [finalProduct, setFinalProduct] = useState(null)
   const [isLoading, setIsLoading] = useState(false)
+  const [error, setError] = useState(null)
 
-  const productType = slug.replace("%20", ' ')
+  const productType = decodeURIComponent(slug).replace(/%20/g, ' ')
 
   const desiredKeys = [
     'Size', 'Power (W)', 'Voltage', 'CCT', 'CRI/RA', 'Lumen','Efficacy (lm/W)',
@@ -19,6 +28,19 @@ export default function OutdoorProductPage({ params }) {
     'Eme. Backup-Battery', 'Junction Cover', 'Remote Control', 'Mounting',
     'Installation Kits', 'Adjustment Dial', 'Certifications'
   ]
+
+  const keyDescriptions = {
+    'Size': 'Choose the dimensions that fit your outdoor space perfectly',
+    'Power (W)': 'Select the power consumption for optimal energy efficiency',
+    'Voltage': 'Pick the voltage compatible with your outdoor electrical system',
+    'CCT': 'Choose the color temperature for the desired outdoor ambiance',
+    'CRI/RA': 'Select the color rendering index for accurate outdoor color representation',
+    'Lumen': 'Pick the brightness level suitable for your outdoor application',
+    'Efficacy (lm/W)': 'Choose the energy efficiency rating for outdoor use',
+    'Dimming Type': 'Select your preferred outdoor dimming control method',
+    'Material Finish': 'Choose the weather-resistant finish for your outdoor environment',
+    'Mounting': 'Select the outdoor installation method that works for your space'
+  }
 
   useEffect(() => {
     fetchInitialProducts()
@@ -43,11 +65,16 @@ export default function OutdoorProductPage({ params }) {
 
   const fetchInitialProducts = async () => {
     setIsLoading(true)
+    setError(null)
     try {
       const data = await fetchData(`https://n8n.werposolutions.com/webhook/get-product?table=outdoor&product=${productType}`)
       setProducts(data)
+      if (data.length === 0) {
+        setError('No products found for this category.')
+      }
     } catch (error) {
       console.error('Error:', error)
+      setError('Failed to load products. Please try again.')
       setProducts([])
     }
     setIsLoading(false)
@@ -55,7 +82,9 @@ export default function OutdoorProductPage({ params }) {
 
   const filterProducts = async (key, value) => {
     setIsLoading(true)
-    setSelectedFilters(prev => ({ ...prev, [key]: value }))
+    setError(null)
+    const newFilters = { ...selectedFilters, [key]: value }
+    setSelectedFilters(newFilters)
     
     const query = buildPostgresQuery(selectedFilters, key, value)
     
@@ -63,58 +92,211 @@ export default function OutdoorProductPage({ params }) {
       const filtered = await fetchData(`https://n8n.werposolutions.com/webhook/get-model?table=outdoor&query=${encodeURIComponent(query)}`)
       if (filtered.length === 1) {
         setFinalProduct(filtered[0])
+      } else if (filtered.length === 0) {
+        setError('No products match your current selection. Please try different options.')
+        setProducts([])
       } else {
         setProducts(filtered)
         setCurrentStep(prev => prev + 1)
       }
     } catch (error) {
       console.error('Error:', error)
+      setError('Failed to filter products. Please try again.')
     } finally {
       setIsLoading(false)
     }
   }
 
+  const resetSelection = () => {
+    setSelectedFilters({})
+    setCurrentStep(0)
+    setFinalProduct(null)
+    setError(null)
+    fetchInitialProducts()
+  }
+
+  const goBack = () => {
+    if (finalProduct) {
+      setFinalProduct(null)
+      return
+    }
+    
+    if (currentStep > 0) {
+      const newStep = currentStep - 1
+      const newFilters = { ...selectedFilters }
+      const currentKey = desiredKeys[currentStep]
+      delete newFilters[currentKey]
+      
+      setSelectedFilters(newFilters)
+      setCurrentStep(newStep)
+      setError(null)
+      
+      // Refetch with previous filters
+      if (Object.keys(newFilters).length === 0) {
+        fetchInitialProducts()
+      } else {
+        const query = Object.entries(newFilters)
+          .filter(([_, v]) => v !== undefined && v !== null && v !== '')
+          .map(([k, v]) => `"${k}"=eq.${v}`)
+          .join('&')
+        
+        fetchData(`https://n8n.werposolutions.com/webhook/get-model?table=outdoor&query=${encodeURIComponent(query)}`)
+          .then(setProducts)
+          .catch(console.error)
+      }
+    }
+  }
+
+  // Show final product details
   if (finalProduct) {
+    return <ProductDetails product={finalProduct} onBack={goBack} />
+  }
+
+  // Show loading state
+  if (isLoading && products.length === 0 && currentStep === 0) {
     return (
-      <div className='container mx-auto py-8'>
-        <h1 className='text-3xl font-bold mb-8'>Product Details</h1>
-        <div className='grid gap-6 border rounded-lg p-6 shadow-sm'>
-           {Object.keys(finalProduct).filter(key => !['MOQ', 'COST-China/DDP-USA', 'COST-Thailand/Vietnam', 'Photo'].includes(key)).map(key => (
-            <div key={key} className='flex justify-between'>
-              <span className='font-semibold'>{key}:</span>
-              <span>{finalProduct[key] ? finalProduct[key] : 'N/A'}</span>
-            </div>
-          ))}
+      <div className='min-h-screen flex items-center justify-center bg-gradient-to-br from-green-50/50 via-teal-50/30 to-emerald-50/50 dark:from-green-950/20 dark:via-teal-950/10 dark:to-emerald-950/20'>
+        <div className="text-center space-y-4 flex items-center justify-center flex-col">
+          <LoadingSpinner size="lg" />
+          <p className="text-muted-foreground">Loading {productType} options...</p>
         </div>
       </div>
     )
   }
 
   const currentKey = desiredKeys[currentStep]
-  const currentValues = [...new Set(products.map(p => { const value = p[currentKey]; return value === null || value === undefined ? 'N/A' : value; }))]
-    .filter(v => v?.toString().trim())
+  const currentValues = [...new Set(products.map(p => { 
+    const value = p[currentKey]; 
+    return value === null || value === undefined ? 'N/A' : value; 
+  }))].filter(v => v?.toString().trim())
 
   return (
-    <div className='container mx-auto py-8'>
-    <h1>{productType}</h1>
-      <h1 className='text-3xl font-bold mb-8'>Select {currentKey}</h1>
-      
-      {isLoading ? (
-        <div>Loading...</div>
-      ) : (
-        <div className='grid gap-6'>
-          {currentValues.map((value, index) => (
-            <Button 
-              key={index} 
-              className="p-6 text-lg"
-              onClick={() => filterProducts(currentKey, value === 'N/A' ? null : value)}
-              disabled={isLoading}
-            >
-              {value}
+    <div className='min-h-screen bg-gradient-to-br from-green-50/50 via-teal-50/30 to-emerald-50/50 dark:from-green-950/20 dark:via-teal-950/10 dark:to-emerald-950/20'>
+      {/* Background Pattern */}
+      <div className="absolute inset-0 opacity-[0.02] dark:opacity-[0.05]">
+        <svg className="w-full h-full" xmlns="http://www.w3.org/2000/svg">
+          <defs>
+            <pattern id="outdoor-product-grid" width="60" height="60" patternUnits="userSpaceOnUse">
+              <path d="M 60 0 L 0 0 0 60" fill="none" stroke="currentColor" strokeWidth="1"/>
+            </pattern>
+          </defs>
+          <rect width="100%" height="100%" fill="url(#outdoor-product-grid)" />
+        </svg>
+      </div>
+
+      <div className='container mx-auto py-12 px-4 sm:px-6 lg:px-8 relative z-10'>
+        {/* Header */}
+        <motion.div
+          initial={{ opacity: 0, y: -30 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.6 }}
+          className="mb-12"
+        >
+          {/* Breadcrumb */}
+          <div className="flex items-center gap-2 mb-6">
+            <Link href="/" className="flex items-center gap-2 text-muted-foreground hover:text-primary transition-colors">
+              <Home className="w-4 h-4" />
+              <span>Home</span>
+            </Link>
+            <span className="text-muted-foreground">/</span>
+            <Link href="/outdoor" className="text-muted-foreground hover:text-primary transition-colors">
+              Outdoor Lighting
+            </Link>
+            <span className="text-muted-foreground">/</span>
+            <span className="text-primary font-medium">{productType}</span>
+          </div>
+
+          {/* Title */}
+          <div className="text-center">
+            <div className="flex justify-center items-center gap-3 mb-6">
+              <Sparkles className="w-12 h-12 text-primary" />
+            </div>
+            
+            <h1 className="text-3xl md:text-5xl font-bold mb-4">
+              <span className="text-gradient bg-gradient-to-r from-green-600 to-teal-600 bg-clip-text text-transparent">
+                {productType}
+              </span>
+            </h1>
+            
+            <p className="text-lg text-muted-foreground max-w-2xl mx-auto mb-6">
+              Configure your perfect outdoor lighting solution by selecting from the weather-resistant options below.
+            </p>
+
+            {/* Selected Filters */}
+            {Object.keys(selectedFilters).length > 0 && (
+              <div className="flex flex-wrap justify-center gap-2 mb-6">
+                {Object.entries(selectedFilters).map(([key, value]) => (
+                  <Badge key={key} variant="secondary" className="flex items-center gap-2 bg-gradient-to-r from-green-500/10 to-teal-500/10 border-green-500/20">
+                    {key}: {value || 'Not Specified'}
+                  </Badge>
+                ))}
+              </div>
+            )}
+
+            {/* Action Buttons */}
+            <div className="flex flex-wrap justify-center gap-3">
+              {(currentStep > 0 || Object.keys(selectedFilters).length > 0) && (
+                <Button variant="outline" onClick={goBack} className="group">
+                  <ArrowLeft className="w-4 h-4 mr-2 group-hover:-translate-x-1 transition-transform" />
+                  Go Back
+                </Button>
+              )}
+              {Object.keys(selectedFilters).length > 0 && (
+                <Button variant="ghost" onClick={resetSelection} className="group">
+                  <RotateCcw className="w-4 h-4 mr-2 group-hover:rotate-180 transition-transform" />
+                  Reset Selection
+                </Button>
+              )}
+            </div>
+          </div>
+        </motion.div>
+
+        {/* Error State */}
+        {error && (
+          <motion.div
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            className="mb-8"
+          >
+            <Alert variant="destructive" className="max-w-2xl mx-auto">
+              <AlertDescription>{error}</AlertDescription>
+            </Alert>
+          </motion.div>
+        )}
+
+        {/* Option Selection */}
+        {!error && currentValues.length > 0 && (
+          <OptionSelector
+            title={currentKey}
+            description={keyDescriptions[currentKey]}
+            options={currentValues}
+            onSelect={(value) => filterProducts(currentKey, value)}
+            isLoading={isLoading}
+            step={currentStep + 1}
+            totalSteps={desiredKeys.length}
+          />
+        )}
+
+        {/* Empty State */}
+        {!isLoading && !error && currentValues.length === 0 && products.length === 0 && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            className="text-center py-16"
+          >
+            <div className="w-24 h-24 mx-auto mb-6 rounded-full bg-muted flex items-center justify-center">
+              <Sparkles className="w-12 h-12 text-muted-foreground" />
+            </div>
+            <h3 className="text-2xl font-semibold mb-4">No Options Available</h3>
+            <p className="text-muted-foreground mb-6 max-w-md mx-auto">
+              We couldn't find any outdoor products matching your current selection. Try adjusting your filters or contact our support team.
+            </p>
+            <Button onClick={resetSelection} variant="outline">
+              Start Over
             </Button>
-          ))}
-        </div>
-      )}
+          </motion.div>
+        )}
+      </div>
     </div>
   )
 }

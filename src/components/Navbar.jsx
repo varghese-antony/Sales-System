@@ -2,7 +2,11 @@
 
 import * as React from "react"
 import Link from "next/link"
-import { CircleCheckIcon, CircleHelpIcon, CircleIcon } from "lucide-react"
+import { Lightbulb, Home, Sparkles, Menu } from "lucide-react"
+import { useEffect, useState } from "react"
+import { Button } from "@/components/ui/button"
+import { ThemeToggle } from "@/components/ThemeToggle"
+import { MobileMenu } from "@/components/MobileMenu"
 
 import {
   NavigationMenu,
@@ -11,52 +15,12 @@ import {
   NavigationMenuLink,
   NavigationMenuList,
   NavigationMenuTrigger,
-  navigationMenuTriggerStyle,
 } from "@/components/ui/navigation-menu"
-
-const components = [
-  {
-    title: "Alert Dialog",
-    href: "/docs/primitives/alert-dialog",
-    description:
-      "A modal dialog that interrupts the user with important content and expects a response.",
-  },
-  {
-    title: "Hover Card",
-    href: "/docs/primitives/hover-card",
-    description:
-      "For sighted users to preview content available behind a link.",
-  },
-  {
-    title: "Progress",
-    href: "/docs/primitives/progress",
-    description:
-      "Displays an indicator showing the completion progress of a task, typically displayed as a progress bar.",
-  },
-  {
-    title: "Scroll-area",
-    href: "/docs/primitives/scroll-area",
-    description: "Visually or semantically separates content.",
-  },
-  {
-    title: "Tabs",
-    href: "/docs/primitives/tabs",
-    description:
-      "A set of layered sections of content—known as tab panels—that are displayed one at a time.",
-  },
-  {
-    title: "Tooltip",
-    href: "/docs/primitives/tooltip",
-    description:
-      "A popup that displays information related to an element when the element receives keyboard focus or the mouse hovers over it.",
-  },
-]
-
-import { useEffect, useState } from "react"
 
 export function Navbar() {
   const [indoorCategories, setIndoorCategories] = useState([])
   const [outdoorCategories, setOutdoorCategories] = useState([])
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
 
   useEffect(() => {
     async function fetchCategories() {
@@ -75,85 +39,152 @@ export function Navbar() {
     fetchCategories()
   }, [])
 
+
+
   return (
-    <div className="flex items-center justify-between p-4 m-8 border-2 rounded-md shadow-md bg-white">
-      <Link href={'/'} className="text-2xl font-bold">Lighting Catalogue</Link>
-    <NavigationMenu viewport={false}>
-      <NavigationMenuList>
-        <NavigationMenuItem>
-          <NavigationMenuTrigger>Indoor</NavigationMenuTrigger>
-          <NavigationMenuContent>
-            <ul className="grid gap-2 md:w-[400px] lg:w-[500px] lg:grid-cols-[.75fr_1fr]">
-              <li className="row-span-3">
-                <NavigationMenuLink asChild>
-                  <Link
-                    className="from-muted/50 to-muted flex h-full w-full flex-col justify-end rounded-md bg-linear-to-b p-6 no-underline outline-hidden select-none focus:shadow-md"
-                    href="/indoor"
-                  >
-                    <div className="mt-4 mb-2 text-lg font-medium">
-                      Indoor
-                    </div>
-                    <p className="text-muted-foreground text-sm leading-tight">
-                      Beautiful Indoor Lights!
-                    </p>
-                  </Link>
-                </NavigationMenuLink>
-              </li>
-              {indoorCategories.map((category, index) => (
-                <ListItem key={index} href={`/indoor#${category['Indoor'].toLowerCase().replace(/\s+/g, '-')}`} title={category['Indoor']}>
-                </ListItem>
-              ))}
-            </ul>
-          </NavigationMenuContent>
-        </NavigationMenuItem>
-        <NavigationMenuItem>
-          <NavigationMenuTrigger>Outdoor</NavigationMenuTrigger>
-          <NavigationMenuContent>
-            <ul className="grid gap-2 md:w-[400px] lg:w-[500px] lg:grid-cols-[.75fr_1fr]">
-              <li className="row-span-3">
-                <NavigationMenuLink asChild>
-                  <Link
-                    className="from-muted/50 to-muted flex h-full w-full flex-col justify-end rounded-md bg-linear-to-b p-6 no-underline outline-hidden select-none focus:shadow-md"
-                    href="/outdoor"
-                  >
-                    <div className="mt-4 mb-2 text-lg font-medium">
-                      Outdoor
-                    </div>
-                    <p className="text-muted-foreground text-sm leading-tight">
-                      Beautiful Outdoor Lights!
-                    </p>
-                  </Link>
-                </NavigationMenuLink>
-              </li>
-              {outdoorCategories.map((category, index) => (
-                <ListItem key={index} href={`/outdoor#${category['Outdoor'].toLowerCase().replace(/\s+/g, '-')}`} title={category['Outdoor']}>
-                </ListItem>
-              ))}
-            </ul>
-          </NavigationMenuContent>
-        </NavigationMenuItem>
-      </NavigationMenuList>
-    </NavigationMenu>
-    </div>
+    <nav className="sticky top-0 z-50 w-full">
+      <div className="glass-effect border-b border-border/40">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex items-center justify-between h-16">
+            {/* Logo */}
+            <Link href="/" className="flex items-center space-x-3 group">
+              <div className="p-2 rounded-xl bg-gradient-to-br from-blue-500 to-purple-600 text-white shadow-lg group-hover:shadow-xl transition-all duration-300 group-hover:scale-110">
+                <Lightbulb className="w-6 h-6" />
+              </div>
+              <span className="text-xl font-bold text-gradient">
+                Lighting Catalogue
+              </span>
+            </Link>
+
+            {/* Navigation Menu */}
+            <div className="hidden md:flex items-center space-x-8">
+              <NavigationMenu>
+                <NavigationMenuList className="space-x-2">
+                  <NavigationMenuItem>
+                    <Link href="/" className="flex items-center space-x-2 px-3 py-2 rounded-lg hover:bg-accent transition-colors duration-200">
+                      <Home className="w-4 h-4" />
+                      <span>Home</span>
+                    </Link>
+                  </NavigationMenuItem>
+                  
+                  <NavigationMenuItem>
+                    <NavigationMenuTrigger className="flex items-center space-x-2">
+                      <Lightbulb className="w-4 h-4" />
+                      <span>Indoor</span>
+                    </NavigationMenuTrigger>
+                    <NavigationMenuContent>
+                      <div className="w-[500px] p-4">
+                        <div className="grid gap-4 md:grid-cols-2">
+                          <div className="space-y-3">
+                            <NavigationMenuLink asChild>
+                              <Link
+                                className="group block select-none space-y-1 rounded-lg p-4 leading-none no-underline outline-none transition-colors hover:bg-accent hover:text-accent-foreground focus:bg-accent focus:text-accent-foreground gradient-primary text-white"
+                                href="/indoor"
+                              >
+                                <div className="flex items-center space-x-2 mb-2">
+                                  <Lightbulb className="w-5 h-5" />
+                                  <div className="text-lg font-medium">Indoor Lighting</div>
+                                </div>
+                                <p className="text-sm leading-tight text-white/80">
+                                  Transform your interior spaces with elegant lighting solutions
+                                </p>
+                              </Link>
+                            </NavigationMenuLink>
+                          </div>
+                          <div className="space-y-2">
+                            {indoorCategories.slice(0, 6).map((category, index) => (
+                              <ListItem 
+                                key={index} 
+                                href={`/indoor#${category['Indoor'].toLowerCase().replace(/\s+/g, '-')}`} 
+                                title={category['Indoor']}
+                              />
+                            ))}
+                          </div>
+                        </div>
+                      </div>
+                    </NavigationMenuContent>
+                  </NavigationMenuItem>
+                  
+                  <NavigationMenuItem>
+                    <NavigationMenuTrigger className="flex items-center space-x-2">
+                      <Sparkles className="w-4 h-4" />
+                      <span>Outdoor</span>
+                    </NavigationMenuTrigger>
+                    <NavigationMenuContent>
+                      <div className="w-[500px] p-4">
+                        <div className="grid gap-4 md:grid-cols-2">
+                          <div className="space-y-3">
+                            <NavigationMenuLink asChild>
+                              <Link
+                                className="group block select-none space-y-1 rounded-lg p-4 leading-none no-underline outline-none transition-colors hover:bg-accent hover:text-accent-foreground focus:bg-accent focus:text-accent-foreground gradient-secondary text-white"
+                                href="/outdoor"
+                              >
+                                <div className="flex items-center space-x-2 mb-2">
+                                  <Sparkles className="w-5 h-5" />
+                                  <div className="text-lg font-medium">Outdoor Lighting</div>
+                                </div>
+                                <p className="text-sm leading-tight text-white/80">
+                                  Illuminate your exterior spaces with weather-resistant solutions
+                                </p>
+                              </Link>
+                            </NavigationMenuLink>
+                          </div>
+                          <div className="space-y-2">
+                            {outdoorCategories.slice(0, 6).map((category, index) => (
+                              <ListItem 
+                                key={index} 
+                                href={`/outdoor#${category['Outdoor'].toLowerCase().replace(/\s+/g, '-')}`} 
+                                title={category['Outdoor']}
+                              />
+                            ))}
+                          </div>
+                        </div>
+                      </div>
+                    </NavigationMenuContent>
+                  </NavigationMenuItem>
+                </NavigationMenuList>
+              </NavigationMenu>
+
+              {/* Theme Toggle */}
+              <ThemeToggle />
+            </div>
+
+            {/* Mobile Menu Button */}
+            <div className="md:hidden flex items-center space-x-2">
+              <ThemeToggle />
+              <Button 
+                variant="ghost" 
+                size="icon"
+                onClick={() => setIsMobileMenuOpen(true)}
+              >
+                <Menu className="w-6 h-6" />
+              </Button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Mobile Menu */}
+      <MobileMenu
+        isOpen={isMobileMenuOpen}
+        onClose={() => setIsMobileMenuOpen(false)}
+        indoorCategories={indoorCategories}
+        outdoorCategories={outdoorCategories}
+      />
+    </nav>
   )
 }
 
-function ListItem({
-  title,
-  children,
-  href,
-  ...props
-}) {
+function ListItem({ title, href, ...props }) {
   return (
-    <li {...props}>
-      <NavigationMenuLink asChild>
-        <Link href={href}>
-          <div className="text-sm leading-none font-medium">{title}</div>
-          <p className="text-muted-foreground line-clamp-2 text-sm leading-snug">
-            {children}
-          </p>
-        </Link>
-      </NavigationMenuLink>
-    </li>
+    <NavigationMenuLink asChild>
+      <Link
+        href={href}
+        className="block select-none space-y-1 rounded-md p-3 leading-none no-underline outline-none transition-colors hover:bg-accent hover:text-accent-foreground focus:bg-accent focus:text-accent-foreground"
+        {...props}
+      >
+        <div className="text-sm font-medium leading-none">{title}</div>
+      </Link>
+    </NavigationMenuLink>
   )
 }
