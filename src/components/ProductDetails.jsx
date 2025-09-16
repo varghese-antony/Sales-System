@@ -1,10 +1,12 @@
 "use client"
 
+import { useState } from "react"
 import { motion } from "framer-motion"
-import { Check, Download, Share2, Heart, ArrowLeft, Zap, Shield, Award } from "lucide-react"
+import { Check, ArrowLeft, Zap, Shield, Award } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { EnquiryForm } from "@/components/EnquiryForm"
 
 const containerVariants = {
   hidden: { opacity: 0 },
@@ -30,6 +32,8 @@ const itemVariants = {
 }
 
 export function ProductDetails({ product, onBack }) {
+  const [isEnquiryOpen, setIsEnquiryOpen] = useState(false)
+  
   const excludedKeys = ['MOQ', 'COST-China/DDP-USA', 'COST-Thailand/Vietnam', 'Photo']
   const productKeys = Object.keys(product).filter(key => !excludedKeys.includes(key))
   
@@ -205,7 +209,11 @@ export function ProductDetails({ product, onBack }) {
               Contact our lighting specialists for pricing, availability, and installation support.
             </p> */}
             <div className="flex flex-col sm:flex-row gap-3 justify-center">
-              <Button variant="gradient" size="lg">
+              <Button 
+                variant="gradient" 
+                size="lg"
+                onClick={() => setIsEnquiryOpen(true)}
+              >
                 Make Enquiry
               </Button>
               {/* <Button variant="outline" size="lg">
@@ -215,6 +223,13 @@ export function ProductDetails({ product, onBack }) {
           </div>
         </motion.div>
       </div>
+
+      {/* Enquiry Form Modal */}
+      <EnquiryForm 
+        isOpen={isEnquiryOpen}
+        onClose={() => setIsEnquiryOpen(false)}
+        product={product}
+      />
     </div>
   )
 }
