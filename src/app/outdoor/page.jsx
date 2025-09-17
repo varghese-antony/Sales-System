@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react'
 import { motion } from 'framer-motion'
 import { ProductCard } from "@/components/ProductCard"
+import { CategoryNavigation } from "@/components/CategoryNavigation"
 import { Sparkles, Home, ArrowLeft, Shield, Star } from 'lucide-react'
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -38,6 +39,7 @@ export default function Outdoor() {
   const [categoriesWithProducts, setCategoriesWithProducts] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
+  const [isSidebarOpen, setIsSidebarOpen] = useState(true)
 
   useEffect(() => {
     async function fetchCategoriesAndProducts() {
@@ -110,7 +112,17 @@ export default function Outdoor() {
         </svg>
       </div>
 
-      <div className='container mx-auto py-12 px-4 sm:px-6 lg:px-8 relative z-10'>
+      {/* Category Navigation Sidebar */}
+      <CategoryNavigation 
+        type="outdoor" 
+        categories={categories} 
+        isOpen={isSidebarOpen}
+        onToggle={() => setIsSidebarOpen(!isSidebarOpen)}
+      />
+
+      <div className={`py-12 px-4 sm:px-6 lg:px-8 relative z-10 transition-all duration-300 ${
+        isSidebarOpen ? 'lg:ml-80' : 'lg:ml-0'
+      }`}>
         {/* Header Section */}
         <motion.div
           initial={{ opacity: 0, y: -30 }}

@@ -1,6 +1,4 @@
 import { ProductCard } from "@/components/ProductCard";
-import { HeroSection } from "@/components/HeroSection";
-import { FeaturesSection } from "@/components/FeaturesSection";
 import { AnimatedBackground, GridPattern } from "@/components/ui/animated-background";
 import { Lightbulb, Sparkles } from "lucide-react";
 
@@ -11,19 +9,16 @@ export default function Home() {
       <AnimatedBackground />
       <GridPattern />
       
-      {/* Hero Section */}
-      <HeroSection />
-
-      {/* Product Cards Section */}
-      <section className="py-24 px-4 sm:px-6 lg:px-8 relative z-10">
-        <div className="max-w-7xl mx-auto">
+      {/* Main Section */}
+      <section className="py-24 px-4 sm:px-6 lg:px-8 relative z-10 min-h-screen flex items-center">
+        <div className="max-w-7xl mx-auto w-full">
           <div className="text-center mb-16">
-            <h2 className="text-4xl md:text-5xl font-bold mb-6">
-              Explore Our 
-              <span className="text-gradient bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent"> Collections</span>
-            </h2>
+            <h1 className="text-4xl md:text-6xl font-bold mb-6">
+              Illuminate Your 
+              <span className="text-gradient bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent"> Space</span>
+            </h1>
             <p className="text-xl text-muted-foreground max-w-3xl mx-auto">
-              Choose from our carefully curated indoor and outdoor lighting collections, 
+              Discover our curated collection of premium lighting solutions, 
               each designed to enhance your space with style and functionality.
             </p>
           </div>
@@ -46,9 +41,6 @@ export default function Home() {
           </div>
         </div>
       </section>
-
-      {/* Features Section */}
-      {/* <FeaturesSection /> */}
     </div>
   );
 }

@@ -7,6 +7,7 @@ import { useEffect, useState } from "react"
 import { Button } from "@/components/ui/button"
 import { ThemeToggle } from "@/components/ThemeToggle"
 import { MobileMenu } from "@/components/MobileMenu"
+import { CartButton } from "@/components/CartButton"
 
 import {
   NavigationMenu,
@@ -145,12 +146,16 @@ export function Navbar() {
                 </NavigationMenuList>
               </NavigationMenu>
 
+              {/* Cart Button */}
+              <CartButton />
+              
               {/* Theme Toggle */}
               <ThemeToggle />
             </div>
 
             {/* Mobile Menu Button */}
             <div className="md:hidden flex items-center space-x-2">
+              <CartButton />
               <ThemeToggle />
               <Button 
                 variant="ghost" 

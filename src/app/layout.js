@@ -3,6 +3,7 @@ import "./globals.css";
 import { Navbar } from "@/components/Navbar";
 import { Footer } from "@/components/Footer";
 import { TooltipProvider } from "@/components/ui/tooltip";
+import { CartProvider } from "@/contexts/CartContext";
 
 const inter = Inter({
   variable: "--font-inter",
@@ -27,15 +28,17 @@ export default function RootLayout({ children }) {
       <body
         className={`${inter.variable} ${jetbrainsMono.variable} antialiased font-sans`}
       >
-        <TooltipProvider>
-          <div className="min-h-screen flex flex-col">
-            <Navbar/>
-            <main className="flex-1 animate-fade-in">
-              {children}
-            </main>
-            {/* <Footer/> */}
-          </div>
-        </TooltipProvider>
+        <CartProvider>
+          <TooltipProvider>
+            <div className="min-h-screen flex flex-col">
+              <Navbar/>
+              <main className="flex-1 animate-fade-in">
+                {children}
+              </main>
+              {/* <Footer/> */}
+            </div>
+          </TooltipProvider>
+        </CartProvider>
       </body>
     </html>
   );
