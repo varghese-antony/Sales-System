@@ -155,7 +155,6 @@ export function Navbar() {
 
             {/* Mobile Menu Button */}
             <div className="md:hidden flex items-center space-x-2">
-              <CartButton />
               <ThemeToggle />
               <Button 
                 variant="ghost" 

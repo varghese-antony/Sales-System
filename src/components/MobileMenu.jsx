@@ -6,6 +6,7 @@ import { X, Home, Lightbulb, Sparkles, ChevronRight } from "lucide-react"
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { ThemeToggle } from "@/components/ThemeToggle"
+import { CartButton } from "@/components/CartButton"
 
 const menuVariants = {
   closed: {
@@ -88,6 +89,13 @@ export function MobileMenu({ isOpen, onClose, indoorCategories = [], outdoorCate
                   animate="open"
                   className="space-y-4"
                 >
+                  {/* Cart */}
+                  <motion.div variants={itemVariants}>
+                    <div onClick={onClose} className="w-full">
+                      <CartButton />
+                    </div>
+                  </motion.div>
+
                   {/* Home */}
                   <motion.div variants={itemVariants}>
                     <Link
