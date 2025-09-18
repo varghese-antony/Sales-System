@@ -7,35 +7,50 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card"
-import { ArrowRight, Zap } from "lucide-react"
+import { ArrowRight, Zap, Image as ImageIcon } from "lucide-react"
 import Link from "next/link"
 import { useState } from "react"
+import { getOptimizedImageUrl, getPlaceholderImage } from "@/lib/image-utils"
+import { ImageWithLoading } from "@/components/ui/image-with-loading"
 
-export function ProductCard({ title, description, link, icon, gradient = "from-blue-500 to-purple-600" }) {
+export function ProductCard({ title, description, link, icon, gradient = "from-blue-500 to-purple-600", image }) {
   const [isHovered, setIsHovered] = useState(false)
+  
+  const optimizedImageUrl = image ? getOptimizedImageUrl(image) : null
 
   return (
     <Link href={link} className="block group">
       <Card 
-        className="relative overflow-hidden transition-all duration-500 ease-out hover:shadow-2xl hover:shadow-primary/25 hover:-translate-y-2 border-0 glass-effect"
+        className="relative overflow-hidden transition-all duration-300 ease-out border-2 border-transparent hover:border-primary/50 glass-effect"
         onMouseEnter={() => setIsHovered(true)}
         onMouseLeave={() => setIsHovered(false)}
       >
-        {/* Gradient Background */}
-        <div className={`absolute inset-0 bg-gradient-to-br ${gradient} opacity-0 group-hover:opacity-10 transition-opacity duration-500`} />
-        
         {/* Animated Border */}
-        <div className="absolute inset-0 rounded-lg bg-gradient-to-r from-transparent via-primary/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500" 
-             style={{
-               background: `conic-gradient(from 0deg, transparent, ${gradient.includes('blue') ? '#3b82f6' : '#10b981'}, transparent)`
-             }} />
+        <div className="absolute inset-0 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none">
+          <div className="absolute inset-0 rounded-lg border-2 border-primary/30 animate-pulse" />
+        </div>
+        
+        {/* Product Image */}
+        {optimizedImageUrl && (
+          <ImageWithLoading
+            src={optimizedImageUrl}
+            alt={title}
+            className="w-full h-full object-contain"
+            containerClassName="h-48 rounded-t-lg"
+            loadingClassName="rounded-t-lg"
+          />
+        )}
         
         <CardHeader className="relative z-10 p-8">
           <div className="flex items-center justify-between mb-4">
             <div className={`p-3 rounded-xl bg-gradient-to-br ${gradient} text-white shadow-lg transition-transform duration-300 ${isHovered ? 'scale-110 rotate-3' : ''}`}>
               {icon}
             </div>
-            <Zap className={`w-6 h-6 text-primary transition-all duration-300 ${isHovered ? 'scale-125 text-yellow-500' : ''}`} />
+            {optimizedImageUrl ? (
+              <ImageIcon className={`w-6 h-6 text-primary transition-all duration-300 ${isHovered ? 'scale-125 text-green-500' : ''}`} />
+            ) : (
+              <Zap className={`w-6 h-6 text-primary transition-all duration-300 ${isHovered ? 'scale-125 text-yellow-500' : ''}`} />
+            )}
           </div>
           <CardTitle className="text-2xl font-bold mb-3 group-hover:text-gradient transition-all duration-300">
             {title}

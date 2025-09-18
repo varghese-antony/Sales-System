@@ -1,18 +1,37 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { motion } from "framer-motion"
-import { ArrowLeft, Download, FileText, Award, ExternalLink, Zap, Shield, Settings, Info, ShoppingCart, Check } from "lucide-react"
+import { ArrowLeft, Download, FileText, Award, ExternalLink, Zap, Shield, Settings, Info, ShoppingCart, Check, Image as ImageIcon, ZoomIn } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { QuantitySelector } from "@/components/ui/quantity-selector"
 import { useCart } from "@/contexts/CartContext"
+import { ImageModal } from "@/components/ui/image-modal"
+import { getOptimizedImageUrl } from "@/lib/image-utils"
+import { ImageWithLoading } from "@/components/ui/image-with-loading"
 
 export function ProductDetails({ product, onBack }) {
   const { addToCart, items } = useCart()
   const [isAdded, setIsAdded] = useState(false)
   const [quantity, setQuantity] = useState(1)
+  const [isImageModalOpen, setIsImageModalOpen] = useState(false)
+  
+  const optimizedImageUrl = product.Photo ? getOptimizedImageUrl(product.Photo) : null
+
+  // Handle ESC key to close modal
+  useEffect(() => {
+    const handleEsc = (event) => {
+      if (event.keyCode === 27) {
+        setIsImageModalOpen(false)
+      }
+    }
+    document.addEventListener('keydown', handleEsc)
+    return () => {
+      document.removeEventListener('keydown', handleEsc)
+    }
+  }, [])
   
   const isInCart = items.some(item => (item.id || item.ID) === (product.id || product.ID))
   
@@ -28,7 +47,7 @@ export function ProductDetails({ product, onBack }) {
     setQuantity(newQuantity)
   }
   
-  const excludedKeys = ['MOQ', 'COST-China/DDP-USA', 'COST-Thailand/Vietnam', 'Photo', 'Cut Sheet']
+  const excludedKeys = ['MOQ', 'COST-China/DDP-USA', 'COST-Thailand/Vietnam', 'Cut Sheet', "Photo"]
   const productKeys = Object.keys(product).filter(key => !excludedKeys.includes(key))
   
   // Key specifications to highlight
@@ -122,8 +141,38 @@ export function ProductDetails({ product, onBack }) {
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          {/* Left Column - Key Specs */}
+          {/* Left Column - Image & Key Specs */}
           <div className="lg:col-span-1 space-y-6">
+            {/* Product Image */}
+            {optimizedImageUrl && (
+              <Card className="overflow-hidden">
+                <CardContent className="p-0">
+                  <div 
+                    className="relative aspect-square group cursor-pointer"
+                    onClick={() => setIsImageModalOpen(true)}
+                  >
+                    <ImageWithLoading
+                      src={optimizedImageUrl}
+                      alt={product['Product Type'] || 'Product Image'}
+                      className="w-full h-full object-contain transition-transform duration-300 group-hover:scale-105"
+                      containerClassName="w-full h-full"
+                    />
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none" />
+                    <div className="absolute top-4 right-4 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
+                      <div className="p-2 rounded-full bg-white/90 backdrop-blur-sm shadow-lg">
+                        <ZoomIn className="w-4 h-4 text-gray-700" />
+                      </div>
+                    </div>
+                    <div className="absolute bottom-4 left-4 right-4 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
+                      <div className="p-2 rounded-lg bg-black/50 backdrop-blur-sm">
+                        <p className="text-white text-xs text-center">Click to view full size</p>
+                      </div>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+
             {/* Product Title */}
             <div>
               <h1 className="text-2xl font-bold mb-2">
@@ -135,6 +184,12 @@ export function ProductDetails({ product, onBack }) {
                 )}
                 {product['Outdoor'] && (
                   <Badge variant="secondary">{product['Outdoor']}</Badge>
+                )}
+                {optimizedImageUrl && (
+                  <Badge variant="outline" className="flex items-center gap-1">
+                    <ImageIcon className="w-3 h-3" />
+                    Image Available
+                  </Badge>
                 )}
               </div>
             </div>
@@ -272,6 +327,15 @@ export function ProductDetails({ product, onBack }) {
             </CardContent>
           </Card>
         </motion.div>
+
+        {/* Image Modal */}
+        <ImageModal
+          isOpen={isImageModalOpen}
+          onClose={() => setIsImageModalOpen(false)}
+          src={optimizedImageUrl}
+          alt={product['Product Type'] || 'Product Image'}
+          title={product['Product Type']}
+        />
       </div>
     </div>
   )

@@ -56,15 +56,35 @@ export default function Indoor() {
         // Set categories immediately for UI
         setCategories(categoriesData)
 
-        // Second fetch: Get distinct product types for each category
+        // Second fetch: Get distinct product types for each category with sample images
         const productTypesResponse = await fetch('https://n8n.werposolutions.com/webhook/get-distinct?table=indoor&column=Product Type')
         if (!productTypesResponse.ok) {
           throw new Error(`HTTP error! status: ${productTypesResponse.status}`)
         }
         const productTypesData = await productTypesResponse.json()
 
+        // Fetch sample images for each product type
+        const productTypesWithImages = await Promise.all(
+          productTypesData.map(async (productType) => {
+            try {
+              const sampleResponse = await fetch(`https://n8n.werposolutions.com/webhook/get-product?table=indoor&product=${productType['Product Type']}&limit=1`)
+              if (sampleResponse.ok) {
+                const sampleData = await sampleResponse.json()
+                const sampleProduct = sampleData[0]
+                return {
+                  ...productType,
+                  sampleImage: sampleProduct?.Photo || null
+                }
+              }
+            } catch (error) {
+              console.error('Error fetching sample image:', error)
+            }
+            return productType
+          })
+        )
+
         // Combine categories with their product types
-        setCategoriesWithProducts(productTypesData)
+        setCategoriesWithProducts(productTypesWithImages)
 
       } catch (error) {
         console.error('Error fetching indoor data:', error)
@@ -235,6 +255,7 @@ export default function Indoor() {
                           link={`/indoor/${productType['Product Type']}`}
                           icon={<Lightbulb className="w-6 h-6" />}
                           gradient="from-blue-500 to-purple-600"
+                          image={productType.sampleImage}
                         />
                       </motion.div>
                     ))

@@ -5,6 +5,8 @@ import { Check, Zap, Info } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
+import { getOptimizedImageUrl } from "@/lib/image-utils"
+import { ImageWithLoading } from "@/components/ui/image-with-loading"
 
 const containerVariants = {
   hidden: { opacity: 0 },
@@ -38,7 +40,8 @@ export function OptionSelector({
   isLoading = false,
   description,
   step,
-  totalSteps 
+  totalSteps,
+  products = []
 }) {
   const getOptionIcon = (value) => {
     if (value?.toString().toLowerCase().includes('led')) return <Zap className="w-4 h-4" />
@@ -49,6 +52,15 @@ export function OptionSelector({
   const getOptionVariant = (value, index) => {
     const variants = ['default', 'secondary', 'outline']
     return variants[index % variants.length]
+  }
+
+  const getProductImage = (value) => {
+    // Find a product that matches this option value and has a photo
+    const matchingProduct = products.find(product => {
+      const productValue = product[title]
+      return productValue === value && product.Photo
+    })
+    return matchingProduct?.Photo
   }
 
   return (
@@ -98,6 +110,7 @@ export function OptionSelector({
         {options.map((value, index) => {
           const isSelected = selectedValue === value
           const icon = getOptionIcon(value)
+          const productImage = getProductImage(value)
           
           return (
             <motion.div
@@ -112,13 +125,14 @@ export function OptionSelector({
               <Button
                 variant={isSelected ? "default" : "outline"}
                 className={`
-                  relative w-full h-auto p-6 flex flex-col items-center gap-3 text-center
-                  transition-all duration-300 group
+                  relative w-full h-auto p-4 flex flex-col items-center gap-3 text-center
+                  transition-all duration-300 group overflow-hidden
                   ${isSelected 
                     ? 'bg-gradient-to-br from-blue-500 to-purple-600 text-white shadow-lg shadow-blue-500/25 border-transparent' 
                     : 'hover:border-primary/50 hover:shadow-md hover:bg-accent/50'
                   }
                   ${isLoading ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}
+                  ${productImage ? 'min-h-[200px]' : 'min-h-[120px]'}
                 `}
                 onClick={() => !isLoading && onSelect(value === 'N/A' ? null : value)}
                 disabled={isLoading}
@@ -128,14 +142,34 @@ export function OptionSelector({
                   <motion.div
                     initial={{ scale: 0 }}
                     animate={{ scale: 1 }}
-                    className="absolute -top-2 -right-2 w-6 h-6 bg-green-500 rounded-full flex items-center justify-center shadow-lg"
+                    className="absolute -top-2 -right-2 w-6 h-6 bg-green-500 rounded-full flex items-center justify-center shadow-lg z-10"
                   >
                     <Check className="w-3 h-3 text-white" />
                   </motion.div>
                 )}
 
-                {/* Icon */}
-                {icon && (
+                {/* Product Image */}
+                {productImage && (
+                  <div className="relative w-full h-24 mb-2 rounded-lg overflow-hidden">
+                    <ImageWithLoading
+                      src={getOptimizedImageUrl(productImage)}
+                      alt={`${value} example`}
+                      className="w-full h-full object-contain"
+                      containerClassName="w-full h-full rounded-lg"
+                      loadingClassName="rounded-lg"
+                    />
+                    <div className={`
+                      absolute inset-0 transition-opacity duration-300 pointer-events-none
+                      ${isSelected 
+                        ? 'bg-blue-500/20' 
+                        : 'bg-black/0 group-hover:bg-black/10'
+                      }
+                    `} />
+                  </div>
+                )}
+
+                {/* Icon (only show if no image) */}
+                {!productImage && icon && (
                   <div className={`
                     p-2 rounded-lg transition-colors duration-300
                     ${isSelected 

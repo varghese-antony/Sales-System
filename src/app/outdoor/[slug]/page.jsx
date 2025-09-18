@@ -7,8 +7,10 @@ import { LoadingSpinner } from "@/components/ui/loading"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
+
 import { Sparkles, Home, ArrowLeft, RotateCcw } from "lucide-react"
 import Link from "next/link"
+
 
 export default function OutdoorProductPage({ params }) {
   const {slug} = React.use(params)
@@ -19,6 +21,7 @@ export default function OutdoorProductPage({ params }) {
   const [finalProduct, setFinalProduct] = useState(null)
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState(null)
+
 
   const productType = decodeURIComponent(slug).replace(/%20/g, ' ')
 
@@ -274,8 +277,11 @@ export default function OutdoorProductPage({ params }) {
             isLoading={isLoading}
             step={currentStep + 1}
             totalSteps={desiredKeys.length}
+            products={products}
           />
         )}
+
+
 
         {/* Empty State */}
         {!isLoading && !error && currentValues.length === 0 && products.length === 0 && (
@@ -296,6 +302,8 @@ export default function OutdoorProductPage({ params }) {
             </Button>
           </motion.div>
         )}
+
+
       </div>
     </div>
   )
