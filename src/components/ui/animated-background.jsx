@@ -1,8 +1,23 @@
 "use client"
 
 import { motion } from "framer-motion"
+import { useState, useEffect } from "react"
 
 export function AnimatedBackground() {
+  const [particles, setParticles] = useState([])
+
+  useEffect(() => {
+    // Generate particles on client side only to avoid hydration mismatch
+    const newParticles = [...Array(20)].map((_, i) => ({
+      id: i,
+      left: Math.random() * 100,
+      top: Math.random() * 100,
+      duration: 3 + Math.random() * 2,
+      delay: Math.random() * 2,
+    }))
+    setParticles(newParticles)
+  }, [])
+
   return (
     <div className="fixed inset-0 -z-10 overflow-hidden">
       {/* Gradient Orbs */}
@@ -46,22 +61,22 @@ export function AnimatedBackground() {
       />
 
       {/* Floating Particles */}
-      {[...Array(20)].map((_, i) => (
+      {particles.map((particle) => (
         <motion.div
-          key={i}
+          key={particle.id}
           animate={{
             y: [0, -20, 0],
             opacity: [0.3, 0.8, 0.3],
           }}
           transition={{
-            duration: 3 + Math.random() * 2,
+            duration: particle.duration,
             repeat: Infinity,
-            delay: Math.random() * 2,
+            delay: particle.delay,
           }}
           className="absolute w-2 h-2 bg-primary/30 rounded-full"
           style={{
-            left: `${Math.random() * 100}%`,
-            top: `${Math.random() * 100}%`,
+            left: `${particle.left}%`,
+            top: `${particle.top}%`,
           }}
         />
       ))}

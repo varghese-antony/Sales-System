@@ -2,25 +2,22 @@
 
 import { useState } from "react"
 import { motion } from "framer-motion"
-import { ShoppingCart, Trash2, Plus, Minus, ArrowLeft, Package } from "lucide-react"
+import { ShoppingCart, Trash2, ArrowLeft, Package } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
+import { QuantitySelector } from "@/components/ui/quantity-selector"
 import { EnquiryForm } from "@/components/EnquiryForm"
 import { useCart } from "@/contexts/CartContext"
 import Link from "next/link"
-import Image from "next/image"
 
 export default function CartPage() {
   const { items, removeFromCart, updateQuantity, clearCart } = useCart()
   const [isEnquiryOpen, setIsEnquiryOpen] = useState(false)
 
-  const handleQuantityChange = (productId, newQuantity) => {
-    if (newQuantity <= 0) {
-      removeFromCart(productId)
-    } else {
-      updateQuantity(productId, newQuantity)
-    }
+  const handleQuantityChange = (item, newQuantity) => {
+    const productId = item.id || item.ID
+    updateQuantity(productId, newQuantity)
   }
 
   const getTotalItems = () => {
@@ -112,7 +109,7 @@ export default function CartPage() {
           <div className="lg:col-span-2 space-y-4">
             {items.map((item) => (
               <motion.div
-                key={item.id}
+                key={item.id || item.ID}
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: -20 }}
@@ -164,31 +161,19 @@ export default function CartPage() {
                         {/* Quantity Controls */}
                         <div className="flex items-center justify-between">
                           <div className="flex items-center gap-2">
-                            <Button
-                              variant="outline"
+                            <span className="text-sm text-muted-foreground">Qty:</span>
+                            <QuantitySelector
+                              value={item.quantity}
+                              onChange={(newQuantity) => handleQuantityChange(item, newQuantity)}
                               size="sm"
-                              onClick={() => handleQuantityChange(item.id, item.quantity - 1)}
-                              className="h-8 w-8 p-0"
-                            >
-                              <Minus className="w-3 h-3" />
-                            </Button>
-                            <span className="w-8 text-center font-medium">
-                              {item.quantity}
-                            </span>
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={() => handleQuantityChange(item.id, item.quantity + 1)}
-                              className="h-8 w-8 p-0"
-                            >
-                              <Plus className="w-3 h-3" />
-                            </Button>
+                              min={1}
+                            />
                           </div>
 
                           <Button
                             variant="ghost"
                             size="sm"
-                            onClick={() => removeFromCart(item.id)}
+                            onClick={() => removeFromCart(item.id || item.ID)}
                             className="text-destructive hover:text-destructive hover:bg-destructive/10"
                           >
                             <Trash2 className="w-4 h-4 mr-1" />

@@ -6,18 +6,26 @@ import { ArrowLeft, Download, FileText, Award, ExternalLink, Zap, Shield, Settin
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { QuantitySelector } from "@/components/ui/quantity-selector"
 import { useCart } from "@/contexts/CartContext"
 
 export function ProductDetails({ product, onBack }) {
   const { addToCart, items } = useCart()
   const [isAdded, setIsAdded] = useState(false)
+  const [quantity, setQuantity] = useState(1)
   
-  const isInCart = items.some(item => item.id === product.id || item.ID === product.ID)
+  const isInCart = items.some(item => (item.id || item.ID) === (product.id || product.ID))
   
-  const handleAddToCart = () => {
-    addToCart(product)
+  const handleAddToCart = (selectedQuantity = quantity) => {
+    for (let i = 0; i < selectedQuantity; i++) {
+      addToCart(product)
+    }
     setIsAdded(true)
     setTimeout(() => setIsAdded(false), 2000)
+  }
+
+  const handleQuantityChange = (newQuantity) => {
+    setQuantity(newQuantity)
   }
   
   const excludedKeys = ['MOQ', 'COST-China/DDP-USA', 'COST-Thailand/Vietnam', 'Photo', 'Cut Sheet']
@@ -84,9 +92,17 @@ export function ProductDetails({ product, onBack }) {
                 </a>
               </Button>
             )}
+            
+            {/* Quantity Selector */}
+            <QuantitySelector
+              value={quantity}
+              onChange={handleQuantityChange}
+              size="sm"
+            />
+
             <Button 
               variant="default"
-              onClick={handleAddToCart}
+              onClick={() => handleAddToCart(quantity)}
               disabled={isAdded}
               className="min-w-[120px]"
             >
@@ -95,15 +111,10 @@ export function ProductDetails({ product, onBack }) {
                   <Check className="w-4 h-4 mr-2" />
                   Added!
                 </>
-              ) : isInCart ? (
-                <>
-                  <ShoppingCart className="w-4 h-4 mr-2" />
-                  Add Another
-                </>
               ) : (
                 <>
                   <ShoppingCart className="w-4 h-4 mr-2" />
-                  Add to Cart
+                  Add {quantity > 1 ? `${quantity} ` : ''}to Cart
                 </>
               )}
             </Button>
@@ -206,9 +217,62 @@ export function ProductDetails({ product, onBack }) {
             ))}
           </div>
         </div>
+
+        {/* Bottom Add to Cart Section */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.3 }}
+          className="mt-12 border-t pt-8"
+        >
+          <Card className="bg-gradient-to-r from-primary/5 to-primary/10 border-primary/20">
+            <CardContent className="p-6">
+              <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
+                <div className="text-center sm:text-left">
+                  <h3 className="text-lg font-semibold mb-1">
+                    Ready to add this product to your cart?
+                  </h3>
+                  <p className="text-sm text-muted-foreground">
+                    Select quantity and add to your enquiry list for pricing and availability.
+                  </p>
+                </div>
+                
+                <div className="flex items-center gap-4">
+                  {/* Quantity Selector */}
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm font-medium text-muted-foreground">Qty:</span>
+                    <QuantitySelector
+                      value={quantity}
+                      onChange={handleQuantityChange}
+                      size="default"
+                    />
+                  </div>
+
+                  {/* Add to Cart Button */}
+                  <Button 
+                    size="lg"
+                    onClick={() => handleAddToCart(quantity)}
+                    disabled={isAdded}
+                    className="min-w-[140px]"
+                  >
+                    {isAdded ? (
+                      <>
+                        <Check className="w-5 h-5 mr-2" />
+                        Added to Cart!
+                      </>
+                    ) : (
+                      <>
+                        <ShoppingCart className="w-5 h-5 mr-2" />
+                        Add {quantity > 1 ? `${quantity} ` : ''}to Cart
+                      </>
+                    )}
+                  </Button>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </motion.div>
       </div>
-
-
     </div>
   )
 }
