@@ -112,7 +112,7 @@ export function Footer() {
                   </div>
                   <div className="flex items-center gap-3 text-white/80">
                     <Mail className="w-5 h-5 text-purple-400" />
-                    <span>hello@lightingcatalogue.com</span>
+                    <span>hello@bhsourcing.com</span>
                   </div>
                 </div>
               </motion.div>
@@ -158,7 +158,7 @@ export function Footer() {
                 transition={{ duration: 0.6 }}
                 className="text-white/60 text-sm"
               >
-                © 2024 Lighting Catalogue. All rights reserved. | Privacy Policy | Terms of Service
+                © 2024 BH Sourcing. All rights reserved. | Privacy Policy | Terms of Service
               </motion.div>
               
               <motion.div

@@ -8,7 +8,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 
-import { Sparkles, Home, ArrowLeft, RotateCcw } from "lucide-react"
+import { Sun, Home, ArrowLeft, RotateCcw } from "lucide-react"
 import Link from "next/link"
 
 
@@ -212,7 +212,7 @@ export default function OutdoorProductPage({ params }) {
           {/* Title */}
           <div className="text-center">
             <div className="flex justify-center items-center gap-3 mb-6">
-              <Sparkles className="w-12 h-12 text-primary" />
+              <Sun className="w-12 h-12 text-primary" />
             </div>
             
             <h1 className="text-3xl md:text-5xl font-bold mb-4">
@@ -291,7 +291,7 @@ export default function OutdoorProductPage({ params }) {
             className="text-center py-16"
           >
             <div className="w-24 h-24 mx-auto mb-6 rounded-full bg-muted flex items-center justify-center">
-              <Sparkles className="w-12 h-12 text-muted-foreground" />
+              <Sun className="w-12 h-12 text-muted-foreground" />
             </div>
             <h3 className="text-2xl font-semibold mb-4">No Options Available</h3>
             <p className="text-muted-foreground mb-6 max-w-md mx-auto">

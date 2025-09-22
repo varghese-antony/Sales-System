@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react'
 import { motion } from 'framer-motion'
 import { ProductCard } from "@/components/ProductCard"
 import { CategoryNavigation } from "@/components/CategoryNavigation"
-import { Sparkles, Home, ArrowLeft, Shield, Star } from 'lucide-react'
+import { Sun, Home, ArrowLeft, Shield, Star } from 'lucide-react'
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { LoadingSpinner } from "@/components/ui/loading"
@@ -40,6 +40,32 @@ export default function Outdoor() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
   const [isSidebarOpen, setIsSidebarOpen] = useState(true)
+  const [currentCategory, setCurrentCategory] = useState('')
+
+  useEffect(() => {
+    // Function to get current category from hash
+    const getCurrentCategory = () => {
+      if (typeof window !== 'undefined') {
+        const hash = window.location.hash
+        if (hash) {
+          // Convert hash back to category name
+          const categoryFromHash = decodeURIComponent(hash.substring(1)).replace(/-/g, ' ')
+          return categoryFromHash
+        }
+      }
+      return ''
+    }
+
+    setCurrentCategory(getCurrentCategory())
+
+    // Listen for hash changes
+    const handleHashChange = () => {
+      setCurrentCategory(getCurrentCategory())
+    }
+
+    window.addEventListener('hashchange', handleHashChange)
+    return () => window.removeEventListener('hashchange', handleHashChange)
+  }, [])
 
   useEffect(() => {
     async function fetchCategoriesAndProducts() {
@@ -138,6 +164,8 @@ export default function Outdoor() {
         categories={categories} 
         isOpen={isSidebarOpen}
         onToggle={() => setIsSidebarOpen(!isSidebarOpen)}
+        currentPath={typeof window !== 'undefined' ? window.location.pathname : '/outdoor'}
+        currentCategory={currentCategory}
       />
 
       <div className={`py-12 px-4 sm:px-6 lg:px-8 relative z-10 transition-all duration-300 ${
@@ -173,7 +201,7 @@ export default function Outdoor() {
                 ease: "easeInOut"
               }}
             >
-              <Sparkles className="w-16 h-16 text-primary" />
+              <Sun className="w-16 h-16 text-primary" />
             </motion.div>
           </div>
           
@@ -220,7 +248,7 @@ export default function Outdoor() {
                 {/* Category Header */}
                 <div className="flex items-center gap-4 mb-8">
                   <div className="p-3 rounded-2xl bg-gradient-to-br from-green-500 to-teal-600 text-white shadow-lg group-hover:shadow-xl transition-all duration-300 group-hover:scale-110">
-                    <Sparkles className="w-8 h-8" />
+                    <Sun className="w-8 h-8" />
                   </div>
                   <div>
                     <h2 
@@ -253,7 +281,7 @@ export default function Outdoor() {
                           title={productType['Product Type']} 
                           description={`Explore our ${productType['Product Type'].toLowerCase()} options`}
                           link={`/outdoor/${productType['Product Type']}`}
-                          icon={<Sparkles className="w-6 h-6" />}
+                          icon={<Sun className="w-6 h-6" />}
                           gradient="from-green-500 to-teal-600"
                           image={productType.sampleImage}
                         />
@@ -266,7 +294,7 @@ export default function Outdoor() {
                 {categoriesWithProducts.filter(productType => productType.Outdoor === category.Outdoor).length === 0 && (
                   <div className="text-center py-12">
                     <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-muted flex items-center justify-center">
-                      <Sparkles className="w-8 h-8 text-muted-foreground" />
+                      <Sun className="w-8 h-8 text-muted-foreground" />
                     </div>
                     <p className="text-muted-foreground">No products available in this category yet.</p>
                   </div>

@@ -2,7 +2,7 @@
 
 import { useState } from "react"
 import { motion, AnimatePresence } from "framer-motion"
-import { Percent } from "lucide-react"
+import { Lightbulb, Sun, Home, X, ChevronRight } from "lucide-react"
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { ThemeToggle } from "@/components/ThemeToggle"
@@ -158,7 +158,7 @@ export function MobileMenu({ isOpen, onClose, indoorCategories = [], outdoorCate
                       className="flex items-center justify-between w-full p-3 rounded-xl hover:bg-accent transition-colors duration-200"
                     >
                       <div className="flex items-center space-x-3">
-                        <Sparkles className="w-5 h-5 text-primary" />
+                        <Sun className="w-5 h-5 text-primary" />
                         <span className="font-medium">Outdoor Lighting</span>
                       </div>
                       <ChevronRight 
@@ -206,7 +206,7 @@ export function MobileMenu({ isOpen, onClose, indoorCategories = [], outdoorCate
               {/* Footer */}
               <div className="p-6 border-t border-border">
                 <div className="text-center text-sm text-muted-foreground">
-                  © 2024 Lighting Catalogue
+                  © 2024 BH Sourcing
                 </div>
               </div>
             </div>

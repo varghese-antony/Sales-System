@@ -40,6 +40,32 @@ export default function Indoor() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
   const [isSidebarOpen, setIsSidebarOpen] = useState(true)
+  const [currentCategory, setCurrentCategory] = useState('')
+
+  useEffect(() => {
+    // Function to get current category from hash
+    const getCurrentCategory = () => {
+      if (typeof window !== 'undefined') {
+        const hash = window.location.hash
+        if (hash) {
+          // Convert hash back to category name
+          const categoryFromHash = decodeURIComponent(hash.substring(1)).replace(/-/g, ' ')
+          return categoryFromHash
+        }
+      }
+      return ''
+    }
+
+    setCurrentCategory(getCurrentCategory())
+
+    // Listen for hash changes
+    const handleHashChange = () => {
+      setCurrentCategory(getCurrentCategory())
+    }
+
+    window.addEventListener('hashchange', handleHashChange)
+    return () => window.removeEventListener('hashchange', handleHashChange)
+  }, [])
 
   useEffect(() => {
     async function fetchCategoriesAndProducts() {
@@ -138,6 +164,8 @@ export default function Indoor() {
         categories={categories} 
         isOpen={isSidebarOpen}
         onToggle={() => setIsSidebarOpen(!isSidebarOpen)}
+        currentPath={typeof window !== 'undefined' ? window.location.pathname : '/indoor'}
+        currentCategory={currentCategory}
       />
 
       <div className={`py-12 px-4 sm:px-6 lg:px-8 relative z-10 transition-all duration-300 ${

@@ -2,7 +2,7 @@
 
 import * as React from "react"
 import Link from "next/link"
-import { Lightbulb, Home, Sparkles, Menu } from "lucide-react"
+import { Lightbulb, Home, Sun, Menu } from "lucide-react"
 import { useEffect, useState } from "react"
 import { Button } from "@/components/ui/button"
 import { ThemeToggle } from "@/components/ThemeToggle"
@@ -43,20 +43,23 @@ export function Navbar() {
   return (
     <nav className="sticky top-0 z-50 w-full">
       <div className="glass-effect border-b border-border/40">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center justify-between h-16">
-            {/* Logo */}
+        <div className="flex flex-col sm:flex-row items-center justify-between h-auto sm:h-16">
+          {/* Top Layer: Logo */}
+          <div className="flex items-center justify-center w-full sm:w-auto py-2 sm:py-0">
             <Link href="/" className="flex items-center space-x-3 group">
               <div className="p-2 rounded-xl bg-gradient-to-br from-blue-500 to-purple-600 text-white shadow-lg group-hover:shadow-xl transition-all duration-300 group-hover:scale-110">
                 <Lightbulb className="w-6 h-6" />
               </div>
               <span className="text-xl font-bold text-gradient">
-                Lighting Catalogue
+                BH Sourcing
               </span>
             </Link>
+          </div>
 
-            {/* Navigation Menu */}
-            <div className="hidden md:flex items-center space-x-8">
+          {/* Bottom Layer: Navigation and Buttons */}
+          <div className="flex items-center justify-between w-full sm:w-auto space-x-0 sm:space-x-8 mt-2 sm:mt-0">
+            {/* Desktop Navigation - Hidden on small screens */}
+            <div className="hidden sm:flex items-center space-x-8">
               <NavigationMenu>
                 <NavigationMenuList className="space-x-2">
                   <NavigationMenuItem>
@@ -106,7 +109,7 @@ export function Navbar() {
 
                   <NavigationMenuItem>
                     <NavigationMenuTrigger className="flex items-center space-x-2">
-                      <Sparkles className="w-4 h-4" />
+                      <Sun className="w-4 h-4" />
                       <span>Outdoor</span>
                     </NavigationMenuTrigger>
                     <NavigationMenuContent>
@@ -119,7 +122,7 @@ export function Navbar() {
                                 href="/outdoor"
                               >
                                 <div className="flex items-center space-x-2 mb-2">
-                                  <Sparkles className="w-5 h-5" />
+                                  <Sun className="w-5 h-5" />
                                   <div className="text-lg font-medium">Outdoor Lighting</div>
                                 </div>
                                 <p className="text-sm leading-tight text-white/80">
@@ -151,8 +154,8 @@ export function Navbar() {
               <ThemeToggle />
             </div>
 
-            {/* Mobile Menu Button */}
-            <div className="md:hidden flex items-center space-x-2">
+            {/* Mobile Buttons - Visible on small screens */}
+            <div className="sm:hidden flex items-center space-x-2 w-full justify-center">
               <ThemeToggle />
               <Button
                 variant="ghost"

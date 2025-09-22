@@ -5,10 +5,10 @@ import { motion, AnimatePresence } from "framer-motion"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { ScrollArea } from "@/components/ui/scroll-area"
-import { Lightbulb, Sparkles, Menu, X, ChevronLeft, ChevronRight } from "lucide-react"
+import { Lightbulb, Sun, Menu, X, ChevronLeft, ChevronRight } from "lucide-react"
 import Link from "next/link"
 
-export function CategoryNavigation({ type, categories, isOpen, onToggle }) {
+export function CategoryNavigation({ type, categories, isOpen, onToggle, currentPath, currentCategory }) {
   const [productTypes, setProductTypes] = useState([])
 
   useEffect(() => {
@@ -28,20 +28,24 @@ export function CategoryNavigation({ type, categories, isOpen, onToggle }) {
     return productTypes.filter(pt => pt[type === 'indoor' ? 'Indoor' : 'Outdoor'] === categoryName)
   }
 
-  const Icon = type === 'indoor' ? Lightbulb : Sparkles
+  const Icon = type === 'indoor' ? Lightbulb : Sun
   const gradientClass = type === 'indoor' ? 'from-blue-500 to-purple-600' : 'from-green-500 to-teal-600'
+
+  const isActiveSection = currentPath && currentPath.includes(`/${type}`)
 
   return (
     <>
-      {/* Toggle Button - Always visible */}
-      <Button
-        onClick={onToggle}
-        variant="outline"
-        size="icon"
-        className="fixed left-4 top-20 z-50 lg:left-4 lg:top-20 shadow-lg"
-      >
-        {isOpen ? <ChevronLeft className="w-4 h-4" /> : <Menu className="w-4 h-4" />}
-      </Button>
+      {/* Floating Open Button - Shows when sidebar is closed */}
+      {!isOpen && (
+        <Button
+          onClick={onToggle}
+          variant="ghost"
+          size="icon"
+          className="fixed left-4 top40 z-50 shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-105 hover:bg-accent/50"
+        >
+          <Menu className="w-5 h-5 text-primary transition-transform duration-300" />
+        </Button>
+      )}
 
       {/* Overlay for mobile */}
       <AnimatePresence>
@@ -64,17 +68,36 @@ export function CategoryNavigation({ type, categories, isOpen, onToggle }) {
             animate={{ x: 0 }}
             exit={{ x: -320 }}
             transition={{ type: "spring", damping: 25, stiffness: 200 }}
-            className="fixed left-0 top-16 h-[calc(100vh-4rem)] w-80 bg-background/95 backdrop-blur-sm border-r border-border/50 z-40 shadow-xl"
+            className="fixed left-0 top-40 sm:top-16 h-[calc(100vh-5rem)] sm:h-[calc(100vh-4rem)] w-80 bg-background/95 backdrop-blur-sm border-r border-border/50 z-40 shadow-xl"
           >
+            {/* Toggle Button - Full Width at Top */}
+            <div className="w-full px-4 py-3 border-b border-border/50 bg-background/80">
+              <Button
+                onClick={onToggle}
+                variant="ghost"
+                className="w-full justify-center shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-105 hover:bg-accent/50"
+              >
+                {isOpen ? (
+                  <ChevronLeft className="w-5 h-5 text-primary transition-transform duration-300" />
+                ) : (
+                  <Menu className="w-5 h-5 text-primary transition-transform duration-300" />
+                )}
+                <span className="ml-2 text-sm font-medium">Close Menu</span>
+              </Button>
+            </div>
+
             {/* Header */}
-            <div className="p-6 border-b border-border/50">
+            <div className={`p-6 border-b border-border/50 ${isActiveSection ? 'bg-primary/5 border-primary/20' : ''}`}>
               <div className="flex items-center justify-center mb-2">
                 <div className="flex items-center justify-center">
-                  <h3 className="text-lg font-semibold capitalize text-center mx-auto">{type} Categories</h3>
+                  <Icon className={`w-6 h-6 mr-3 ${isActiveSection ? 'text-primary' : 'text-muted-foreground'}`} />
+                  <h3 className={`text-lg font-semibold capitalize text-center mx-auto ${isActiveSection ? 'text-primary' : ''}`}>
+                    {type} Categories
+                  </h3>
                 </div>
                 
               </div>
-              <p className="text-sm text-muted-foreground text-center">
+              <p className={`text-sm text-center ${isActiveSection ? 'text-primary/80' : 'text-muted-foreground'}`}>
                 Navigate through our {type} lighting collection
               </p>
             </div>
@@ -85,19 +108,24 @@ export function CategoryNavigation({ type, categories, isOpen, onToggle }) {
                 {categories.map((category, index) => {
                   const categoryName = category[type === 'indoor' ? 'Indoor' : 'Outdoor']
                   const categoryProductTypes = getProductTypesForCategory(categoryName)
-                  
+                  const isActiveCategory = currentCategory === categoryName
+
                   return (
                     <motion.div
                       key={index}
                       initial={{ opacity: 0, x: -20 }}
                       animate={{ opacity: 1, x: 0 }}
                       transition={{ delay: index * 0.1 }}
-                      className="space-y-3"
+                      className={`space-y-3 rounded-lg p-2 transition-all duration-200 ${
+                        isActiveCategory ? 'bg-primary/10 border-l-4 border-primary' : 'hover:bg-accent/30'
+                      }`}
                     >
                       <div className="flex items-center justify-between">
                         <Link
                           href={`#${categoryName.toLowerCase().replace(/\s+/g, '-')}`}
-                          className="text-base font-semibold hover:text-primary transition-colors group"
+                          className={`text-base font-semibold transition-colors group ${
+                            isActiveCategory ? 'text-primary' : 'hover:text-primary'
+                          }`}
                           onClick={() => {
                             // Close sidebar on mobile after navigation
                             if (window.innerWidth < 1024) {
@@ -107,17 +135,19 @@ export function CategoryNavigation({ type, categories, isOpen, onToggle }) {
                         >
                           <span className="group-hover:underline">{categoryName}</span>
                         </Link>
-                        <Badge variant="secondary" className="text-xs">
+                        <Badge variant={isActiveCategory ? "default" : "secondary"} className="text-xs">
                           {categoryProductTypes.length}
                         </Badge>
                       </div>
-                      
+
                       <div className="ml-4 space-y-2 border-l-2 border-border/30 pl-4">
                         {categoryProductTypes.map((productType, ptIndex) => (
                           <Link
                             key={ptIndex}
                             href={`/${type}/${productType['Product Type']}`}
-                            className="block text-sm text-muted-foreground hover:text-primary transition-colors py-1 hover:bg-accent/50 px-2 rounded-md -ml-2"
+                            className={`block text-sm transition-colors py-1 hover:bg-accent/50 px-2 rounded-md -ml-2 ${
+                              isActiveCategory ? 'text-primary' : 'text-muted-foreground hover:text-primary'
+                            }`}
                             onClick={() => {
                               // Close sidebar on mobile after navigation
                               if (window.innerWidth < 1024) {

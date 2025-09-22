@@ -19,7 +19,7 @@ const jetbrainsMono = JetBrains_Mono({
 });
 
 export const metadata = {
-  title: "Lighting Catalogue - Premium Indoor & Outdoor Lighting",
+  title: "BH Sourcing - Premium Indoor & Outdoor Lighting",
   description: "Discover our curated collection of premium indoor and outdoor lighting solutions. Modern designs, exceptional quality.",
 };
 
@@ -34,7 +34,7 @@ export default function RootLayout({ children }) {
             <TooltipProvider>
               <div className="min-h-screen flex flex-col">
                 <Navbar/>
-                <main className="flex-1 animate-fade-in">
+                <main className="flex-1 animate-fade-in pt-20 sm:pt-16">
                   {children}
                 </main>
                 {/* <Footer/> */}
