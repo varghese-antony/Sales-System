@@ -14,7 +14,7 @@ import {
 } from "@/components/ui/dialog"
 import { SuccessAnimation } from "./SuccessAnimation"
 
-export function EnquiryForm({ isOpen, onClose, product, cartItems, onSuccess }) {
+export function EnquiryForm({ isOpen, onClose, product, cartItems, onSuccess, appliedCoupon, selectedShipping }) {
   const [formData, setFormData] = useState({
     name: "",
     email: "",
@@ -41,9 +41,17 @@ export function EnquiryForm({ isOpen, onClose, product, cartItems, onSuccess }) 
     setSubmitStatus(null)
 
     try {
+      // Prepare customer details with coupon and shipping information
+      const customerDetails = {
+        ...formData,
+        couponCode: appliedCoupon?.coupon_code || null,
+        deliveryMethod: selectedShipping || null,
+        deliveryTime: selectedShipping === 'air' ? '30 days' : selectedShipping === 'boat' ? '35 days' : null
+      }
+
       const payload = {
         cartItems: cartItems || [],
-        customerDetails: formData
+        customerDetails
       }
 
       const response = await fetch("https://n8n.werposolutions.com/webhook/inquiry", {

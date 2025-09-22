@@ -76,8 +76,6 @@ export default function CartPage() {
   const getShippingTime = () => {
     return selectedShipping === 'air' ? 30 : 35
   }
-
-  if (items.length === 0) {
     return (
       <div className="min-h-screen bg-background">
         <div className="container mx-auto py-12 px-4 sm:px-6 lg:px-8">
@@ -414,8 +412,6 @@ export default function CartPage() {
         onClose={() => setIsEnquiryOpen(false)}
         cartItems={items}
         onSuccess={clearCart}
-        appliedCoupon={appliedCoupon}
-        selectedShipping={selectedShipping}
       />
     </div>
   )
