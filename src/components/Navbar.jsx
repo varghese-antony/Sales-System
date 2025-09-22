@@ -40,8 +40,6 @@ export function Navbar() {
     fetchCategories()
   }, [])
 
-
-
   return (
     <nav className="sticky top-0 z-50 w-full">
       <div className="glass-effect border-b border-border/40">
@@ -67,7 +65,7 @@ export function Navbar() {
                       <span>Home</span>
                     </Link>
                   </NavigationMenuItem>
-                  
+
                   <NavigationMenuItem>
                     <NavigationMenuTrigger className="flex items-center space-x-2">
                       <Lightbulb className="w-4 h-4" />
@@ -94,9 +92,9 @@ export function Navbar() {
                           </div>
                           <div className="space-y-2">
                             {indoorCategories.slice(0, 6).map((category, index) => (
-                              <ListItem 
-                                key={index} 
-                                href={`/indoor#${category['Indoor'].toLowerCase().replace(/\s+/g, '-')}`} 
+                              <ListItem
+                                key={index}
+                                href={`/indoor#${category['Indoor'].toLowerCase().replace(/\s+/g, '-')}`}
                                 title={category['Indoor']}
                               />
                             ))}
@@ -105,7 +103,7 @@ export function Navbar() {
                       </div>
                     </NavigationMenuContent>
                   </NavigationMenuItem>
-                  
+
                   <NavigationMenuItem>
                     <NavigationMenuTrigger className="flex items-center space-x-2">
                       <Sparkles className="w-4 h-4" />
@@ -132,9 +130,9 @@ export function Navbar() {
                           </div>
                           <div className="space-y-2">
                             {outdoorCategories.slice(0, 6).map((category, index) => (
-                              <ListItem 
-                                key={index} 
-                                href={`/outdoor#${category['Outdoor'].toLowerCase().replace(/\s+/g, '-')}`} 
+                              <ListItem
+                                key={index}
+                                href={`/outdoor#${category['Outdoor'].toLowerCase().replace(/\s+/g, '-')}`}
                                 title={category['Outdoor']}
                               />
                             ))}
@@ -148,7 +146,7 @@ export function Navbar() {
 
               {/* Cart Button */}
               <CartButton />
-              
+
               {/* Theme Toggle */}
               <ThemeToggle />
             </div>
@@ -156,13 +154,14 @@ export function Navbar() {
             {/* Mobile Menu Button */}
             <div className="md:hidden flex items-center space-x-2">
               <ThemeToggle />
-              <Button 
-                variant="ghost" 
+              <Button
+                variant="ghost"
                 size="icon"
                 onClick={() => setIsMobileMenuOpen(true)}
               >
                 <Menu className="w-6 h-6" />
               </Button>
+              <CartButton />
             </div>
           </div>
         </div>

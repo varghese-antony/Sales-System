@@ -1,18 +1,22 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { motion } from "framer-motion"
-import { ShoppingCart, Trash2, ArrowLeft, Package } from "lucide-react"
+import { ShoppingCart, Trash2, ArrowLeft, Package, Percent, X } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { QuantitySelector } from "@/components/ui/quantity-selector"
 import { EnquiryForm } from "@/components/EnquiryForm"
 import { useCart } from "@/contexts/CartContext"
+import { useCoupon } from "@/contexts/CouponContext"
+import { Input } from "@/components/ui/input"
 import Link from "next/link"
 
 export default function CartPage() {
   const { items, removeFromCart, updateQuantity, clearCart } = useCart()
+  const { coupons, loading, error, appliedCoupon, applyCoupon, removeCoupon } = useCoupon()
+  const [couponCode, setCouponCode] = useState('')
   const [isEnquiryOpen, setIsEnquiryOpen] = useState(false)
 
   const handleQuantityChange = (item, newQuantity) => {
@@ -20,8 +24,52 @@ export default function CartPage() {
     updateQuantity(productId, newQuantity)
   }
 
+  const handleApplyCoupon = (e) => {
+    e.preventDefault()
+    if (couponCode.trim()) {
+      applyCoupon(couponCode.trim())
+      setCouponCode('')
+    }
+  }
+
+  const handleRemoveCoupon = () => {
+    removeCoupon()
+  }
+
+  // Auto-remove expired coupons on mount and when appliedCoupon changes
+  useEffect(() => {
+    if (appliedCoupon && isCouponExpired(appliedCoupon)) {
+      removeCoupon()
+    }
+  }, [appliedCoupon])
+
   const getTotalItems = () => {
     return items.reduce((total, item) => total + item.quantity, 0)
+  }
+
+  const calculateDiscount = () => {
+    if (!appliedCoupon) return 0
+    const change = parseFloat(appliedCoupon.change)
+    if (isNaN(change)) return 0
+
+    // For now, we'll assume a base total of $1000 for demo purposes
+    // In a real app, this would be the actual cart total
+    const baseTotal = 1000
+    const discount = change > 0 ? baseTotal * (change / 100) : baseTotal * Math.abs(change) / 100
+    return change > 0 ? discount : -discount
+  }
+
+  const getDiscountedTotal = () => {
+    const baseTotal = 1000 // This should be calculated from actual cart items
+    const discount = calculateDiscount()
+    return Math.max(0, baseTotal + discount)
+  }
+
+  const isCouponExpired = (coupon) => {
+    if (!coupon) return false
+    const now = new Date()
+    const expiry = new Date(coupon.expiry)
+    return now > expiry
   }
 
   if (items.length === 0) {
@@ -45,7 +93,7 @@ export default function CartPage() {
             </div>
             <h1 className="text-3xl font-bold mb-4">Your Cart is Empty</h1>
             <p className="text-muted-foreground mb-8 max-w-md mx-auto">
-              Looks like you haven't added any lighting products to your cart yet. 
+              Looks like you haven't added any lighting products to your cart yet.
               Browse our collection to find the perfect lighting solutions.
             </p>
             <div className="flex flex-col sm:flex-row gap-4 justify-center">
@@ -77,13 +125,13 @@ export default function CartPage() {
               Continue Shopping
             </Button>
           </Link>
-          
+
           <div className="flex items-center gap-4">
             <Badge variant="secondary" className="text-sm">
               {getTotalItems()} {getTotalItems() === 1 ? 'item' : 'items'}
             </Badge>
-            <Button 
-              variant="outline" 
+            <Button
+              variant="outline"
               onClick={clearCart}
               className="text-destructive hover:text-destructive"
             >
@@ -128,7 +176,7 @@ export default function CartPage() {
                         <h3 className="font-semibold text-lg mb-1 truncate">
                           {item['Product Type'] || 'Lighting Product'}
                         </h3>
-                        
+
                         <div className="flex flex-wrap gap-2 mb-3">
                           {item['Indoor'] && (
                             <Badge variant="secondary" className="text-xs">
@@ -195,24 +243,88 @@ export default function CartPage() {
                 <CardTitle>Cart Summary</CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
-                <div className="flex justify-between items-center py-2 border-b">
-                  <span className="text-muted-foreground">Total Items:</span>
-                  <span className="font-semibold">{getTotalItems()}</span>
+                {/* Coupon Section */}
+                <div className="space-y-3">
+                  <h4 className="font-medium flex items-center gap-2">
+                    <Percent className="w-4 h-4" />
+                    Coupon Code
+                  </h4>
+
+                  {appliedCoupon ? (
+                    <div className={`p-3 border rounded-lg ${isCouponExpired(appliedCoupon) ? 'bg-red-50 border-red-200' : 'bg-green-50 border-green-200'}`}>
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <p className={`text-sm font-medium ${isCouponExpired(appliedCoupon) ? 'text-red-800' : 'text-green-800'}`}>
+                            {isCouponExpired(appliedCoupon) ? 'Coupon expired' : `${appliedCoupon.coupon_code} applied`}
+                          </p>
+                        </div>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={handleRemoveCoupon}
+                          className={isCouponExpired(appliedCoupon) ? 'text-red-600 hover:text-red-700' : 'text-green-600 hover:text-green-700'}
+                        >
+                          <X className="w-4 h-4" />
+                        </Button>
+                      </div>
+                    </div>
+                  ) : (
+                    <form onSubmit={handleApplyCoupon} className="space-y-2">
+                      <Input
+                        type="text"
+                        placeholder="Enter coupon code"
+                        value={couponCode}
+                        onChange={(e) => setCouponCode(e.target.value)}
+                        className="text-sm"
+                      />
+                      <Button type="submit" size="sm" className="w-full">
+                        Apply Coupon
+                      </Button>
+                    </form>
+                  )}
+
+                  {error && (
+                    <p className="text-sm text-destructive">{error}</p>
+                  )}
                 </div>
-                
+
+                <div className="border-t pt-4 space-y-2">
+                  {appliedCoupon && !isCouponExpired(appliedCoupon) && (
+                    <div className="flex justify-between items-center py-2 border-t border-dashed">
+                      <span className="text-lg font-semibold">Total:</span>
+                      <span className="text-lg font-bold">${getDiscountedTotal().toFixed(2)}</span>
+                    </div>
+                  )}
+
+                  {appliedCoupon && isCouponExpired(appliedCoupon) && (
+                    <div className="py-2 border-t border-dashed">
+                      <p className="text-sm text-red-600 text-center">
+                        This coupon has expired. Please remove it and try a different coupon code.
+                      </p>
+                    </div>
+                  )}
+                </div>
+
                 <div className="space-y-2">
                   <p className="text-sm text-muted-foreground">
                     Ready to get pricing and availability for your selected products?
                   </p>
                 </div>
 
-                <Button 
-                  className="w-full" 
+                <Button
+                  className="w-full"
                   size="lg"
                   onClick={() => setIsEnquiryOpen(true)}
+                  disabled={appliedCoupon && isCouponExpired(appliedCoupon)}
                 >
                   Submit Enquiry
                 </Button>
+
+                {appliedCoupon && isCouponExpired(appliedCoupon) && (
+                  <p className="text-xs text-red-600 text-center">
+                    Please remove the expired coupon before submitting your enquiry.
+                  </p>
+                )}
 
                 <p className="text-xs text-muted-foreground text-center">
                   Our team will review your selection and get back to you with detailed pricing and availability information.
@@ -224,7 +336,7 @@ export default function CartPage() {
       </div>
 
       {/* Enquiry Form Modal */}
-      <EnquiryForm 
+      <EnquiryForm
         isOpen={isEnquiryOpen}
         onClose={() => setIsEnquiryOpen(false)}
         cartItems={items}
