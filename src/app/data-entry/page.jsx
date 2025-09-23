@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from 'react';
+import { createProducts } from '@/lib/database/products'
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -155,40 +155,66 @@ export default function DataEntryPage() {
     }
 
     try {
-      const response = await fetch('https://n8n.werposolutions.com/webhook/post-data-dashboard', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(variations),
-      });
+      const variationsWithType = variations.map(variation => {
+        // Map frontend field names to database column names
+        const fieldMapping = {
+          productType: 'producttype',
+          emergencyBackupBattery: 'emergency_backup_battery',
+          powerW: 'power_w',
+          criRa: 'cri_ra',
+          beamAngle: 'efficacy_lmw',
+          pf: 'Power Factor',
+          leadTime: 'lead_time',
+          driverBrand: 'Driver Brand',
+          adjustmentDial: 'adjustment_dial',
+          pricePc: 'price_pc',
+          voltage: 'Voltage',
+          cct: 'CCT',
+          pluginSensor: 'plugin_sensor',
+          dimmable: 'Dimmable',
+          finish: 'Material Finish',
+          sensorMicrowaveBluetooth: 'sensor_microwave_bluetooth',
+        }
 
-      if (response.ok) {
-        setMessage(`Data successfully sent to webhook! Created ${variations.length} product variations.`);
+        // Transform field names
+        const mappedVariation = {}
+        Object.entries(variation).forEach(([key, value]) => {
+          const dbColumn = fieldMapping[key] || key
+          mappedVariation[dbColumn] = value
+        })
+
+        return mappedVariation
+      })
+
+      const { data, error } = await createProducts(variationsWithType)
+      if (error) {
+        throw new Error(error)
+      }
+
+      if (data) {
+        setMessage(`Data successfully created! Created ${variations.length} product variations.`)
         // Reset form
-        setType('');
-        setProductType('');
-        setModelNumber('');
-        setSizes('');
-        setPowerW('');
-        setVoltage('');
-        setCct('');
-        setCriRa('');
-        setLumen('');
-        setBeamAngle('');
-        setPf('');
-        setDimmable('');
-        setFinish('');
-        setLedType('');
-        setDriverBrand('');
-        setAdjustmentDial('');
-        setCertifications('');
-        setVariationCount(0);
-      } else {
-        setMessage(`Failed to send data: ${response.statusText}`);
+        setType('')
+        setProductType('')
+        setModelNumber('')
+        setSizes('')
+        setPowerW('')
+        setVoltage('')
+        setCct('')
+        setCriRa('')
+        setLumen('')
+        setBeamAngle('')
+        setPf('')
+        setDimmable('')
+        setFinish('')
+        setLedType('')
+        setDriverBrand('')
+        setAdjustmentDial('')
+        setCertifications('')
+        setVariationCount(0)
       }
     } catch (error) {
-      setMessage(`Error sending data: ${error.message}`);
+      setMessage(`Failed to create products: ${error.message}`)
     }
   };
 
@@ -198,10 +224,6 @@ export default function DataEntryPage() {
       type,
       productType,
       modelNumber,
-      sizes,
-      powerW,
-      voltage,
-      cct,
       criRa,
       lumen,
       beamAngle,
@@ -212,14 +234,13 @@ export default function DataEntryPage() {
       driverBrand,
       adjustmentDial,
       certifications,
-    };
-    setVariationCount(calculateVariations(formData));
-  };
+    }
+    setVariationCount(calculateVariations(formData))
+  }
 
-  // Update variation count whenever form data changes
   useEffect(() => {
-    updateVariationCount();
-  }, [type, productType, modelNumber, sizes, powerW, voltage, cct, criRa, lumen, beamAngle, pf, dimmable, finish, ledType, driverBrand, adjustmentDial, certifications]);
+    updateVariationCount()
+  }, [type, productType, modelNumber, sizes, powerW, voltage, cct, criRa, lumen, beamAngle, pf, dimmable, finish, ledType, driverBrand, adjustmentDial, certifications])
 
   return (
     <div className="container mx-auto p-4 max-w-4xl">

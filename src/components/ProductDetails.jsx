@@ -47,12 +47,12 @@ export function ProductDetails({ product, onBack }) {
     setQuantity(newQuantity)
   }
   
-  const excludedKeys = ['MOQ', 'COST-China/DDP-USA', 'COST-Thailand/Vietnam', 'Cut Sheet', "Photo"]
+  const excludedKeys = ['MOQ', 'cost_china_ddp_usa', 'cost_thailand_vietnam', 'cut_sheet', 'Photo', 'lead_time', 'Warranty', 'id', 'Indoor', 'Outdoor', 'price_pc']
   const productKeys = Object.keys(product).filter(key => !excludedKeys.includes(key))
   
   // Key specifications to highlight
-  const keySpecs = ['Size', 'Power (W)', 'Voltage', 'CCT', 'Lumen', 'Material Finish']
-  const highlightedSpecs = keySpecs.filter(key => product[key]).slice(0, 4)
+  const keySpecs = ['model_number', 'Size', 'power_w', 'Voltage', 'CCT', 'Lumen', 'Material Finish']
+  const highlightedSpecs = keySpecs.filter(key => product[key]).slice(0, 6)
   
   const getKeyIcon = (key) => {
     if (key.toLowerCase().includes('power') || key.toLowerCase().includes('watt') || key.toLowerCase().includes('voltage')) return <Zap className="w-4 h-4" />
@@ -63,10 +63,10 @@ export function ProductDetails({ product, onBack }) {
   }
 
   const getKeyCategory = (key) => {
-    const powerKeys = ['Power (W)', 'Voltage', 'Efficacy (lm/W)', 'Lumen']
-    const designKeys = ['Size', 'Material Finish', 'Mounting', 'CCT', 'CRI/RA']
-    const featureKeys = ['Dimming Type', 'Sensor(Microwave/Bluetooth)', 'Remote Control', 'Eme. Backup-Battery', 'Plug-in Sensor', 'Junction Cover', 'Adjustment Dial']
-    const certKeys = ['Certifications', 'Installation Kits']
+    const powerKeys = ['power_w', 'Voltage', 'efficacy_lmw', 'Lumen']
+    const designKeys = ['model_number', 'Size', 'Material Finish', 'Mounting', 'CCT', 'cri_ra']
+    const featureKeys = ['Dimming Type', 'sensor_microwave_bluetooth', 'remote_control', 'emergency_backup_battery', 'plugin_sensor', 'junction_cover', 'adjustment_dial']
+    const certKeys = ['Certifications', 'installation_kits']
 
     if (powerKeys.includes(key)) return 'power'
     if (designKeys.includes(key)) return 'design'
@@ -88,7 +88,8 @@ export function ProductDetails({ product, onBack }) {
     design: 'Design & Specifications',
     features: 'Smart Features',
     certification: 'Certifications & Installation',
-    general: 'Additional Information'
+    general: 'Additional Information',
+    pricing: 'Pricing & Availability'
   }
 
   return (
@@ -102,9 +103,9 @@ export function ProductDetails({ product, onBack }) {
           </Button>
           
           <div className="flex gap-2">
-            {product['Cut Sheet'] && (
+            {product['cut_sheet'] && (
               <Button variant="outline" asChild>
-                <a href={product['Cut Sheet']} target="_blank" rel="noopener noreferrer">
+                <a href={product['cut_sheet']} target="_blank" rel="noopener noreferrer">
                   <FileText className="w-4 h-4 mr-2" />
                   View Cut Sheet
                   <ExternalLink className="w-3 h-3 ml-1" />
@@ -153,7 +154,7 @@ export function ProductDetails({ product, onBack }) {
                   >
                     <ImageWithLoading
                       src={optimizedImageUrl}
-                      alt={product['Product Type'] || 'Product Image'}
+                      alt={product['producttype'] || 'Product Image'}
                       className="w-full h-full object-contain transition-transform duration-300 group-hover:scale-105"
                       containerClassName="w-full h-full"
                     />
@@ -176,7 +177,7 @@ export function ProductDetails({ product, onBack }) {
             {/* Product Title */}
             <div>
               <h1 className="text-2xl font-bold mb-2">
-                {product['Product Type'] || 'Lighting Product'}
+                {product['producttype'] || 'Lighting Product'}
               </h1>
               <div className="flex flex-wrap gap-2">
                 {product['Indoor'] && (
@@ -218,9 +219,9 @@ export function ProductDetails({ product, onBack }) {
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-3">
-                {product['Cut Sheet'] && (
+                {product['cut_sheet'] && (
                   <Button variant="outline" className="w-full justify-start" asChild>
-                    <a href={product['Cut Sheet']} target="_blank" rel="noopener noreferrer">
+                    <a href={product['cut_sheet']} target="_blank" rel="noopener noreferrer">
                       <FileText className="w-4 h-4 mr-2" />
                       Product Cut Sheet
                       <ExternalLink className="w-3 h-3 ml-auto" />
@@ -333,8 +334,8 @@ export function ProductDetails({ product, onBack }) {
           isOpen={isImageModalOpen}
           onClose={() => setIsImageModalOpen(false)}
           src={optimizedImageUrl}
-          alt={product['Product Type'] || 'Product Image'}
-          title={product['Product Type']}
+          alt={product['producttype'] || 'Product Image'}
+          title={product['producttype']}
         />
       </div>
     </div>

@@ -1,6 +1,6 @@
 "use client"
-
-import { useState, useEffect } from "react"
+import { useState, useEffect } from 'react'
+import { getProductTypesByCategory } from '@/lib/database/products'
 import { motion, AnimatePresence } from "framer-motion"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -8,24 +8,40 @@ import { ScrollArea } from "@/components/ui/scroll-area"
 import { Lightbulb, Sun, Menu, X, ChevronLeft, ChevronRight } from "lucide-react"
 import Link from "next/link"
 
-export function CategoryNavigation({ type, categories, isOpen, onToggle, currentPath, currentCategory }) {
+export function CategoryNavigation({ type, categories, categoriesWithProducts, isOpen, onToggle, currentPath, currentCategory }) {
   const [productTypes, setProductTypes] = useState([])
 
   useEffect(() => {
     async function fetchProductTypes() {
       try {
-        const response = await fetch(`https://n8n.werposolutions.com/webhook/get-distinct?table=${type}&column=Product Type`)
-        const data = await response.json()
-        setProductTypes(data)
+        const { data, error } = await getProductTypesByCategory(type)
+        console.log('CategoryNavigation - Product types by category data for', type, ':', data)
+        console.log('CategoryNavigation - Product types by category error:', error)
+        if (!error) {
+          setProductTypes(data || [])
+        }
       } catch (error) {
-        console.error('Error fetching product types:', error)
+        console.error('Error fetching product types by category:', error)
       }
     }
     fetchProductTypes()
   }, [type])
 
   const getProductTypesForCategory = (categoryName) => {
-    return productTypes.filter(pt => pt[type === 'indoor' ? 'Indoor' : 'Outdoor'] === categoryName)
+    console.log('CategoryNavigation - getProductTypesForCategory called with:', categoryName)
+    console.log('CategoryNavigation - productTypes:', productTypes)
+    if (!productTypes || productTypes.length === 0) {
+      console.log('CategoryNavigation - No productTypes data available')
+      return []
+    }
+    
+    const categoryData = productTypes.find(item => {
+      const categoryColumn = type === 'indoor' ? 'Indoor' : 'Outdoor'
+      return item[categoryColumn] === categoryName
+    })
+    
+    console.log('CategoryNavigation - Found category data for', categoryName, ':', categoryData)
+    return categoryData ? categoryData.producttypes.map(pt => ({ producttype: pt })) : []
   }
 
   const Icon = type === 'indoor' ? Lightbulb : Sun
@@ -144,7 +160,7 @@ export function CategoryNavigation({ type, categories, isOpen, onToggle, current
                         {categoryProductTypes.map((productType, ptIndex) => (
                           <Link
                             key={ptIndex}
-                            href={`/${type}/${productType['Product Type']}`}
+                            href={`/${type}/${productType['producttype']}`}
                             className={`block text-sm transition-colors py-1 hover:bg-accent/50 px-2 rounded-md -ml-2 ${
                               isActiveCategory ? 'text-primary' : 'text-muted-foreground hover:text-primary'
                             }`}
@@ -155,7 +171,7 @@ export function CategoryNavigation({ type, categories, isOpen, onToggle, current
                               }
                             }}
                           >
-                            {productType['Product Type']}
+                            {productType['producttype']}
                           </Link>
                         ))}
                         {categoryProductTypes.length === 0 && (

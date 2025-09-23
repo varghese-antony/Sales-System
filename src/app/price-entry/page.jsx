@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from 'react';
+import { getDistinctProductTypes, getAllProducts, updateProductPrices } from '@/lib/database/products'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
@@ -27,38 +27,43 @@ export default function PriceEntryPage() {
       setError(null);
 
       // Fetch all product types for indoor
-      const indoorTypesResponse = await fetch('https://n8n.werposolutions.com/webhook/get-distinct?table=indoor&column=Product Type');
-      const indoorTypes = await indoorTypesResponse.json();
+      const { data: indoorTypes, error: indoorTypesError } = await getDistinctProductTypes('indoor')
+      if (indoorTypesError) {
+        throw new Error(`Failed to fetch indoor product types: ${indoorTypesError}`)
+      }
 
       // Fetch all product types for outdoor
-      const outdoorTypesResponse = await fetch('https://n8n.werposolutions.com/webhook/get-distinct?table=outdoor&column=Product Type');
-      const outdoorTypes = await outdoorTypesResponse.json();
+      const { data: outdoorTypes, error: outdoorTypesError } = await getDistinctProductTypes('outdoor')
+      if (outdoorTypesError) {
+        throw new Error(`Failed to fetch outdoor product types: ${outdoorTypesError}`)
+      }
+
+      const indoorTypesList = indoorTypes || []
+      const outdoorTypesList = outdoorTypes || []
 
       // Fetch products for each indoor product type
-      const indoorProducts = [];
-      for (const productType of indoorTypes) {
+      const indoorProducts = []
+      for (const productType of indoorTypesList) {
         try {
-          const response = await fetch(`https://n8n.werposolutions.com/webhook/get-product?table=indoor&product=${productType['Product Type']}`);
-          if (response.ok) {
-            const products = await response.json();
-            indoorProducts.push(...products.map(p => ({ ...p, type: 'indoor' })));
+          const { data: products, error } = await getAllProducts('indoor', { producttype: productType.producttype })
+          if (!error && products) {
+            indoorProducts.push(...products.map(p => ({ ...p, type: 'indoor' })))
           }
         } catch (error) {
-          console.error(`Error fetching indoor products for ${productType['Product Type']}:`, error);
+          console.error(`Error fetching indoor products for ${productType['producttype']}:`, error)
         }
       }
 
       // Fetch products for each outdoor product type
-      const outdoorProducts = [];
-      for (const productType of outdoorTypes) {
+      const outdoorProducts = []
+      for (const productType of outdoorTypesList) {
         try {
-          const response = await fetch(`https://n8n.werposolutions.com/webhook/get-product?table=outdoor&product=${productType['Product Type']}`);
-          if (response.ok) {
-            const products = await response.json();
-            outdoorProducts.push(...products.map(p => ({ ...p, type: 'outdoor' })));
+          const { data: products, error } = await getAllProducts('outdoor', { producttype: productType.producttype })
+          if (!error && products) {
+            outdoorProducts.push(...products.map(p => ({ ...p, type: 'outdoor' })))
           }
         } catch (error) {
-          console.error(`Error fetching outdoor products for ${productType['Product Type']}:`, error);
+          console.error(`Error fetching outdoor products for ${productType['producttype']}:`, error)
         }
       }
 
@@ -69,7 +74,7 @@ export default function PriceEntryPage() {
 
       // Filter products with empty Price/pc
       const emptyPriceProducts = allProducts.filter(product =>
-        !product['Price/pc'] || product['Price/pc'].trim() === ''
+        !product['price_pc'] || product['price_pc'].trim() === ''
       );
 
       setFilteredProducts(emptyPriceProducts);
@@ -107,24 +112,20 @@ export default function PriceEntryPage() {
     if (!price || price.trim() === '') return;
 
     try {
-      const response = await fetch('https://n8n.werposolutions.com/webhook/post-update-prices', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify([{
-          id: product.id,
-          'Price/pc': price,
-          type: product.type,
-          'Product Type': product['Product Type'],
-          'Model Number': product['Model Number']
-        }]),
-      });
+      const { results, error } = await updateProductPrices([{
+        id: product.id,
+        price: price,
+        type: product.type
+      }])
+      if (error) {
+        throw new Error(error)
+      }
 
-      if (response.ok) {
+      const result = results[0]
+      if (result && !result.error) {
         // Update local state
         setProducts(prev => prev.map(p =>
-          p.id === product.id ? { ...p, 'Price/pc': price } : p
+          p.id === product.id ? { ...p, "price_pc": price } : p
         ));
         setFilteredProducts(prev => prev.filter(p => p.id !== product.id));
         setPriceInputs(prev => {
@@ -132,12 +133,12 @@ export default function PriceEntryPage() {
           delete updated[product.id];
           return updated;
         });
-        setSaveMessage(`Price updated for ${product['Product Type']} - ${product['Model Number']}`);
+        setSaveMessage(`Price updated for ${product.producttype} - ${product['model_number']}`);
       } else {
-        setSaveMessage(`Failed to update price for ${product['Product Type']} - ${product['Model Number']}`);
+        setSaveMessage(`Failed to update price for ${product.producttype} - ${product['model_number']}`);
       }
     } catch (error) {
-      setSaveMessage(`Error updating price for ${product['Product Type']} - ${product['Model Number']}`);
+      setSaveMessage(`Error updating price for ${product['producttype']} - ${product['model_number']}`);
     }
 
     setTimeout(() => setSaveMessage(''), 3000);
@@ -153,31 +154,21 @@ export default function PriceEntryPage() {
 
     setSaving(true);
     try {
-      const response = await fetch('https://n8n.werposolutions.com/webhook/post-update-prices', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(productsToUpdate.map(product => ({
-          id: product.id,
-          'Price/pc': priceInputs[product.id],
-          type: product.type,
-          'Product Type': product['Product Type'],
-          'Model Number': product['Model Number']
-        }))),
-      });
+      const { results, error } = await updateProductPrices(productsToUpdate)
+      if (error) {
+        throw new Error(error)
+      }
 
-      if (response.ok) {
+      const successful = results.filter(r => !r.error).length
+      if (successful > 0) {
         // Update local state
         setProducts(prev => prev.map(p => {
           const update = productsToUpdate.find(u => u.id === p.id);
-          return update ? { ...p, 'Price/pc': update['Price/pc'] } : p;
+          return update ? { ...p, "price_pc": update['price_pc'] } : p;
         }));
         setFilteredProducts(prev => prev.filter(p => !productsToUpdate.some(u => u.id === p.id)));
         setPriceInputs({});
-        setSaveMessage(`${productsToUpdate.length} prices updated successfully!`);
-      } else {
-        setSaveMessage('Failed to update prices');
+        setSaveMessage(`${successful} prices updated successfully!`);
       }
     } catch (error) {
       setSaveMessage('Error updating prices');
@@ -284,10 +275,10 @@ export default function PriceEntryPage() {
                       </span>
                     </div>
                     <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
-                      {product['Product Type']}
+                      {product.producttype}
                     </h3>
                     <p className="text-sm text-gray-600 dark:text-gray-300">
-                      Model: {product['Model Number']}
+                      Model: {product['model_number']}
                     </p>
                   </div>
 
@@ -321,10 +312,10 @@ export default function PriceEntryPage() {
                     </div>
                   )}
 
-                  {product['Power (W)'] && (
+                  {product.power_w && (
                     <div>
                       <span className="text-gray-500 dark:text-gray-400">Power:</span>
-                      <div className="font-medium text-gray-900 dark:text-white">{product['Power (W)']}</div>
+                      <div className="font-medium text-gray-900 dark:text-white">{product.power_w}</div>
                     </div>
                   )}
 
@@ -342,10 +333,10 @@ export default function PriceEntryPage() {
                     </div>
                   )}
 
-                  {product['CRI/RA'] && (
+                  {product.cri_ra && (
                     <div>
                       <span className="text-gray-500 dark:text-gray-400">CRI:</span>
-                      <div className="font-medium text-gray-900 dark:text-white">{product['CRI/RA']}</div>
+                      <div className="font-medium text-gray-900 dark:text-white">{product.cri_ra}</div>
                     </div>
                   )}
 
@@ -356,45 +347,45 @@ export default function PriceEntryPage() {
                     </div>
                   )}
 
-                  {product['Beam Angle'] && (
+                  {product.efficacy_lmw && (
                     <div>
                       <span className="text-gray-500 dark:text-gray-400">Beam Angle:</span>
-                      <div className="font-medium text-gray-900 dark:text-white">{product['Beam Angle']}</div>
+                      <div className="font-medium text-gray-900 dark:text-white">{product.efficacy_lmw}</div>
                     </div>
                   )}
 
-                  {product['Material Finish'] && (
+                  {product.material_finish && (
                     <div>
                       <span className="text-gray-500 dark:text-gray-400">Finish:</span>
-                      <div className="font-medium text-gray-900 dark:text-white">{product['Material Finish']}</div>
+                      <div className="font-medium text-gray-900 dark:text-white">{product.material_finish}</div>
                     </div>
                   )}
 
-                  {product['LED Type'] && (
+                  {product['led_type'] && (
                     <div>
                       <span className="text-gray-500 dark:text-gray-400">LED Type:</span>
-                      <div className="font-medium text-gray-900 dark:text-white">{product['LED Type']}</div>
+                      <div className="font-medium text-gray-900 dark:text-white">{product['led_type']}</div>
                     </div>
                   )}
 
-                  {product['Driver Brand'] && (
+                  {product['driver_brand'] && (
                     <div>
                       <span className="text-gray-500 dark:text-gray-400">Driver:</span>
-                      <div className="font-medium text-gray-900 dark:text-white">{product['Driver Brand']}</div>
+                      <div className="font-medium text-gray-900 dark:text-white">{product['driver_brand']}</div>
                     </div>
                   )}
 
-                  {product['Adjustment Dial'] && (
+                  {product.adjustment_dial && (
                     <div>
                       <span className="text-gray-500 dark:text-gray-400">Adjustment:</span>
-                      <div className="font-medium text-gray-900 dark:text-white">{product['Adjustment Dial']}</div>
+                      <div className="font-medium text-gray-900 dark:text-white">{product.adjustment_dial}</div>
                     </div>
                   )}
 
-                  {product.Certifications && (
+                  {product.certifications && (
                     <div>
                       <span className="text-gray-500 dark:text-gray-400">Certifications:</span>
-                      <div className="font-medium text-gray-900 dark:text-white">{product.Certifications}</div>
+                      <div className="font-medium text-gray-900 dark:text-white">{product.certifications}</div>
                     </div>
                   )}
                 </div>

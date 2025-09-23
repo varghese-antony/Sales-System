@@ -1,5 +1,6 @@
 "use client"
 
+import { getDistinctCategories } from '@/lib/database/products'
 import * as React from "react"
 import Link from "next/link"
 import { Lightbulb, Home, Sun, Menu } from "lucide-react"
@@ -26,13 +27,15 @@ export function Navbar() {
   useEffect(() => {
     async function fetchCategories() {
       try {
-        const indoorResponse = await fetch('https://n8n.werposolutions.com/webhook/get-distinct?table=indoor&column=Indoor')
-        const indoorData = await indoorResponse.json()
-        setIndoorCategories(indoorData)
+        const { data: indoorData, error: indoorError } = await getDistinctCategories('indoor')
+        if (!indoorError) {
+          setIndoorCategories(indoorData || [])
+        }
 
-        const outdoorResponse = await fetch('https://n8n.werposolutions.com/webhook/get-distinct?table=outdoor&column=Outdoor')
-        const outdoorData = await outdoorResponse.json()
-        setOutdoorCategories(outdoorData)
+        const { data: outdoorData, error: outdoorError } = await getDistinctCategories('outdoor')
+        if (!outdoorError) {
+          setOutdoorCategories(outdoorData || [])
+        }
       } catch (error) {
         console.error("Failed to fetch categories:", error)
       }

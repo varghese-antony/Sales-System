@@ -179,7 +179,7 @@ export default function CartPage() {
                       {/* Product Details */}
                       <div className="flex-1 min-w-0">
                         <h3 className="font-semibold text-lg mb-1 truncate">
-                          {item['Product Type'] || 'Lighting Product'}
+                          {item['producttype'] || 'Lighting Product'}
                         </h3>
 
                         <div className="flex flex-wrap gap-2 mb-3">

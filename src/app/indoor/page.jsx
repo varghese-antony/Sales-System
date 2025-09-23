@@ -1,6 +1,6 @@
 'use client'
-
-import { useEffect, useState } from 'react'
+import { useState, useEffect } from 'react'
+import { getDistinctCategories, getProductTypesByCategory, getProductsByType, testColumnNames } from '@/lib/database/products'
 import { motion } from 'framer-motion'
 import { ProductCard } from "@/components/ProductCard"
 import { CategoryNavigation } from "@/components/CategoryNavigation"
@@ -72,46 +72,61 @@ export default function Indoor() {
       try {
         setLoading(true)
 
+        // Test column names first
+        console.log('Testing column names...')
+        await testColumnNames('indoor')
+
         // First fetch: Get distinct categories
-        const categoriesResponse = await fetch('https://n8n.werposolutions.com/webhook/get-distinct?table=indoor&column=Indoor')
-        if (!categoriesResponse.ok) {
-          throw new Error(`HTTP error! status: ${categoriesResponse.status}`)
+        const { data: categoriesData, error: categoriesError } = await getDistinctCategories('indoor')
+        if (categoriesError) {
+          throw new Error(`Failed to fetch categories: ${categoriesError}`)
         }
-        const categoriesData = await categoriesResponse.json()
+        const categories = categoriesData || []
 
         // Set categories immediately for UI
-        setCategories(categoriesData)
+        setCategories(categories)
 
         // Second fetch: Get distinct product types for each category with sample images
-        const productTypesResponse = await fetch('https://n8n.werposolutions.com/webhook/get-distinct?table=indoor&column=Product Type')
-        if (!productTypesResponse.ok) {
-          throw new Error(`HTTP error! status: ${productTypesResponse.status}`)
+        const { data: productTypesData, error: productTypesError } = await getProductTypesByCategory('indoor')
+        if (productTypesError) {
+          throw new Error(`Failed to fetch product types by category: ${productTypesError}`)
         }
-        const productTypesData = await productTypesResponse.json()
+        const productTypes = productTypesData || []
 
         // Fetch sample images for each product type
         const productTypesWithImages = await Promise.all(
-          productTypesData.map(async (productType) => {
-            try {
-              const sampleResponse = await fetch(`https://n8n.werposolutions.com/webhook/get-product?table=indoor&product=${productType['Product Type']}&limit=1`)
-              if (sampleResponse.ok) {
-                const sampleData = await sampleResponse.json()
-                const sampleProduct = sampleData[0]
+          productTypes.flatMap(categoryData => 
+            categoryData.producttypes.map(async (productTypeName) => {
+              try {
+                const { data: sampleProducts, error: sampleError } = await getProductsByType('indoor', productTypeName, { limit: 1 })
+                if (sampleError) {
+                  console.error('Error fetching sample product:', sampleError)
+                  return {
+                    ...categoryData,
+                    producttype: productTypeName,
+                    sampleImage: null
+                  }
+                }
+                const sampleProduct = sampleProducts?.[0]
                 return {
-                  ...productType,
+                  ...categoryData,
+                  producttype: productTypeName,
                   sampleImage: sampleProduct?.Photo || null
                 }
+              } catch (error) {
+                console.error('Error fetching sample image:', error)
+                return {
+                  ...categoryData,
+                  producttype: productTypeName,
+                  sampleImage: null
+                }
               }
-            } catch (error) {
-              console.error('Error fetching sample image:', error)
-            }
-            return productType
-          })
+            })
+          )
         )
 
         // Combine categories with their product types
         setCategoriesWithProducts(productTypesWithImages)
-
       } catch (error) {
         console.error('Error fetching indoor data:', error)
         setError('Failed to load indoor products. Please try again later.')
@@ -162,6 +177,7 @@ export default function Indoor() {
       <CategoryNavigation 
         type="indoor" 
         categories={categories} 
+        categoriesWithProducts={categoriesWithProducts}
         isOpen={isSidebarOpen}
         onToggle={() => setIsSidebarOpen(!isSidebarOpen)}
         currentPath={typeof window !== 'undefined' ? window.location.pathname : '/indoor'}
@@ -278,9 +294,9 @@ export default function Indoor() {
                         transition={{ delay: typeIndex * 0.1 }}
                       >
                         <ProductCard
-                          title={productType['Product Type']}
-                          description={`Explore our ${productType['Product Type'].toLowerCase()} options`}
-                          link={`/indoor/${productType['Product Type']}`}
+                          title={productType['producttype']}
+                          description={`Explore our ${productType['producttype'].toLowerCase()} options`}
+                          link={`/indoor/${productType['producttype']}`}
                           icon={<Lightbulb className="w-6 h-6" />}
                           gradient="from-blue-500 to-purple-600"
                           image={productType.sampleImage}

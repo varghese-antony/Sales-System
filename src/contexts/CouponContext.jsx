@@ -1,6 +1,7 @@
 "use client"
 
 import { createContext, useContext, useReducer, useEffect, useState } from 'react'
+import { getAllCoupons, createCoupon, deleteCoupon, validateCoupon } from '@/lib/database/coupons'
 
 const CouponContext = createContext()
 
@@ -53,12 +54,11 @@ export function CouponProvider({ children }) {
   const fetchCoupons = async () => {
     dispatch({ type: 'SET_LOADING' })
     try {
-      const response = await fetch('https://n8n.werposolutions.com/webhook/get-coupon')
-      if (!response.ok) {
+      const { data, error } = await getAllCoupons()
+      if (error) {
         throw new Error('Failed to fetch coupons')
       }
-      const data = await response.json()
-      dispatch({ type: 'SET_COUPONS', payload: data })
+      dispatch({ type: 'SET_COUPONS', payload: data || [] })
     } catch (error) {
       dispatch({ type: 'SET_ERROR', payload: error.message })
     }
@@ -66,14 +66,8 @@ export function CouponProvider({ children }) {
 
   const createCoupon = async (couponData) => {
     try {
-      const response = await fetch('https://n8n.werposolutions.com/webhook/post-coupon', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(couponData),
-      })
-      if (!response.ok) {
+      const { data, error } = await createCoupon(couponData)
+      if (error) {
         throw new Error('Failed to create coupon')
       }
       await fetchCoupons() // Refresh the list
@@ -85,10 +79,8 @@ export function CouponProvider({ children }) {
 
   const deleteCoupon = async (couponId) => {
     try {
-      const response = await fetch(`https://n8n.werposolutions.com/webhook/delete-coupon?id=${couponId}`, {
-        method: 'DELETE',
-      })
-      if (!response.ok) {
+      const { data, error } = await deleteCoupon(couponId)
+      if (error) {
         throw new Error('Failed to delete coupon')
       }
       await fetchCoupons() // Refresh the list
@@ -98,22 +90,32 @@ export function CouponProvider({ children }) {
     }
   }
 
-  const applyCoupon = (couponCode) => {
-    const coupon = state.coupons.find(c => c.coupon_code === couponCode)
-    if (!coupon) {
-      dispatch({ type: 'SET_ERROR', payload: 'Invalid coupon code' })
+  const applyCoupon = async (couponCode) => {
+    try {
+      const { data: coupon, error } = await validateCoupon(couponCode)
+      if (error) {
+        dispatch({ type: 'SET_ERROR', payload: 'Invalid coupon code' })
+        return false
+      }
+
+      if (!coupon) {
+        dispatch({ type: 'SET_ERROR', payload: 'Invalid coupon code' })
+        return false
+      }
+
+      const now = new Date()
+      const expiry = new Date(coupon.expiry)
+      if (now > expiry) {
+        dispatch({ type: 'SET_ERROR', payload: 'Coupon has expired' })
+        return false
+      }
+
+      dispatch({ type: 'APPLY_COUPON', payload: coupon })
+      return true
+    } catch (error) {
+      dispatch({ type: 'SET_ERROR', payload: error.message })
       return false
     }
-
-    const now = new Date()
-    const expiry = new Date(coupon.expiry)
-    if (now > expiry) {
-      dispatch({ type: 'SET_ERROR', payload: 'Coupon has expired' })
-      return false
-    }
-
-    dispatch({ type: 'APPLY_COUPON', payload: coupon })
-    return true
   }
 
   const removeCoupon = () => {

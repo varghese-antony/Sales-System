@@ -1,5 +1,6 @@
 "use client"
-import React, { useState, useEffect } from "react"
+import React, {useState, useEffect} from 'react'
+import { getProductsByType } from '@/lib/database/products'
 import { motion } from "framer-motion"
 import { OptionSelector } from "@/components/OptionSelector"
 import { ProductDetails } from "@/components/ProductDetails"
@@ -26,20 +27,20 @@ export default function IndoorProductPage({ params }) {
   const productType = decodeURIComponent(slug).replace(/%20/g, ' ')
 
   const desiredKeys = [
-    'Size', 'Power (W)', 'Voltage', 'CCT', 'CRI/RA', 'Lumen','Efficacy (lm/W)',
-    'Dimming Type', 'Material Finish', 'Sensor(Microwave/Bluetooth)', 'Plug-in Sensor',
-    'Eme. Backup-Battery', 'Junction Cover', 'Remote Control', 'Mounting',
-    'Installation Kits', 'Adjustment Dial', 'Certifications'
+    'Size', 'power_w', 'Voltage', 'CCT', 'cri_ra', 'Lumen','efficacy_lmw',
+    'Dimming Type', 'Material Finish', 'sensor_microwave_bluetooth', 'plugin_sensor',
+    'emergency_backup_battery', 'junction_cover', 'remote_control', 'Mounting',
+    'installation_kits', 'adjustment_dial', 'Certifications'
   ]
 
   const keyDescriptions = {
     'Size': 'Choose the dimensions that fit your space perfectly',
-    'Power (W)': 'Select the power consumption that meets your efficiency needs',
+    'power_w': 'Select the power consumption that meets your efficiency needs',
     'Voltage': 'Pick the voltage compatible with your electrical system',
     'CCT': 'Choose the color temperature for the desired ambiance',
-    'CRI/RA': 'Select the color rendering index for accurate color representation',
+    'cri_ra': 'Select the color rendering index for accurate color representation',
     'Lumen': 'Pick the brightness level suitable for your application',
-    'Efficacy (lm/W)': 'Choose the energy efficiency rating',
+    'efficacy_lmw': 'Choose the energy efficiency rating',
     'Dimming Type': 'Select your preferred dimming control method',
     'Material Finish': 'Choose the finish that matches your design aesthetic',
     'Mounting': 'Select the installation method that works for your space'
@@ -49,28 +50,55 @@ export default function IndoorProductPage({ params }) {
     fetchInitialProducts()
   }, [])
 
-  const fetchData = async (url) => {
-    const response = await fetch(url)
-    if (!response.ok) throw new Error('Failed to fetch')
-    const data = await response.json()
-    return Array.isArray(data) ? data : []
+  const fetchData = async (type, productType, filters = {}) => {
+    try {
+      const { data, error } = await getProductsByType(type, productType, { filters })
+      if (error) throw error
+      return Array.isArray(data) ? data : []
+    } catch (error) {
+      console.error('Error fetching data:', error)
+      throw error
+    }
   }
 
-  const buildPostgresQuery = (filters = {}, key, value) => {
-    const allFilters = { ...filters, [key]: value }
-    const conditions = Object.entries(allFilters)
-      .filter(([_, v]) => v !== undefined && v !== null && v !== '')
-      .map(([k, v]) => `"${k}"=eq.${v}`)
-      .join('&')
-    
-    return conditions
+  const buildSupabaseFilters = (filters) => {
+    // Convert frontend filter names to database column names
+    const columnMapping = {
+      'Size': 'Size',
+      'Power (W)': 'power_w',
+      'Voltage': 'Voltage',
+      'CCT': 'CCT',
+      'CRI/RA': 'cri_ra',
+      'Lumen': 'Lumen',
+      'Efficacy (lm/W)': 'efficacy_lmw',
+      'Dimming Type': 'Dimming Type',
+      'Material Finish': 'Material Finish',
+      'Sensor(Microwave/Bluetooth)': 'sensor_microwave_bluetooth',
+      'Plug-in Sensor': 'plugin_sensor',
+      'Eme. Backup-Battery': 'emergency_backup_battery',
+      'Junction Cover': 'junction_cover',
+      'Remote Control': 'remote_control',
+      'Mounting': 'Mounting',
+      'Installation Kits': 'installation_kits',
+      'Adjustment Dial': 'adjustment_dial',
+      'Certifications': 'Certifications'
+    }
+
+    // Convert the filters object to use database column names
+    const supabaseFilters = {}
+    Object.entries(filters).forEach(([key, value]) => {
+      const dbColumn = columnMapping[key] || key
+      supabaseFilters[dbColumn] = value
+    })
+
+    return supabaseFilters
   }
 
   const fetchInitialProducts = async () => {
     setIsLoading(true)
     setError(null)
     try {
-      const data = await fetchData(`https://n8n.werposolutions.com/webhook/get-product?table=indoor&product=${productType}`)
+      const data = await fetchData('indoor', productType)
       setProducts(data)
       if (data.length === 0) {
         setError('No products found for this category.')
@@ -86,13 +114,35 @@ export default function IndoorProductPage({ params }) {
   const filterProducts = async (key, value) => {
     setIsLoading(true)
     setError(null)
-    const newFilters = { ...selectedFilters, [key]: value }
+    
+    // Convert database column name back to frontend name for filtering
+    const reverseColumnMapping = {
+      'Size': 'Size',
+      'power_w': 'Power (W)',
+      'Voltage': 'Voltage',
+      'CCT': 'CCT',
+      'cri_ra': 'CRI/RA',
+      'Lumen': 'Lumen',
+      'efficacy_lmw': 'Efficacy (lm/W)',
+      'Dimming Type': 'Dimming Type',
+      'Material Finish': 'Material Finish',
+      'sensor_microwave_bluetooth': 'Sensor(Microwave/Bluetooth)',
+      'plugin_sensor': 'Plug-in Sensor',
+      'emergency_backup_battery': 'Eme. Backup-Battery',
+      'junction_cover': 'Junction Cover',
+      'remote_control': 'Remote Control',
+      'Mounting': 'Mounting',
+      'installation_kits': 'Installation Kits',
+      'adjustment_dial': 'Adjustment Dial',
+      'Certifications': 'Certifications'
+    }
+    
+    const frontendKey = reverseColumnMapping[key] || key
+    const newFilters = { ...selectedFilters, [frontendKey]: value }
     setSelectedFilters(newFilters)
     
-    const query = buildPostgresQuery(selectedFilters, key, value)
-    
     try {
-      const filtered = await fetchData(`https://n8n.werposolutions.com/webhook/get-model?table=indoor&query=${encodeURIComponent(query)}`)
+      const filtered = await fetchData('indoor', productType, buildSupabaseFilters(newFilters))
       if (filtered.length === 1) {
         setFinalProduct(filtered[0])
       } else if (filtered.length === 0) {
@@ -118,7 +168,7 @@ export default function IndoorProductPage({ params }) {
     fetchInitialProducts()
   }
 
-  const goBack = () => {
+  const goBack = async () => {
     if (finalProduct) {
       setFinalProduct(null)
       return
@@ -128,7 +178,31 @@ export default function IndoorProductPage({ params }) {
       const newStep = currentStep - 1
       const newFilters = { ...selectedFilters }
       const currentKey = desiredKeys[currentStep]
-      delete newFilters[currentKey]
+      
+      // Convert database column name back to frontend name for removal
+      const reverseColumnMapping = {
+        'Size': 'Size',
+        'power_w': 'Power (W)',
+        'Voltage': 'Voltage',
+        'CCT': 'CCT',
+        'cri_ra': 'CRI/RA',
+        'Lumen': 'Lumen',
+        'efficacy_lmw': 'Efficacy (lm/W)',
+        'Dimming Type': 'Dimming Type',
+        'Material Finish': 'Material Finish',
+        'sensor_microwave_bluetooth': 'Sensor(Microwave/Bluetooth)',
+        'plugin_sensor': 'Plug-in Sensor',
+        'emergency_backup_battery': 'Eme. Backup-Battery',
+        'junction_cover': 'Junction Cover',
+        'remote_control': 'Remote Control',
+        'Mounting': 'Mounting',
+        'installation_kits': 'Installation Kits',
+        'adjustment_dial': 'Adjustment Dial',
+        'Certifications': 'Certifications'
+      }
+      
+      const frontendKey = reverseColumnMapping[currentKey] || currentKey
+      delete newFilters[frontendKey]
       
       setSelectedFilters(newFilters)
       setCurrentStep(newStep)
@@ -138,14 +212,12 @@ export default function IndoorProductPage({ params }) {
       if (Object.keys(newFilters).length === 0) {
         fetchInitialProducts()
       } else {
-        const query = Object.entries(newFilters)
-          .filter(([_, v]) => v !== undefined && v !== null && v !== '')
-          .map(([k, v]) => `"${k}"=eq.${v}`)
-          .join('&')
-        
-        fetchData(`https://n8n.werposolutions.com/webhook/get-model?table=indoor&query=${encodeURIComponent(query)}`)
-          .then(setProducts)
-          .catch(console.error)
+        try {
+          const filtered = await fetchData('indoor', productType, buildSupabaseFilters(newFilters))
+          setProducts(filtered)
+        } catch (error) {
+          console.error('Error:', error)
+        }
       }
     }
   }
