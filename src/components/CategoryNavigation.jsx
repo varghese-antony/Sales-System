@@ -8,8 +8,20 @@ import { ScrollArea } from "@/components/ui/scroll-area"
 import { Lightbulb, Sun, Menu, X, ChevronLeft, ChevronRight } from "lucide-react"
 import Link from "next/link"
 
-export function CategoryNavigation({ type, categories, categoriesWithProducts, isOpen, onToggle, currentPath, currentCategory }) {
+export function CategoryNavigation({ type, categories, categoriesWithProducts, isOpen, onToggle, currentPath, currentCategory, activeSection }) {
   const [productTypes, setProductTypes] = useState([])
+
+  // Debug logging for props
+  useEffect(() => {
+    console.log('📊 [CATEGORY_NAV] Props received:', {
+      type,
+      categoriesCount: categories?.length || 0,
+      currentCategory,
+      activeSection,
+      currentPath,
+      isOpen
+    })
+  }, [type, categories, currentCategory, activeSection, currentPath, isOpen])
 
   useEffect(() => {
     async function fetchProductTypes() {
@@ -57,7 +69,7 @@ export function CategoryNavigation({ type, categories, categoriesWithProducts, i
           onClick={onToggle}
           variant="ghost"
           size="icon"
-          className="fixed left-4 top40 z-50 shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-105 hover:bg-accent/50"
+          className="fixed left-4 top-30 z-50 shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-105 hover:bg-accent/50"
         >
           <Menu className="w-5 h-5 text-primary transition-transform duration-300" />
         </Button>
@@ -84,7 +96,7 @@ export function CategoryNavigation({ type, categories, categoriesWithProducts, i
             animate={{ x: 0 }}
             exit={{ x: -320 }}
             transition={{ type: "spring", damping: 25, stiffness: 200 }}
-            className="fixed left-0 top-40 sm:top-16 h-[calc(100vh-5rem)] sm:h-[calc(100vh-4rem)] w-80 bg-background/95 backdrop-blur-sm border-r border-border/50 z-40 shadow-xl"
+            className="fixed left-0 top-16 h-[100vh] w-80 bg-background/95 backdrop-blur-sm border-r border-border/50 z-50 shadow-xl overflow-y-auto pb-20"
           >
             {/* Toggle Button - Full Width at Top */}
             <div className="w-full px-4 py-3 border-b border-border/50 bg-background/80">
@@ -124,7 +136,24 @@ export function CategoryNavigation({ type, categories, categoriesWithProducts, i
                 {categories.map((category, index) => {
                   const categoryName = category[type === 'indoor' ? 'Indoor' : 'Outdoor']
                   const categoryProductTypes = getProductTypesForCategory(categoryName)
-                  const isActiveCategory = currentCategory === categoryName
+                  // Use activeSection for scroll-based highlighting, fallback to currentCategory for hash-based
+                  // Handle case-insensitive matching
+                  const isActiveCategory = (activeSection &&
+                    (activeSection.toLowerCase() === categoryName.toLowerCase() ||
+                     activeSection === categoryName)) ||
+                   (!activeSection && currentCategory === categoryName)
+
+                  console.log('📊 [CATEGORY_NAV] Rendering category:', {
+                    index,
+                    categoryName,
+                    isActiveCategory,
+                    activeSection,
+                    currentCategory,
+                    categoryProductTypesCount: categoryProductTypes.length,
+                    categoryNameLower: categoryName.toLowerCase(),
+                    activeSectionLower: activeSection?.toLowerCase(),
+                    type
+                  })
 
                   return (
                     <motion.div
@@ -132,15 +161,19 @@ export function CategoryNavigation({ type, categories, categoriesWithProducts, i
                       initial={{ opacity: 0, x: -20 }}
                       animate={{ opacity: 1, x: 0 }}
                       transition={{ delay: index * 0.1 }}
-                      className={`space-y-3 rounded-lg p-2 transition-all duration-200 ${
-                        isActiveCategory ? 'bg-primary/10 border-l-4 border-primary' : 'hover:bg-accent/30'
+                      className={`space-y-3 rounded-lg p-3 transition-all duration-300 ${
+                        isActiveCategory 
+                          ? 'bg-gradient-to-r from-primary/15 to-primary/5 border-l-4 border-primary shadow-lg shadow-primary/10' 
+                          : 'hover:bg-accent/30 hover:shadow-md'
                       }`}
                     >
                       <div className="flex items-center justify-between">
                         <Link
                           href={`#${categoryName.toLowerCase().replace(/\s+/g, '-')}`}
-                          className={`text-base font-semibold transition-colors group ${
-                            isActiveCategory ? 'text-primary' : 'hover:text-primary'
+                          className={`text-base font-semibold transition-all duration-300 group ${
+                            isActiveCategory 
+                              ? 'text-primary drop-shadow-sm' 
+                              : 'hover:text-primary text-foreground'
                           }`}
                           onClick={() => {
                             // Close sidebar on mobile after navigation
@@ -149,20 +182,37 @@ export function CategoryNavigation({ type, categories, categoriesWithProducts, i
                             }
                           }}
                         >
-                          <span className="group-hover:underline">{categoryName}</span>
+                          <span className={`transition-all duration-300 ${
+                            isActiveCategory 
+                              ? 'underline decoration-primary decoration-2 underline-offset-4' 
+                              : 'group-hover:underline decoration-primary decoration-2 underline-offset-4'
+                          }`}>
+                            {categoryName}
+                          </span>
                         </Link>
-                        <Badge variant={isActiveCategory ? "default" : "secondary"} className="text-xs">
+                        <Badge 
+                          variant={isActiveCategory ? "default" : "secondary"} 
+                          className={`text-xs transition-all duration-300 ${
+                            isActiveCategory 
+                              ? 'bg-primary text-primary-foreground shadow-md' 
+                              : 'hover:bg-primary/20'
+                          }`}
+                        >
                           {categoryProductTypes.length}
                         </Badge>
                       </div>
 
-                      <div className="ml-4 space-y-2 border-l-2 border-border/30 pl-4">
+                      <div className={`ml-4 space-y-2 border-l-2 pl-4 transition-all duration-300 ${
+                        isActiveCategory ? 'border-primary/50' : 'border-border/30'
+                      }`}>
                         {categoryProductTypes.map((productType, ptIndex) => (
                           <Link
                             key={ptIndex}
                             href={`/${type}/${productType['producttype']}`}
-                            className={`block text-sm transition-colors py-1 hover:bg-accent/50 px-2 rounded-md -ml-2 ${
-                              isActiveCategory ? 'text-primary' : 'text-muted-foreground hover:text-primary'
+                            className={`block text-sm transition-all duration-300 py-1 px-2 rounded-md -ml-2 ${
+                              isActiveCategory 
+                                ? 'text-primary/90 hover:text-primary hover:bg-primary/10 font-medium' 
+                                : 'text-muted-foreground hover:text-primary hover:bg-accent/50'
                             }`}
                             onClick={() => {
                               // Close sidebar on mobile after navigation

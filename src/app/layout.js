@@ -34,7 +34,7 @@ export default function RootLayout({ children }) {
             <TooltipProvider>
               <div className="min-h-screen flex flex-col">
                 <Navbar/>
-                <main className="flex-1 animate-fade-in pt-20 sm:pt-16">
+                <main className="flex-1 animate-fade-in">
                   {children}
                 </main>
                 {/* <Footer/> */}

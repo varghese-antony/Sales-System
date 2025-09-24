@@ -1,15 +1,14 @@
 'use client'
 import { useState, useEffect } from 'react'
 import { getDistinctCategories, getProductTypesByCategory, getProductsByType } from '@/lib/database/products'
-import { motion } from 'framer-motion'
 import { ProductCard } from "@/components/ProductCard"
-import { CategoryNavigation } from "@/components/CategoryNavigation"
 import { Sun, Home, ArrowLeft, Shield, Star } from 'lucide-react'
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { LoadingSpinner } from "@/components/ui/loading"
-import { Alert, AlertDescription } from "@/components/ui/alert"
 import Link from 'next/link'
+import { motion } from 'framer-motion'
+import { CategoryNavigation } from '@/components/CategoryNavigation'
 
 const containerVariants = {
   hidden: { opacity: 0 },
@@ -39,8 +38,9 @@ export default function Outdoor() {
   const [categoriesWithProducts, setCategoriesWithProducts] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
-  const [isSidebarOpen, setIsSidebarOpen] = useState(true)
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false)
   const [currentCategory, setCurrentCategory] = useState('')
+  const [activeSection, setActiveSection] = useState('')
 
   useEffect(() => {
     // Function to get current category from hash
@@ -67,6 +67,115 @@ export default function Outdoor() {
     return () => window.removeEventListener('hashchange', handleHashChange)
   }, [])
 
+  // Intersection Observer for scroll-based section detection
+  useEffect(() => {
+    if (categories.length === 0) return
+
+    console.log('🔍 [OUTDOOR] Setting up Intersection Observer with categories:', categories.length)
+
+    const observerOptions = {
+      root: null,
+      rootMargin: '-20% 0px -60% 0px', // Trigger when section is 20% from top and 60% from bottom
+      threshold: 0.1
+    }
+
+    const observerCallback = (entries) => {
+      console.log('🔍 [OUTDOOR] Intersection Observer callback triggered with', entries.length, 'entries')
+
+      entries.forEach((entry) => {
+        if (entry.isIntersecting && entry.intersectionRatio > 0.1) {
+          const sectionId = entry.target.id
+          if (sectionId && sectionId !== 'outdoor-grid') {
+            // Convert id back to category name
+            const categoryName = decodeURIComponent(sectionId).replace(/-/g, ' ')
+            console.log('🔍 [OUTDOOR] Setting active section to:', categoryName)
+            setActiveSection(categoryName)
+          }
+        }
+      })
+    }
+
+    const observer = new IntersectionObserver(observerCallback, observerOptions)
+    console.log('🔍 [OUTDOOR] Created Intersection Observer')
+
+    // Observe all category sections
+    const sections = document.querySelectorAll('[id]')
+    console.log('🔍 [OUTDOOR] Found', sections.length, 'elements with IDs')
+
+    sections.forEach((section) => {
+      if (section.id && section.id !== 'outdoor-grid') { // Exclude background pattern
+        console.log('🔍 [OUTDOOR] Observing element:', section.id, section.tagName)
+        observer.observe(section)
+      }
+    })
+
+    return () => {
+      console.log('🔍 [OUTDOOR] Cleaning up Intersection Observer')
+      sections.forEach((section) => {
+        if (section.id && section.id !== 'outdoor-grid') {
+          observer.unobserve(section)
+        }
+      })
+    }
+  }, [categories]) // Only re-run when categories change
+
+  // Scroll Event Listener approach as alternative
+  useEffect(() => {
+    if (categories.length === 0) return
+
+    console.log('📜 [OUTDOOR] Setting up Scroll Event Listener with categories:', categories.length)
+
+    const handleScroll = () => {
+      const scrollPosition = window.scrollY + window.innerHeight * 0.3 // 30% from top
+
+      // Find the section that's currently in view
+      let currentActiveSection = ''
+
+      categories.forEach((category) => {
+        const categoryName = category['Outdoor']
+        const elementId = categoryName.toLowerCase().replace(/\s+/g, '-')
+        const element = document.getElementById(elementId)
+
+        if (element) {
+          const rect = element.getBoundingClientRect()
+          const elementTop = rect.top + window.scrollY
+          const elementBottom = elementTop + rect.height
+
+          // Check if scroll position is within the element bounds
+          if (scrollPosition >= elementTop && scrollPosition <= elementBottom) {
+            currentActiveSection = categoryName
+          }
+        }
+      })
+
+      // Only update if we found a section and it's different from current
+      if (currentActiveSection && currentActiveSection !== activeSection) {
+        setActiveSection(currentActiveSection)
+      }
+    }
+
+    // Throttle scroll events for better performance
+    let ticking = false
+    const handleScrollThrottled = () => {
+      if (!ticking) {
+        requestAnimationFrame(() => {
+          handleScroll()
+          ticking = false
+        })
+        ticking = true
+      }
+    }
+
+    window.addEventListener('scroll', handleScrollThrottled, { passive: true })
+
+    // Initial check
+    handleScroll()
+
+    return () => {
+      window.removeEventListener('scroll', handleScrollThrottled)
+    }
+  }, [categories, activeSection]) // Include activeSection to prevent infinite loops
+
   useEffect(() => {
     async function fetchCategoriesAndProducts() {
       try {
@@ -81,6 +190,7 @@ export default function Outdoor() {
 
         // Set categories immediately for UI
         setCategories(categories)
+        console.log('🏷️ [OUTDOOR] Categories set:', categories)
 
         // Second fetch: Get distinct product types for each category with sample images
         const { data: productTypesData, error: productTypesError } = await getProductTypesByCategory('outdoor')
@@ -159,7 +269,7 @@ export default function Outdoor() {
   }
 
   return (
-    <div className='min-h-screen bg-gradient-to-br from-green-50/50 via-teal-50/30 to-emerald-50/50 dark:from-green-950/20 dark:via-teal-950/10 dark:to-emerald-950/20'>
+    <div className='min-h-screen bg-gradient-to-br from-green-50/50 via-teal-50/30 to-emerald-50/50 dark:from-green-950/20 dark:via-teal-950/10 dark:to-emerald-950/20 relative'>
       {/* Background Pattern */}
       <div className="absolute inset-0 opacity-[0.02] dark:opacity-[0.05]">
         <svg className="w-full h-full" xmlns="http://www.w3.org/2000/svg">
@@ -172,18 +282,19 @@ export default function Outdoor() {
         </svg>
       </div>
 
-      {/* Category Navigation Sidebar */}
-      <CategoryNavigation 
-        type="outdoor" 
-        categories={categories} 
+      {/* Category Navigation Sidebar - DEBUG: FORCE VISIBLE */}
+      <CategoryNavigation
+        type="outdoor"
+        categories={categories}
         categoriesWithProducts={categoriesWithProducts}
         isOpen={isSidebarOpen}
         onToggle={() => setIsSidebarOpen(!isSidebarOpen)}
         currentPath={typeof window !== 'undefined' ? window.location.pathname : '/outdoor'}
         currentCategory={currentCategory}
+        activeSection={activeSection}
       />
 
-      <div className={`py-12 px-4 sm:px-6 lg:px-8 relative z-10 transition-all duration-300 ${
+      <div className={`py-4 px-4 sm:px-6 lg:px-8 relative z-10 transition-all duration-300 ${
         isSidebarOpen ? 'lg:ml-80' : 'lg:ml-0'
       }`}>
         {/* Header Section */}

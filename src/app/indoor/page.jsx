@@ -1,15 +1,15 @@
 'use client'
 import { useState, useEffect } from 'react'
 import { getDistinctCategories, getProductTypesByCategory, getProductsByType, testColumnNames } from '@/lib/database/products'
-import { motion } from 'framer-motion'
 import { ProductCard } from "@/components/ProductCard"
-import { CategoryNavigation } from "@/components/CategoryNavigation"
 import { Lightbulb, Home, ArrowLeft, Zap, Star } from 'lucide-react'
 import { Button } from "@/components/ui/button"
-import { Badge } from "@/components/ui/badge"
-import { LoadingSpinner } from "@/components/ui/loading"
-import { Alert, AlertDescription } from "@/components/ui/alert"
 import Link from 'next/link'
+import { LoadingSpinner } from "@/components/ui/loading"
+import { Badge } from "@/components/ui/badge"
+import { Alert, AlertDescription } from "@/components/ui/alert"
+import { motion } from 'framer-motion'
+import { CategoryNavigation } from "@/components/CategoryNavigation"
 
 const containerVariants = {
   hidden: { opacity: 0 },
@@ -39,8 +39,9 @@ export default function Indoor() {
   const [categoriesWithProducts, setCategoriesWithProducts] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
-  const [isSidebarOpen, setIsSidebarOpen] = useState(true)
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false)
   const [currentCategory, setCurrentCategory] = useState('')
+  const [activeSection, setActiveSection] = useState('')
 
   useEffect(() => {
     // Function to get current category from hash
@@ -66,6 +67,103 @@ export default function Indoor() {
     window.addEventListener('hashchange', handleHashChange)
     return () => window.removeEventListener('hashchange', handleHashChange)
   }, [])
+
+  // Intersection Observer for scroll-based section detection
+  useEffect(() => {
+    if (categories.length === 0) return
+
+    const observerOptions = {
+      root: null,
+      rootMargin: '-20% 0px -60% 0px', // Trigger when section is 20% from top and 60% from bottom
+      threshold: 0.1
+    }
+
+    const observerCallback = (entries) => {
+      entries.forEach((entry) => {
+        if (entry.isIntersecting && entry.intersectionRatio > 0.1) {
+          const sectionId = entry.target.id
+          if (sectionId && sectionId !== 'indoor-grid') {
+            // Convert id back to category name
+            const categoryName = decodeURIComponent(sectionId).replace(/-/g, ' ')
+            setActiveSection(categoryName)
+          }
+        }
+      })
+    }
+
+    const observer = new IntersectionObserver(observerCallback, observerOptions)
+
+    // Observe all category sections
+    const sections = document.querySelectorAll('[id]')
+    sections.forEach((section) => {
+      if (section.id && section.id !== 'indoor-grid') { // Exclude background pattern
+        observer.observe(section)
+      }
+    })
+
+    return () => {
+      sections.forEach((section) => {
+        if (section.id && section.id !== 'indoor-grid') {
+          observer.unobserve(section)
+        }
+      })
+    }
+  }, [categories]) // Only re-run when categories change
+
+  // Scroll Event Listener approach as alternative
+  useEffect(() => {
+    if (categories.length === 0) return
+
+    const handleScroll = () => {
+      const scrollPosition = window.scrollY + window.innerHeight * 0.3 // 30% from top
+
+      // Find the section that's currently in view
+      let currentActiveSection = ''
+
+      categories.forEach((category) => {
+        const categoryName = category['Indoor']
+        const elementId = categoryName.toLowerCase().replace(/\s+/g, '-')
+        const element = document.getElementById(elementId)
+
+        if (element) {
+          const rect = element.getBoundingClientRect()
+          const elementTop = rect.top + window.scrollY
+          const elementBottom = elementTop + rect.height
+
+          // Check if scroll position is within the element bounds
+          if (scrollPosition >= elementTop && scrollPosition <= elementBottom) {
+            currentActiveSection = categoryName
+          }
+        }
+      })
+
+      // Only update if we found a section and it's different from current
+      if (currentActiveSection && currentActiveSection !== activeSection) {
+        setActiveSection(currentActiveSection)
+      }
+    }
+
+    // Throttle scroll events for better performance
+    let ticking = false
+    const handleScrollThrottled = () => {
+      if (!ticking) {
+        requestAnimationFrame(() => {
+          handleScroll()
+          ticking = false
+        })
+        ticking = true
+      }
+    }
+
+    window.addEventListener('scroll', handleScrollThrottled, { passive: true })
+
+    // Initial check
+    handleScroll()
+
+    return () => {
+      window.removeEventListener('scroll', handleScrollThrottled)
+    }
+  }, [categories, activeSection]) // Include activeSection to prevent infinite loops
 
   useEffect(() => {
     async function fetchCategoriesAndProducts() {
@@ -160,7 +258,7 @@ export default function Indoor() {
   }
 
   return (
-    <div className='min-h-screen bg-gradient-to-br from-blue-50/50 via-indigo-50/30 to-purple-50/50 dark:from-blue-950/20 dark:via-indigo-950/10 dark:to-purple-950/20'>
+    <div className='min-h-screen bg-gradient-to-br from-blue-50/50 via-indigo-50/30 to-purple-50/50 dark:from-blue-950/20 dark:via-indigo-950/10 dark:to-purple-950/20 relative'>
       {/* Background Pattern */}
       <div className="absolute inset-0 opacity-[0.02] dark:opacity-[0.05]">
         <svg className="w-full h-full" xmlns="http://www.w3.org/2000/svg">
@@ -173,18 +271,19 @@ export default function Indoor() {
         </svg>
       </div>
 
-      {/* Category Navigation Sidebar */}
-      <CategoryNavigation 
-        type="indoor" 
-        categories={categories} 
+      {/* Category Navigation Sidebar - DEBUG: FORCE VISIBLE */}
+      <CategoryNavigation
+        type="indoor"
+        categories={categories}
         categoriesWithProducts={categoriesWithProducts}
         isOpen={isSidebarOpen}
         onToggle={() => setIsSidebarOpen(!isSidebarOpen)}
         currentPath={typeof window !== 'undefined' ? window.location.pathname : '/indoor'}
         currentCategory={currentCategory}
+        activeSection={activeSection}
       />
 
-      <div className={`py-12 px-4 sm:px-6 lg:px-8 relative z-10 transition-all duration-300 ${
+      <div className={`py-4 px-4 sm:px-6 lg:px-8 relative z-10 transition-all duration-300 ${
         isSidebarOpen ? 'lg:ml-80' : 'lg:ml-0'
       }`}>
         {/* Header Section */}
