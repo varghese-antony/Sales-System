@@ -46,6 +46,28 @@ export async function getDistinctCategories(type) {
   }
 }
 
+// Get distinct product types from indoor or outdoor table
+export async function getDistinctProductTypes(type) {
+  try {
+    const { data, error } = await supabase
+      .from(type)
+      .select('producttype')
+      .not('producttype', 'is', null)
+      .order('producttype', { ascending: true })
+
+    if (error) throw error
+
+    // Get unique product types manually since Supabase doesn't support DISTINCT
+    const uniqueTypes = [...new Set(data.map(item => item.producttype).filter(Boolean))]
+    
+    // Transform the data to match the expected format
+    return { data: uniqueTypes.map(producttype => ({ producttype })), error: null }
+  } catch (error) {
+    console.error('Error fetching distinct product types:', error)
+    return { data: null, error: error.message }
+  }
+}
+
 // Get product types grouped by category
 export async function getProductTypesByCategory(type) {
   try {
