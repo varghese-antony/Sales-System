@@ -183,8 +183,8 @@ export default function PriceEntryPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50/50 via-indigo-50/30 to-purple-50/50">
-        <div className="text-center space-y-4">
+      <div className='min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50/50 via-indigo-50/30 to-purple-50/50 dark:from-blue-950/20 dark:via-indigo-950/10 dark:to-purple-950/20'>
+        <div className="text-center space-y-4 flex items-center justify-center flex-col">
           <LoadingSpinner size="lg" />
           <p className="text-muted-foreground">Loading products without prices...</p>
         </div>
@@ -203,12 +203,36 @@ export default function PriceEntryPage() {
   }
 
   return (
-    <div className="min-h-screen bg-white dark:bg-slate-900">
-      <div className="container mx-auto py-8 px-4">
+    <div className="min-h-screen bg-gradient-to-br from-blue-50/50 via-indigo-50/30 to-purple-50/50 dark:from-blue-950/20 dark:via-indigo-950/10 dark:to-purple-950/20 relative">
+      {/* Background Pattern */}
+      <div className="absolute inset-0 opacity-[0.02] dark:opacity-[0.05]">
+        <svg className="w-full h-full" xmlns="http://www.w3.org/2000/svg">
+          <defs>
+            <pattern id="price-entry-grid" width="60" height="60" patternUnits="userSpaceOnUse">
+              <path d="M 60 0 L 0 0 0 60" fill="none" stroke="currentColor" strokeWidth="1" />
+            </pattern>
+          </defs>
+          <rect width="100%" height="100%" fill="url(#price-entry-grid)" />
+        </svg>
+      </div>
+
+      <div className="container mx-auto py-8 px-4 relative z-10">
         {/* Header */}
         <div className="text-center mb-8">
           <div className="flex justify-center items-center gap-3 mb-6">
-            <DollarSign className="w-12 h-12 text-green-600" />
+            <motion.div
+              animate={{
+                rotate: [0, 10, -10, 0],
+                scale: [1, 1.1, 1]
+              }}
+              transition={{
+                duration: 4,
+                repeat: Infinity,
+                ease: "easeInOut"
+              }}
+            >
+              <DollarSign className="w-12 h-12 text-green-600 dark:text-green-400" />
+            </motion.div>
           </div>
 
           <h1 className="text-4xl font-bold mb-4 text-gray-900 dark:text-white">
@@ -220,7 +244,7 @@ export default function PriceEntryPage() {
           </p>
 
           <div className="flex justify-center items-center gap-4 mb-6">
-            <div className="bg-gray-100 dark:bg-gray-800 px-4 py-2 rounded-lg">
+            <div className="bg-gray-100 dark:bg-gray-800 px-4 py-2 rounded-lg border border-gray-200 dark:border-gray-700">
               <span className="text-2xl font-bold text-gray-900 dark:text-white">
                 {filteredProducts.length}
               </span>
@@ -233,7 +257,7 @@ export default function PriceEntryPage() {
               <Button
                 onClick={saveAllPrices}
                 disabled={saving || !Object.values(priceInputs).some(p => p.trim() !== '')}
-                className="bg-green-600 hover:bg-green-700"
+                className="bg-green-600 hover:bg-green-700 dark:bg-green-700 dark:hover:bg-green-600"
               >
                 <Save className="w-4 h-4 mr-2" />
                 {saving ? 'Saving...' : `Save All (${Object.values(priceInputs).filter(p => p.trim() !== '').length})`}
@@ -404,7 +428,7 @@ export default function PriceEntryPage() {
               Great job! All products in your catalog now have pricing information.
             </p>
             <Link href="/">
-              <Button variant="outline">
+              <Button variant="outline" className="dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-700">
                 Back to Home
               </Button>
             </Link>
@@ -415,7 +439,7 @@ export default function PriceEntryPage() {
         {filteredProducts.length > 0 && (
           <div className="text-center mt-12">
             <Link href="/">
-              <Button variant="outline" size="lg">
+              <Button variant="outline" size="lg" className="dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-700">
                 <X className="w-5 h-5 mr-2" />
                 Back to Home
               </Button>
