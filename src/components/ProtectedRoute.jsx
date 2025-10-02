@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useMemo, useState } from 'react'
+import { Suspense, useEffect, useMemo, useState } from 'react'
 import { useRouter, usePathname, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { useAuth } from '../contexts/AuthContext'
@@ -9,7 +9,7 @@ import { Alert, AlertDescription, AlertTitle } from './ui/alert'
 import { Button } from './ui/button'
 import { ShieldAlert, Home, Mail } from 'lucide-react'
 
-export function ProtectedRoute({
+function ProtectedRouteContent({
   children,
   requireAdmin = false,
   redirectTo = '/login',
@@ -158,10 +158,26 @@ export function ProtectedRoute({
       )
     }
     
-    // Otherwise don't render (will redirect)
     return null
   }
 
   // All checks passed, render the protected content
   return children
+}
+
+export function ProtectedRoute(props) {
+  return (
+    <Suspense
+      fallback={
+        <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 via-white to-purple-50 dark:from-blue-950/20 dark:via-purple-950/10 dark:to-indigo-950/20">
+          <div className="text-center space-y-4">
+            <LoadingSpinner size="lg" />
+            <p className="text-gray-600 dark:text-gray-300 font-medium">Loading page...</p>
+          </div>
+        </div>
+      }
+    >
+      <ProtectedRouteContent {...props} />
+    </Suspense>
+  )
 }
