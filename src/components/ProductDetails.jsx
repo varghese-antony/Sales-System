@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useMemo } from 'react'
 import { motion } from "framer-motion"
 import { ArrowLeft, Download, FileText, Award, ExternalLink, Zap, Shield, Settings, Info, ShoppingCart, Check, Image as ImageIcon, ZoomIn } from "lucide-react"
 import { Button } from "@/components/ui/button"
@@ -18,7 +18,15 @@ export function ProductDetails({ product, onBack }) {
   const [quantity, setQuantity] = useState(1)
   const [isImageModalOpen, setIsImageModalOpen] = useState(false)
   
-  const optimizedImageUrl = product.Photo ? getOptimizedImageUrl(product.Photo) : null
+  // Convert database field names to frontend field names for display
+  const mappedProduct = useMemo(() => {
+    const mapped = {}
+    Object.entries(product).forEach(([key, value]) => {
+      const frontendKey = reverseFieldMapping[key] || key
+      mapped[frontendKey] = value
+    })
+    return mapped
+  }, [product, reverseFieldMapping])
 
   // Handle ESC key to close modal
   useEffect(() => {
@@ -48,11 +56,11 @@ export function ProductDetails({ product, onBack }) {
   }
   
   const excludedKeys = ['MOQ', 'cost_china_ddp_usa', 'cost_thailand_vietnam', 'cut_sheet', 'Photo', 'lead_time', 'Warranty', 'id', 'Indoor', 'Outdoor', 'price_pc']
-  const productKeys = Object.keys(product).filter(key => !excludedKeys.includes(key))
+  const productKeys = Object.keys(mappedProduct).filter(key => !excludedKeys.includes(key))
   
-  // Key specifications to highlight
-  const keySpecs = ['model_number', 'Size', 'power_w', 'Voltage', 'CCT', 'Lumen', 'Material Finish']
-  const highlightedSpecs = keySpecs.filter(key => product[key]).slice(0, 6)
+  // Key specifications to highlight (using frontend field names)
+  const keySpecs = ['model_number', 'sizes', 'powerW', 'voltage', 'cct', 'lumen', 'materialFinish']
+  const highlightedSpecs = keySpecs.filter(key => mappedProduct[key]).slice(0, 6)
   
   const getKeyIcon = (key) => {
     if (key.toLowerCase().includes('power') || key.toLowerCase().includes('watt') || key.toLowerCase().includes('voltage')) return <Zap className="w-4 h-4" />
@@ -63,10 +71,10 @@ export function ProductDetails({ product, onBack }) {
   }
 
   const getKeyCategory = (key) => {
-    const powerKeys = ['power_w', 'Voltage', 'efficacy_lmw', 'Lumen']
-    const designKeys = ['model_number', 'Size', 'Material Finish', 'Mounting', 'CCT', 'cri_ra']
-    const featureKeys = ['Dimming Type', 'sensor_microwave_bluetooth', 'remote_control', 'emergency_backup_battery', 'plugin_sensor', 'junction_cover', 'adjustment_dial']
-    const certKeys = ['Certifications', 'installation_kits']
+    const powerKeys = ['powerW', 'voltage', 'efficacyLmw', 'lumen']
+    const designKeys = ['modelNumber', 'sizes', 'materialFinish', 'mounting', 'cct', 'criRa']
+    const featureKeys = ['dimmingType', 'sensorMicrowaveBluetooth', 'remoteControl', 'emergencyBackupBattery', 'pluginSensor', 'junctionCover', 'adjustmentDial']
+    const certKeys = ['certifications', 'installationKits']
 
     if (powerKeys.includes(key)) return 'power'
     if (designKeys.includes(key)) return 'design'
@@ -223,7 +231,7 @@ export function ProductDetails({ product, onBack }) {
                   <Button variant="outline" className="w-full justify-start" asChild>
                     <a href={product['cut_sheet']} target="_blank" rel="noopener noreferrer">
                       <FileText className="w-4 h-4 mr-2" />
-                      Product Cut Sheet
+                      <span className="text-sm font-medium">Product Cut Sheet</span>
                       <ExternalLink className="w-3 h-3 ml-auto" />
                     </a>
                   </Button>
@@ -261,7 +269,7 @@ export function ProductDetails({ product, onBack }) {
                       <div key={key} className="flex flex-col space-y-1">
                         <span className="text-sm font-medium text-muted-foreground">{key}</span>
                         <span className="text-sm font-semibold">
-                          {product[key] || (
+                          {mappedProduct[key] || (
                             <span className="text-muted-foreground italic">Not specified</span>
                           )}
                         </span>
