@@ -563,28 +563,64 @@ export default function PriceVariationPage() {
                         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 max-h-64 overflow-y-auto">
                           {Array.from(fieldValues).map((value) => {
                             const currentIncrement = fieldVariations[currentField.key]?.[value] || '';
+                            
+                            // Find products that have this specific variation value
+                            const productsWithThisValue = filteredProducts.filter(product => {
+                              const productValue = product[currentField.dbColumn];
+                              if (productValue !== null && productValue !== undefined) {
+                                if (typeof productValue === 'string') {
+                                  return productValue.split(',').some(v => v.trim() === value);
+                                } else {
+                                  return String(productValue) === value;
+                                }
+                              }
+                              return false;
+                            });
+                            
                             return (
-                              <div key={value} className="flex items-center space-x-3 p-3 border border-border rounded-lg bg-card">
-                                <div className="flex-1">
-                                  <label className="text-sm font-medium block mb-1 text-foreground">
-                                    {value}
-                                  </label>
-                                  <div className="flex items-center space-x-2">
-                                    <span className="text-xs text-gray-500 dark:text-gray-400">$</span>
-                                    <Input
-                                      type="number"
-                                      step="0.01"
-                                      placeholder="0.00"
-                                      value={currentIncrement === null ? '' : currentIncrement}
-                                      onChange={(e) => handleFieldVariation(currentField.key, value, e.target.value)}
-                                      className="w-20 h-8 text-sm bg-background border-border"
-                                    />
+                              <div key={value} className="flex flex-col space-y-2 p-3 border border-border rounded-lg bg-card">
+                                <div className="flex items-center space-x-3">
+                                  <div className="flex-1">
+                                    <label className="text-sm font-medium block mb-1 text-foreground">
+                                      {value}
+                                    </label>
+                                    <div className="flex items-center space-x-2">
+                                      <span className="text-xs text-gray-500 dark:text-gray-400">$</span>
+                                      <Input
+                                        type="number"
+                                        step="0.01"
+                                        placeholder="0.00"
+                                        value={currentIncrement === null ? '' : currentIncrement}
+                                        onChange={(e) => handleFieldVariation(currentField.key, value, e.target.value)}
+                                        className="w-20 h-8 text-sm bg-background border-border"
+                                      />
+                                    </div>
                                   </div>
+                                  {currentIncrement > 0 && (
+                                    <Badge variant="secondary" className="text-xs bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-gray-200">
+                                      +${currentIncrement}
+                                    </Badge>
+                                  )}
                                 </div>
-                                {currentIncrement > 0 && (
-                                  <Badge variant="secondary" className="text-xs bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-gray-200">
-                                    +${currentIncrement}
-                                  </Badge>
+                                
+                                {/* Model numbers for products with this variation */}
+                                {productsWithThisValue.length > 0 && (
+                                  <div className="border-t border-gray-200 dark:border-gray-600 pt-2">
+                                    <div className="text-xs text-gray-500 dark:text-gray-400 mb-1">
+                                      Model Numbers ({productsWithThisValue.length}):
+                                    </div>
+                                    <div className="flex flex-wrap gap-1">
+                                      {[...new Set(productsWithThisValue.map(product => product.model_number))].map((modelNumber, idx) => (
+                                        <Badge 
+                                          key={idx} 
+                                          variant="outline" 
+                                          className="text-xs px-1 py-0 h-5 border-gray-300 dark:border-gray-600 text-gray-600 dark:text-gray-300"
+                                        >
+                                          {modelNumber}
+                                        </Badge>
+                                      ))}
+                                    </div>
+                                  </div>
                                 )}
                               </div>
                             );
