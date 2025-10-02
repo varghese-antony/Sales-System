@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect } from 'react'
+import { Suspense, useEffect } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { useAuth } from '@/contexts/AuthContext'
@@ -9,7 +9,7 @@ import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
 import { ShieldAlert, Home, Mail, LogIn } from 'lucide-react'
 
-export default function UnauthorizedPage() {
+function UnauthorizedPageContent() {
   const { user, profile, loading } = useAuth()
   const router = useRouter()
   const searchParams = useSearchParams()
@@ -151,5 +151,28 @@ export default function UnauthorizedPage() {
         </Card>
       </div>
     </div>
+  )
+}
+
+export default function UnauthorizedPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="min-h-screen flex items-center justify-center">
+          <Card className="w-full max-w-md border border-border/50 shadow-xl">
+            <CardHeader className="text-center">
+              <CardTitle className="text-xl font-semibold text-foreground">
+                Loading access details...
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="text-center text-muted-foreground">
+              Please wait while we verify your permissions.
+            </CardContent>
+          </Card>
+        </div>
+      }
+    >
+      <UnauthorizedPageContent />
+    </Suspense>
   )
 }
