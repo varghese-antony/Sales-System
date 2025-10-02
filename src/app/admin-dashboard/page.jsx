@@ -137,17 +137,19 @@ export default function AdminDashboardPage() {
     },
     {
       title: "Enquiry Management",
-      description: "Track and manage customer enquiries",
+      description: "Coming soon",
       href: "/admin-dashboard/enquiry-management",
       icon: BarChart3,
-      accent: "from-teal-500/20 via-cyan-500/10 to-blue-500/20"
+      accent: "from-teal-500/20 via-cyan-500/10 to-blue-500/20",
+      disabled: true
     },
     {
       title: "Manage Customers",
-      description: "View and manage customer accounts and discounts",
+      description: "Coming soon",
       href: "/admin-dashboard/manage-customers",
       icon: Users,
-      accent: "from-rose-500/20 via-pink-500/10 to-fuchsia-500/20"
+      accent: "from-rose-500/20 via-pink-500/10 to-fuchsia-500/20",
+      disabled: true
     }
   ]
 
@@ -279,35 +281,60 @@ export default function AdminDashboardPage() {
                 animate="animate"
                 transition={{ duration: 0.35, delay: 0.1 + index * 0.07 }}
               >
-                <Link href={card.href} className="group block h-full">
-                  <Card className="relative h-full overflow-hidden border border-border/60 bg-background/70 transition-all duration-300 hover:-translate-y-1 hover:border-primary/40 hover:shadow-lg">
-                    <div className={`pointer-events-none absolute inset-0 bg-gradient-to-br ${card.accent} opacity-0 transition-opacity duration-300 group-hover:opacity-100`} />
-                    <CardHeader className="relative flex flex-col gap-3">
-                      <div className="flex items-center justify-between">
-                        <CardTitle className="flex items-center gap-2 text-xl">
-                          <card.icon className="h-6 w-6" />
-                          {card.title}
-                        </CardTitle>
-                        <Badge variant="secondary" className="bg-white/20 text-xs text-white">
-                          Protected
-                        </Badge>
-                      </div>
-                      <CardDescription className="text-sm text-muted-foreground">
-                        {card.description}
-                      </CardDescription>
-                    </CardHeader>
-                    <CardContent className="relative flex items-center justify-between text-sm text-muted-foreground">
-                      <span>Enter workflow</span>
-                      <motion.span
-                        initial={{ x: 0 }}
-                        whileHover={{ x: 4 }}
-                        className="text-primary"
-                      >
-                        →
-                      </motion.span>
-                    </CardContent>
-                  </Card>
-                </Link>
+                {card.disabled ? (
+                  <div className="group block h-full cursor-not-allowed">
+                    <Card className="relative h-full overflow-hidden border border-border/60 bg-background/60 opacity-70">
+                      <div className={`pointer-events-none absolute inset-0 bg-gradient-to-br ${card.accent} opacity-0`} />
+                      <CardHeader className="relative flex flex-col gap-3">
+                        <div className="flex items-center justify-between">
+                          <CardTitle className="flex items-center gap-2 text-xl">
+                            <card.icon className="h-6 w-6" />
+                            {card.title}
+                          </CardTitle>
+                          <Badge variant="secondary" className="bg-white/20 text-xs text-white">
+                            Coming Soon
+                          </Badge>
+                        </div>
+                        <CardDescription className="text-sm text-muted-foreground">
+                          {card.description}
+                        </CardDescription>
+                      </CardHeader>
+                      <CardContent className="relative flex items-center justify-between text-sm text-muted-foreground">
+                        <span>Coming soon</span>
+                      </CardContent>
+                    </Card>
+                  </div>
+                ) : (
+                  <Link href={card.href} className="group block h-full">
+                    <Card className="relative h-full overflow-hidden border border-border/60 bg-background/70 transition-all duration-300 hover:-translate-y-1 hover:border-primary/40 hover:shadow-lg">
+                      <div className={`pointer-events-none absolute inset-0 bg-gradient-to-br ${card.accent} opacity-0 transition-opacity duration-300 group-hover:opacity-100`} />
+                      <CardHeader className="relative flex flex-col gap-3">
+                        <div className="flex items-center justify-between">
+                          <CardTitle className="flex items-center gap-2 text-xl">
+                            <card.icon className="h-6 w-6" />
+                            {card.title}
+                          </CardTitle>
+                          <Badge variant="secondary" className="bg-white/20 text-xs text-white">
+                            Protected
+                          </Badge>
+                        </div>
+                        <CardDescription className="text-sm text-muted-foreground">
+                          {card.description}
+                        </CardDescription>
+                      </CardHeader>
+                      <CardContent className="relative flex items-center justify-between text-sm text-muted-foreground">
+                        <span>Enter workflow</span>
+                        <motion.span
+                          initial={{ x: 0 }}
+                          whileHover={{ x: 4 }}
+                          className="text-primary"
+                        >
+                          →
+                        </motion.span>
+                      </CardContent>
+                    </Card>
+                  </Link>
+                )}
               </motion.div>
             ))}
           </div>
