@@ -1,5 +1,64 @@
 import { supabase } from '../supabase'
 
+function formatColumnName(column) {
+  if (!column) return column
+  return /^[a-z0-9_]+$/.test(column) ? column : `"${column.replace(/"/g, '""')}"`
+}
+
+// Field mapping for frontend to database column translation
+export const fieldMapping = {
+  productType: 'producttype',
+  category: 'category',
+  name: 'name',
+  description: 'description',
+  modelNumber: 'model_number',
+  sizes: 'Size',
+  mounting: 'Mounting',
+  voltage: 'Voltage',
+  powerW: 'power_w',
+  cct: 'CCT',
+  criRa: 'cri_ra',
+  lumen: 'Lumen',
+  efficacyLmw: 'efficacy_lmw',
+  beamAngle: 'beam_angle',
+  powerFactor: 'power_factor',
+  emergencyBackupBattery: 'emergency_backup_battery',
+  pluginSensor: 'plugin_sensor',
+  sensorMicrowaveBluetooth: 'sensor_microwave_bluetooth',
+  junctionCover: 'junction_cover',
+  remoteControl: 'remote_control',
+  installationKits: 'installation_kits',
+  adjustmentDial: 'adjustment_dial',
+  materialFinish: 'Material Finish',
+  ledType: 'led_type',
+  driverBrand: 'driver_brand',
+  dimmingType: 'Dimming Type',
+  certifications: 'Certifications',
+  leadTime: 'lead_time',
+  warranty: 'Warranty',
+  moq: 'MOQ',
+  pricePc: 'price_pc',
+  costChinaDdpUsa: 'cost_china_ddp_usa',
+  costThailandVietnam: 'cost_thailand_vietnam',
+  photo: 'Photo',
+  cutSheet: 'cut_sheet',
+  imageUrl: 'image_url',
+  ipRating: 'ip_rating',
+  ikRating: 'ik_rating',
+}
+
+// Note: Supabase tables mix snake_case with PascalCase + spaces (e.g. `Voltage`, `Dimming Type`).
+// Keep frontend keys camelCase and map to the exact database column names here for consistency.
+// This mapping is used for both frontend-to-database and database-to-frontend translations.
+
+export function getReverseFieldMapping() {
+  return Object.entries(fieldMapping).reduce((acc, [frontendField, dbColumn]) => {
+    acc[dbColumn] = frontendField
+    return acc
+  }, {})
+}
+
+export const OUTDOOR_ONLY_FIELDS = ['ip_rating', 'ik_rating']
 // Test function to check actual column names in database
 export async function testColumnNames(type) {
   try {
@@ -26,9 +85,9 @@ export async function getDistinctCategories(type) {
     const columnName = type === 'indoor' ? 'Indoor' : 'Outdoor'
     const { data, error } = await supabase
       .from(type)
-      .select(columnName)
-      .not(columnName, 'is', null)
-      .order(columnName, { ascending: true })
+      .select(formatColumnName(columnName))
+      .not(formatColumnName(columnName), 'is', null)
+      .order(formatColumnName(columnName), { ascending: true })
 
     if (error) {
       console.error('Database error in getDistinctCategories:', error)
@@ -74,9 +133,9 @@ export async function getProductTypesByCategory(type) {
     const categoryColumn = type === 'indoor' ? 'Indoor' : 'Outdoor'
     const { data, error } = await supabase
       .from(type)
-      .select(`${categoryColumn}, producttype`)
+      .select(`${formatColumnName(categoryColumn)},producttype`)
       .not('producttype', 'is', null)
-      .not(categoryColumn, 'is', null)
+      .not(formatColumnName(categoryColumn), 'is', null)
       .order('producttype', { ascending: true })
 
     if (error) throw error
@@ -124,26 +183,8 @@ export async function getProductsByType(type, productType, options = {}) {
       Object.entries(filterObj).forEach(([key, value]) => {
         if (value !== null && value !== undefined && value !== '') {
           // Map frontend field names to database column names
-          const columnMapping = {
-            productType: 'producttype',
-            emergencyBackupBattery: 'emergency_backup_battery',
-            powerW: 'power_w',
-            criRa: 'cri_ra',
-            beamAngle: 'efficacy_lmw',
-            pf: 'Power Factor',
-            leadTime: 'lead_time',
-            driverBrand: 'Driver Brand',
-            adjustmentDial: 'adjustment_dial',
-            pricePc: 'price_pc',
-            voltage: 'Voltage',
-            cct: 'CCT',
-            pluginSensor: 'plugin_sensor',
-            dimmable: 'Dimmable',
-            finish: 'Material Finish',
-            sensorMicrowaveBluetooth: 'sensor_microwave_bluetooth',
-          }
-          const dbColumn = columnMapping[key] || key
-          query = query.eq(dbColumn, value)
+          const dbColumn = fieldMapping[key] || key
+          query = query.eq(formatColumnName(dbColumn), value)
         }
       })
     }
@@ -173,26 +214,8 @@ export async function getAllProducts(type, filters = {}) {
     Object.entries(filters).forEach(([key, value]) => {
       if (value !== null && value !== undefined && value !== '') {
         // Map frontend field names to database column names
-        const columnMapping = {
-          productType: 'producttype',
-          emergencyBackupBattery: 'emergency_backup_battery',
-          powerW: 'power_w',
-          criRa: 'cri_ra',
-          beamAngle: 'efficacy_lmw',
-          pf: 'Power Factor',
-          leadTime: 'lead_time',
-          driverBrand: 'Driver Brand',
-          adjustmentDial: 'adjustment_dial',
-          pricePc: 'price_pc',
-          voltage: 'Voltage',
-          cct: 'CCT',
-          pluginSensor: 'plugin_sensor',
-          dimmable: 'Dimmable',
-          finish: 'Material Finish',
-          sensorMicrowaveBluetooth: 'sensor_microwave_bluetooth',
-        }
-        const dbColumn = columnMapping[key] || key
-        query = query.eq(dbColumn, value)
+        const dbColumn = fieldMapping[key] || key
+        query = query.eq(formatColumnName(dbColumn), value)
       }
     })
 
@@ -268,5 +291,182 @@ export async function searchProducts(type, searchTerm) {
   } catch (error) {
     console.error('Error searching products:', error)
     return { data: null, error: error.message }
+  }
+}
+
+// Update single product with field mapping
+export async function updateProduct(table, id, updateData) {
+  try {
+    // Map frontend field names to database column names
+    const mappedData = {}
+    Object.entries(updateData).forEach(([key, value]) => {
+      const dbColumn = fieldMapping[key] || key
+      mappedData[dbColumn] = value
+    })
+
+    const { data, error } = await supabase
+      .from(table)
+      .update(mappedData)
+      .eq('id', id)
+      .select()
+
+    if (error) throw error
+
+    return { data, error: null }
+  } catch (error) {
+    console.error('Error updating product:', error)
+    return { data: null, error: error.message }
+  }
+}
+
+// Delete single product
+export async function deleteProduct(table, id) {
+  try {
+    const { data, error } = await supabase
+      .from(table)
+      .delete()
+      .eq('id', id)
+
+    if (error) throw error
+
+    return { data, error: null }
+  } catch (error) {
+    console.error('Error deleting product:', error)
+    return { data: null, error: error.message }
+  }
+}
+
+// Bulk update multiple products
+export async function bulkUpdateProducts(table, ids, updateData) {
+  try {
+    // Map frontend field names to database column names
+    const mappedData = {}
+    Object.entries(updateData).forEach(([key, value]) => {
+      const dbColumn = fieldMapping[key] || key
+      mappedData[dbColumn] = value
+    })
+
+    const { data, error } = await supabase
+      .from(table)
+      .update(mappedData)
+      .in('id', ids)
+      .select()
+
+    if (error) throw error
+
+    return { data, error: null }
+  } catch (error) {
+    console.error('Error bulk updating products:', error)
+    return { data: null, error: error.message }
+  }
+}
+
+// Bulk delete multiple products
+export async function bulkDeleteProducts(table, ids) {
+  try {
+    const { data, error } = await supabase
+      .from(table)
+      .delete()
+      .in('id', ids)
+
+    if (error) throw error
+
+    return { data, error: null }
+  } catch (error) {
+    console.error('Error bulk deleting products:', error)
+    return { data: null, error: error.message }
+  }
+}
+
+// Bulk set category for multiple products
+export async function bulkSetCategory(table, ids, categoryValue) {
+  try {
+    const categoryColumn = table === 'indoor' ? 'Indoor' : 'Outdoor'
+    const updateData = { [categoryColumn]: categoryValue }
+
+    const { data, error } = await supabase
+      .from(table)
+      .update(updateData)
+      .in('id', ids)
+      .select()
+
+    if (error) throw error
+
+    return { data, error: null }
+  } catch (error) {
+    console.error('Error bulk setting category:', error)
+    return { data: null, error: error.message }
+  }
+}
+
+// Get products with pagination support
+export async function getProductsWithPagination(table, filters = {}, pagination = {}) {
+  try {
+    const { currentPage = 1, pageSize = 25 } = pagination
+    const offset = (currentPage - 1) * pageSize
+
+    let query = supabase
+      .from(table)
+      .select('*', { count: 'exact' })
+
+    // Apply filters
+    Object.entries(filters).forEach(([key, value]) => {
+      if (value !== null && value !== undefined && value !== '') {
+        // Special handling for category filter - map to table-specific column
+        if (key === 'category') {
+          const categoryColumn = table === 'indoor' ? 'Indoor' : 'Outdoor';
+          query = query.eq(formatColumnName(categoryColumn), value);
+        } else {
+          // Map frontend field names to database column names
+          const dbColumn = fieldMapping[key] || key;
+          query = query.eq(formatColumnName(dbColumn), value);
+        }
+      }
+    });
+
+    // Apply pagination
+    query = query.range(offset, offset + pageSize - 1)
+
+    const { data, error, count } = await query
+
+    if (error) throw error
+
+    return { data, count, error: null }
+  } catch (error) {
+    console.error('Error fetching products with pagination:', error)
+    return { data: null, count: 0, error: error.message }
+  }
+}
+
+// Get total product count for pagination
+export async function getProductCount(table, filters = {}) {
+  try {
+    let query = supabase
+      .from(table)
+      .select('*', { count: 'exact', head: true })
+
+    // Apply filters
+    Object.entries(filters).forEach(([key, value]) => {
+      if (value !== null && value !== undefined && value !== '') {
+        // Special handling for category filter - map to table-specific column
+        if (key === 'category') {
+          const categoryColumn = table === 'indoor' ? 'Indoor' : 'Outdoor';
+          query = query.eq(categoryColumn, value);
+        } else {
+          // Map frontend field names to database column names
+          const dbColumn = fieldMapping[key] || key;
+          query = query.eq(dbColumn, value);
+        }
+      }
+    });
+
+    const { count, error } = await query
+
+    if (error) throw error
+
+    return { count, error: null }
+  } catch (error) {
+    console.error('Error getting product count:', error)
+    return { count: 0, error: error.message }
   }
 }

@@ -373,9 +373,16 @@ export default function PriceEntryPage() {
                     </div>
                   )}
 
-                  {product.efficacy_lmw && (
+                  {product.beam_angle && (
                     <div>
                       <span className="text-gray-500 dark:text-gray-400">Beam Angle:</span>
+                      <div className="font-medium text-gray-900 dark:text-white">{product.beam_angle}</div>
+                    </div>
+                  )}
+
+                  {product.efficacy_lmw && (
+                    <div>
+                      <span className="text-gray-500 dark:text-gray-400">Efficacy (lm/W):</span>
                       <div className="font-medium text-gray-900 dark:text-white">{product.efficacy_lmw}</div>
                     </div>
                   )}

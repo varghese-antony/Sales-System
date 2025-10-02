@@ -14,7 +14,7 @@ import {
 } from "@/components/ui/dialog"
 import { SuccessAnimation } from "./SuccessAnimation"
 
-export function EnquiryForm({ isOpen, onClose, product, cartItems, onSuccess, appliedCoupon, selectedShipping }) {
+export function EnquiryForm({ isOpen, onClose, product, cartItems, onSuccess, /* appliedCoupon, */ selectedShipping }) {
   const [formData, setFormData] = useState({
     name: "",
     email: "",
@@ -44,7 +44,7 @@ export function EnquiryForm({ isOpen, onClose, product, cartItems, onSuccess, ap
       // Prepare customer details with coupon and shipping information
       const customerDetails = {
         ...formData,
-        couponCode: appliedCoupon?.coupon_code || null,
+        // couponCode: appliedCoupon?.coupon_code || null,
         deliveryMethod: selectedShipping || null,
         deliveryTime: selectedShipping === 'air' ? '30 days' : selectedShipping === 'boat' ? '35 days' : null
       }

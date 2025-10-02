@@ -1,0 +1,1451 @@
+"use client";
+
+import { useState, useEffect, useMemo, useCallback } from 'react';
+import {
+  Search,
+  Download,
+  RefreshCw,
+  Edit,
+  Trash2,
+  Plus,
+  CheckSquare,
+  Square,
+  MoreHorizontal,
+  Package,
+  Database,
+  BarChart3,
+  Settings,
+  X
+} from 'lucide-react';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Badge } from '@/components/ui/badge';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue
+} from '@/components/ui/select';
+import {
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle
+} from '@/components/ui/dialog';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+  DropdownMenuSeparator
+} from '@/components/ui/dropdown-menu';
+import { DataTable } from '@/components/ui/data-table';
+import { LoadingSpinner } from '@/components/ui/loading';
+import { useDebounce } from '@/hooks/useDebounce';
+import { useCache } from '@/hooks/useCache';
+import {
+  getProductsWithPaginationClient,
+  getDistinctCategoriesClient,
+  getDistinctProductTypesClient,
+  clearCacheClient,
+  createProductsClient,
+  updateProductClient,
+  deleteProductClient,
+  bulkDeleteProductsClient,
+  updateProductPricesClient,
+  bulkUpdateProductsClient,
+  bulkSetCategoryClient,
+  searchProductsClient
+} from '@/lib/database/products-client';
+import {
+  formatProductForExport,
+  exportProducts,
+  exportProductsCustom
+} from '@/lib/utils/export';
+import { EditProductModal } from '@/components/EditProductModal';
+import { BulkUpdateModal } from '@/components/BulkUpdateModal';
+import { StatsCardsSkeleton, DataTableSkeleton } from '@/components/DataTableSkeletons';
+
+const FALLBACK_EXPORT_PRODUCT = {
+  type: 'indoor',
+  Indoor: '',
+  producttype: '',
+  model_number: '',
+  sizes: '',
+  power_w: '',
+  Voltage: '',
+  CCT: '',
+  cri_ra: '',
+  lumen: '',
+  beamAngle: '',
+  'Power Factor': '',
+  Dimmable: '',
+  'Material Finish': '',
+  ledType: '',
+  'Driver Brand': '',
+  adjustment_dial: '',
+  certifications: '',
+  price_pc: ''
+};
+
+export default function DataManagementPage() {
+  // State management
+  const [products, setProducts] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+
+  // Filter states
+  const [typeFilter, setTypeFilter] = useState('both');
+  const [categoryFilter, setCategoryFilter] = useState('all');
+  const [productTypeFilter, setProductTypeFilter] = useState('all');
+  const [voltageFilter, setVoltageFilter] = useState('all');
+  const [powerFilter, setPowerFilter] = useState('all');
+  const [cctFilter, setCctFilter] = useState('all');
+  const [criFilter, setCriFilter] = useState('all');
+  const [dimmableFilter, setDimmableFilter] = useState('all');
+  const [ledTypeFilter, setLedTypeFilter] = useState('all');
+  const [driverBrandFilter, setDriverBrandFilter] = useState('all');
+  const [searchTerm, setSearchTerm] = useState('');
+
+  // Pagination states
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10000);
+  const [totalItems, setTotalItems] = useState(0);
+
+  // Selection states
+  const [selectedRows, setSelectedRows] = useState([]);
+
+  // Modal states
+  const [editProduct, setEditProduct] = useState(null);
+  const [bulkAction, setBulkAction] = useState(null);
+  const [deleteConfirm, setDeleteConfirm] = useState(null);
+  const [isCustomExportOpen, setIsCustomExportOpen] = useState(false);
+  const [createProduct, setCreateProduct] = useState(null);
+
+  // Data states
+  const [categories, setCategories] = useState([]);
+  const [productTypes, setProductTypes] = useState([]);
+  const [voltages, setVoltages] = useState([]);
+  const [powers, setPowers] = useState([]);
+  const [cctValues, setCctValues] = useState([]);
+  const [criValues, setCriValues] = useState([]);
+  const [dimmableValues, setDimmableValues] = useState([]);
+  const [ledTypes, setLedTypes] = useState([]);
+  const [driverBrands, setDriverBrands] = useState([]);
+
+  const [customExportFields, setCustomExportFields] = useState(() => new Set());
+  const [customExportScope, setCustomExportScope] = useState('all');
+
+  // Table columns configuration
+  const columns = [
+    {
+      key: 'select',
+      label: '',
+      width: '50px',
+      render: (_, row) => (
+        <input
+          type="checkbox"
+          checked={selectedRows.some(p => p.id === row.id)}
+          onChange={(e) => handleRowSelect(row.id, e.target.checked)}
+          className="rounded border-border/50"
+        />
+      )
+    },
+    {
+      key: 'type',
+      label: 'Type',
+      sortable: true,
+      render: (value) => (
+        <Badge variant={value === 'indoor' ? 'secondary' : 'outline'} size="sm">
+          {value === 'indoor' ? 'Indoor' : 'Outdoor'}
+        </Badge>
+      )
+    },
+    {
+      key: 'category',
+      label: 'Category',
+      sortable: true,
+      render: (_, row) => row[row.type === 'indoor' ? 'Indoor' : 'Outdoor'] || '-'
+    },
+    {
+      key: 'producttype',
+      label: 'Product Type',
+      sortable: true
+    },
+    {
+      key: 'model_number',
+      label: 'Model Number',
+      sortable: true
+    },
+    {
+      key: 'sizes',
+      label: 'Sizes',
+      sortable: true,
+      render: (value) => value || '-'
+    },
+    {
+      key: 'power_w',
+      label: 'Power (W)',
+      sortable: true,
+      render: (value) => value || '-'
+    },
+    {
+      key: 'Voltage',
+      label: 'Voltage',
+      sortable: true,
+      render: (value) => value || '-'
+    },
+    {
+      key: 'CCT',
+      label: 'CCT',
+      sortable: true,
+      render: (value) => value || '-'
+    },
+    {
+      key: 'cri_ra',
+      label: 'CRI (Ra)',
+      sortable: true,
+      render: (value) => value || '-'
+    },
+    {
+      key: 'lumen',
+      label: 'Lumen',
+      sortable: true,
+      render: (value) => value || '-'
+    },
+    {
+      key: 'beamAngle',
+      label: 'Beam Angle',
+      sortable: true,
+      render: (value) => value || '-'
+    },
+    {
+      key: 'Power Factor',
+      label: 'Power Factor',
+      sortable: true,
+      render: (value) => value || '-'
+    },
+    {
+      key: 'Dimmable',
+      label: 'Dimmable',
+      sortable: true,
+      render: (value) => value || '-'
+    },
+    {
+      key: 'Material Finish',
+      label: 'Material Finish',
+      sortable: true,
+      render: (value) => value || '-'
+    },
+    {
+      key: 'ledType',
+      label: 'LED Type',
+      sortable: true,
+      render: (value) => value || '-'
+    },
+    {
+      key: 'Driver Brand',
+      label: 'Driver Brand',
+      sortable: true,
+      render: (value) => value || '-'
+    },
+    {
+      key: 'adjustment_dial',
+      label: 'Adjustment Dial',
+      sortable: true,
+      render: (value) => value || '-'
+    },
+    {
+      key: 'certifications',
+      label: 'Certifications',
+      sortable: true,
+      render: (value) => value || '-'
+    },
+    {
+      key: 'price_pc',
+      label: 'Price',
+      sortable: true,
+      render: (value) => value ? `$${value}` : '-'
+    },
+    {
+      key: 'actions',
+      label: 'Actions',
+      render: (_, row) => (
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button variant="ghost" size="sm">
+              <MoreHorizontal className="h-4 w-4" />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end">
+            <DropdownMenuItem onClick={() => handleEditProduct(row)}>
+              <Edit className="h-4 w-4 mr-2" />
+              Edit
+            </DropdownMenuItem>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem
+              onClick={() => handleDeleteProduct(row)}
+              className="text-destructive"
+            >
+              <Trash2 className="h-4 w-4 mr-2" />
+              Delete
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+      )
+    }
+  ];
+
+  const productFieldOptions = useMemo(() => {
+    return columns.map(col => col.key).filter(key => key !== 'select' && key !== 'actions');
+  }, [columns]);
+
+  // Get available options for a field based on current filters
+  const getAvailableOptions = (field, productsToFilter = products) => {
+    const uniqueValues = new Set();
+
+    productsToFilter.forEach(product => {
+      if (product[field] && product[field].trim()) {
+        // Handle comma-separated values
+        const values = product[field].split(',').map(v => v.trim()).filter(v => v);
+        values.forEach(value => uniqueValues.add(value));
+      }
+    });
+
+    return Array.from(uniqueValues).sort();
+  };
+
+  // Get filtered products for dynamic filter options
+  const getFilteredProductsForOptions = () => {
+    let filtered = products;
+
+    // Apply all current filters except the one we're getting options for
+    if (typeFilter !== 'both') {
+      filtered = filtered.filter(p => p.type === typeFilter);
+    }
+
+    if (categoryFilter !== 'all') {
+      filtered = filtered.filter(p =>
+        p[p.type === 'indoor' ? 'Indoor' : 'Outdoor'] === categoryFilter
+      );
+    }
+
+    if (productTypeFilter !== 'all') {
+      filtered = filtered.filter(p => p.producttype === productTypeFilter);
+    }
+
+    if (voltageFilter !== 'all') {
+      filtered = filtered.filter(p => p.Voltage === voltageFilter);
+    }
+
+    if (powerFilter !== 'all') {
+      filtered = filtered.filter(p => p.power_w === powerFilter);
+    }
+
+    if (cctFilter !== 'all') {
+      filtered = filtered.filter(p => p.CCT === cctFilter);
+    }
+
+    if (criFilter !== 'all') {
+      filtered = filtered.filter(p => p.cri_ra === criFilter);
+    }
+
+    if (dimmableFilter !== 'all') {
+      filtered = filtered.filter(p => p.Dimmable === dimmableFilter);
+    }
+
+    if (ledTypeFilter !== 'all') {
+      filtered = filtered.filter(p => p.ledType === ledTypeFilter);
+    }
+
+    if (driverBrandFilter !== 'all') {
+      filtered = filtered.filter(p => p['Driver Brand'] === driverBrandFilter);
+    }
+
+    return filtered;
+  };
+
+  // Get dynamic filter options based on current filters
+  const getDynamicOptions = (field) => {
+    const filteredProducts = getFilteredProductsForOptions();
+    return getAvailableOptions(field, filteredProducts);
+  };
+
+  // Load initial data
+  useEffect(() => {
+    loadData();
+    loadFilterOptions();
+  }, []);
+
+  // Reload data when filters change
+  useEffect(() => {
+    loadData();
+  }, [typeFilter, categoryFilter, productTypeFilter, voltageFilter, powerFilter, cctFilter, criFilter, dimmableFilter, ledTypeFilter, driverBrandFilter, searchTerm, currentPage, pageSize]);
+
+  useEffect(() => {
+    if (isCustomExportOpen) {
+      setCustomExportFields(new Set(productFieldOptions));
+      setCustomExportScope(selectedRows.length > 0 ? 'selected' : 'all');
+    }
+  }, [isCustomExportOpen, productFieldOptions, selectedRows.length]);
+
+  const loadData = async () => {
+    try {
+      setLoading(true);
+
+      // Build filters
+      const filters = {};
+      if (categoryFilter !== 'all') filters.category = categoryFilter;
+      if (productTypeFilter !== 'all') filters.productType = productTypeFilter;
+      if (searchTerm) filters.search = searchTerm;
+
+      // Determine tables to query
+      const tables = typeFilter === 'both' ? ['indoor', 'outdoor'] :
+                    typeFilter === 'indoor' ? ['indoor'] : ['outdoor'];
+
+      let allProducts = [];
+      let totalCount = 0;
+
+      // Special handling for "show all" case
+      const isShowAll = pageSize >= 1000; // Assume 1000+ means show all
+
+      if (isShowAll) {
+        // When showing all items, fetch all data without pagination
+        if (typeFilter === 'both') {
+          // Query all from both tables
+          const [indoorResult, outdoorResult] = await Promise.all([
+            getProductsWithPaginationClient('indoor', 1, 10000, filters), // Large page size to get all
+            getProductsWithPaginationClient('outdoor', 1, 10000, filters)
+          ]);
+
+          if (indoorResult.error) throw indoorResult.error;
+          if (outdoorResult.error) throw outdoorResult.error;
+
+          // Combine results and add type information
+          const indoorProductsWithType = (indoorResult.data || []).map(product => ({
+            ...product,
+            type: 'indoor'
+          }));
+
+          const outdoorProductsWithType = (outdoorResult.data || []).map(product => ({
+            ...product,
+            type: 'outdoor'
+          }));
+
+          allProducts = [...indoorProductsWithType, ...outdoorProductsWithType];
+          totalCount = (indoorResult.count || 0) + (outdoorResult.count || 0);
+        } else {
+          // For single table queries, use normal pagination but with large page size
+          for (const table of tables) {
+            const result = await getProductsWithPaginationClient(table, 1, 10000, filters);
+            if (result.error) throw result.error;
+
+            // Add type information to products
+            const productsWithType = (result.data || []).map(product => ({
+              ...product,
+              type: table
+            }));
+
+            allProducts = [...allProducts, ...productsWithType];
+            totalCount += result.count || 0;
+          }
+        }
+      } else {
+        // Normal pagination logic
+        if (typeFilter === 'both') {
+          // For 'both' filter, implement balanced pagination to ensure exactly pageSize total results
+          // Split pageSize roughly evenly between tables, with a slight bias toward the first table
+          const halfPageSize = Math.ceil(pageSize / 2);
+          const firstTableSize = Math.floor(pageSize / 2) + (pageSize % 2); // Add remainder to first table
+          const secondTableSize = halfPageSize;
+
+          // Query first table with larger page size
+          const firstTable = tables[0];
+          const firstResult = await getProductsWithPaginationClient(firstTable, currentPage, firstTableSize, filters);
+          if (firstResult.error) throw firstResult.error;
+
+          // Query second table with smaller page size
+          const secondTable = tables[1];
+          const secondResult = await getProductsWithPaginationClient(secondTable, currentPage, secondTableSize, filters);
+          if (secondResult.error) throw secondResult.error;
+
+          // Combine results and add type information
+          const firstProductsWithType = (firstResult.data || []).map(product => ({
+            ...product,
+            type: firstTable
+          }));
+
+          const secondProductsWithType = (secondResult.data || []).map(product => ({
+            ...product,
+            type: secondTable
+          }));
+
+          allProducts = [...firstProductsWithType, ...secondProductsWithType];
+          totalCount = (firstResult.count || 0) + (secondResult.count || 0);
+        } else {
+          // For single table queries, use normal pagination
+          for (const table of tables) {
+            const result = await getProductsWithPaginationClient(table, currentPage, pageSize, filters);
+            if (result.error) throw result.error;
+
+            // Add type information to products
+            const productsWithType = (result.data || []).map(product => ({
+              ...product,
+              type: table
+            }));
+
+            allProducts = [...allProducts, ...productsWithType];
+            totalCount += result.count || 0;
+          }
+        }
+      }
+
+      setProducts(allProducts);
+      setTotalItems(totalCount);
+
+      // Update filter options based on loaded products
+      updateFilterOptions(allProducts);
+    } catch (error) {
+      console.error('Error loading products:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const updateFilterOptions = (productsList) => {
+    setCategories(getAvailableOptions('Indoor', productsList.filter(p => p.type === 'indoor')).concat(
+      getAvailableOptions('Outdoor', productsList.filter(p => p.type === 'outdoor'))
+    ));
+    setProductTypes(getAvailableOptions('producttype', productsList));
+    setVoltages(getAvailableOptions('Voltage', productsList));
+    setPowers(getAvailableOptions('power_w', productsList));
+    setCctValues(getAvailableOptions('CCT', productsList));
+    setCriValues(getAvailableOptions('cri_ra', productsList));
+    setDimmableValues(getAvailableOptions('Dimmable', productsList));
+    setLedTypes(getAvailableOptions('ledType', productsList));
+    setDriverBrands(getAvailableOptions('Driver Brand', productsList));
+  };
+
+  const loadFilterOptions = async () => {
+    try {
+      const tables = ['indoor', 'outdoor'];
+      const allCategories = new Set();
+      const allProductTypes = new Set();
+
+      for (const table of tables) {
+        const [categoriesResult, productTypesResult] = await Promise.all([
+          getDistinctCategoriesClient(table),
+          getDistinctProductTypesClient(table)
+        ]);
+
+        if (categoriesResult.data) {
+          categoriesResult.data.forEach(cat => {
+            if (cat[table === 'indoor' ? 'Indoor' : 'Outdoor']) {
+              allCategories.add(cat[table === 'indoor' ? 'Indoor' : 'Outdoor']);
+            }
+          });
+        }
+
+        if (productTypesResult.data) {
+          productTypesResult.data.forEach(pt => {
+            if (pt.producttype) allProductTypes.add(pt.producttype);
+          });
+        }
+      }
+
+      setCategories(Array.from(allCategories).sort());
+      setProductTypes(Array.from(allProductTypes).sort());
+    } catch (error) {
+      console.error('Error loading filter options:', error);
+    }
+  };
+
+  const handleRefresh = async () => {
+    setRefreshing(true);
+    await loadData();
+    setRefreshing(false);
+  };
+
+  const handleEditProduct = (product) => {
+    setEditProduct(product);
+  };
+
+  const handleCreateProduct = () => {
+    setCreateProduct({});
+  };
+
+  const handleSaveCreateProduct = async (newProduct) => {
+    try {
+      const { data, error } = await createProducts([newProduct]);
+      if (error) throw error;
+
+      // Prepend the new product to the current products list
+      const productWithId = { ...newProduct, id: data[0].id };
+      setProducts(prev => [productWithId, ...prev]);
+      setTotalItems(prev => prev + 1);
+      setCreateProduct(null);
+    } catch (error) {
+      console.error('Error creating product:', error);
+      alert('Failed to create product: ' + error.message);
+    }
+  };
+
+  const handleDeleteProduct = async (product) => {
+    if (!confirm(`Are you sure you want to delete ${product.model_number}?`)) return;
+
+    try {
+      const result = await deleteProduct(product.type, product.id);
+      if (result.error) throw result.error;
+
+      // Update local state
+      setProducts(prev => prev.filter(p => p.id !== product.id));
+      setTotalItems(prev => prev - 1);
+    } catch (error) {
+      console.error('Error deleting product:', error);
+      alert('Failed to delete product');
+    }
+  };
+
+  const handleBulkDelete = async () => {
+    if (selectedRows.length === 0) return;
+    if (!confirm(`Are you sure you want to delete ${selectedRows.length} products?`)) return;
+
+    try {
+      // Group by table
+      const byTable = selectedRows.reduce((acc, product) => {
+        if (!acc[product.type]) acc[product.type] = [];
+        acc[product.type].push(product.id);
+        return acc;
+      }, {});
+
+      // Delete from each table
+      for (const [table, ids] of Object.entries(byTable)) {
+        const result = await bulkDeleteProducts(table, ids);
+        if (result.error) throw result.error;
+      }
+
+      // Update local state
+      setProducts(prev => prev.filter(p => !selectedRows.some(s => s.id === p.id)));
+      setTotalItems(prev => prev - selectedRows.length);
+      setSelectedRows([]);
+    } catch (error) {
+      console.error('Error bulk deleting products:', error);
+      alert('Failed to delete products');
+    }
+  };
+
+  const handleBulkSetCategory = async (categoryValue) => {
+    if (selectedRows.length === 0) return;
+
+    try {
+      // Group by table
+      const byTable = selectedRows.reduce((acc, product) => {
+        if (!acc[product.type]) acc[product.type] = [];
+        acc[product.type].push(product.id);
+        return acc;
+      }, {});
+
+      // Update category for each table
+      for (const [table, ids] of Object.entries(byTable)) {
+        const result = await bulkSetCategory(table, ids, categoryValue);
+        if (result.error) throw result.error;
+      }
+
+      // Update local state
+      setProducts(prev => prev.map(p =>
+        selectedRows.some(s => s.id === p.id)
+          ? { ...p, [p.type === 'indoor' ? 'Indoor' : 'Outdoor']: categoryValue }
+          : p
+      ));
+      setSelectedRows([]);
+    } catch (error) {
+      console.error('Error bulk setting category:', error);
+      alert('Failed to update categories');
+    }
+  };
+
+  const handleBulkUpdate = async (updateData) => {
+    if (selectedRows.length === 0) return;
+
+    try {
+      // Group by table
+      const byTable = selectedRows.reduce((acc, product) => {
+        if (!acc[product.type]) acc[product.type] = [];
+        acc[product.type].push(product.id);
+        return acc;
+      }, {});
+
+      // Update each table
+      for (const [table, ids] of Object.entries(byTable)) {
+        const result = await bulkUpdateProducts(table, ids, updateData);
+        if (result.error) throw result.error;
+      }
+
+      // Refresh data
+      await loadData();
+      setSelectedRows([]);
+    } catch (error) {
+      console.error('Error bulk updating products:', error);
+      alert('Failed to update products');
+    }
+  };
+
+  const handleExportAll = async () => {
+    try {
+      const result = await exportProducts(products, `products-${typeFilter}-${new Date().toISOString().split('T')[0]}.csv`);
+      if (result.success) {
+        alert('Export completed successfully');
+      } else {
+        alert('Export failed: ' + result.error);
+      }
+    } catch (error) {
+      console.error('Export error:', error);
+      alert('Export failed');
+    }
+  };
+
+  const handleExportSelected = async () => {
+    if (!selectedRows.length) {
+      alert('No products selected for export.');
+      return;
+    }
+
+    try {
+      const result = await exportProducts(selectedRows, `products-selected-${new Date().toISOString().split('T')[0]}.csv`);
+      if (result.success) {
+        alert('Export completed successfully');
+      } else {
+        alert('Export failed: ' + result.error);
+      }
+    } catch (error) {
+      console.error('Export selected error:', error);
+      alert('Export failed');
+    }
+  };
+
+  const toggleCustomExportField = (field) => {
+    setCustomExportFields(prev => {
+      const next = new Set(prev);
+      if (next.has(field)) {
+        next.delete(field);
+      } else {
+        next.add(field);
+      }
+      return next;
+    });
+  };
+
+  const handleCustomExport = async () => {
+    const fieldsToExport = productFieldOptions.filter(field => customExportFields.has(field));
+
+    if (fieldsToExport.length === 0) {
+      alert('Select at least one column to export.');
+      return;
+    }
+
+    const dataSource = customExportScope === 'selected' ? selectedRows : products;
+
+    if (!dataSource.length) {
+      alert('No products available for export.');
+      return;
+    }
+
+    try {
+      const scopeLabel = customExportScope === 'selected' ? 'selected' : 'all';
+      const result = await exportProductsCustom(
+        dataSource,
+        fieldsToExport,
+        `products-${scopeLabel}-${new Date().toISOString().split('T')[0]}.csv`
+      );
+
+      if (result.success) {
+        alert('Export completed successfully');
+        setIsCustomExportOpen(false);
+      } else {
+        alert('Export failed: ' + result.error);
+      }
+    } catch (error) {
+      console.error('Custom export error:', error);
+      alert('Export failed');
+    }
+  };
+
+  const handleRowSelect = (rowId, checked) => {
+    if (checked) {
+      setSelectedRows(prev => [...prev, products.find(p => p.id === rowId)]);
+    } else {
+      setSelectedRows(prev => prev.filter(p => p.id !== rowId));
+    }
+  };
+
+  const handleSelectAll = () => {
+    if (selectedRows.length === products.length) {
+      setSelectedRows([]);
+    } else {
+      setSelectedRows(products);
+    }
+  };
+
+  // Handle page size change
+  const handlePageSizeChange = (newPageSize) => {
+    if (newPageSize === 'all' || newPageSize >= 1000) {
+      // Set a very large page size to indicate "show all"
+      setPageSize(10000);
+    } else {
+      setPageSize(newPageSize);
+    }
+    setCurrentPage(1); // Reset to first page when page size changes
+  };
+
+  // Table columns configuration
+  const columns = [
+    {
+      key: 'select',
+      label: '',
+      width: '50px',
+      render: (_, row) => (
+        <input
+          type="checkbox"
+          checked={selectedRows.some(p => p.id === row.id)}
+          onChange={(e) => handleRowSelect(row.id, e.target.checked)}
+          className="rounded border-border/50"
+        />
+      )
+    },
+    {
+      key: 'type',
+      label: 'Type',
+      sortable: true,
+      render: (value) => (
+        <Badge variant={value === 'indoor' ? 'secondary' : 'outline'} size="sm">
+          {value === 'indoor' ? 'Indoor' : 'Outdoor'}
+        </Badge>
+      )
+    },
+    {
+      key: 'category',
+      label: 'Category',
+      sortable: true,
+      render: (_, row) => row[row.type === 'indoor' ? 'Indoor' : 'Outdoor'] || '-'
+    },
+    {
+      key: 'producttype',
+      label: 'Product Type',
+      sortable: true
+    },
+    {
+      key: 'model_number',
+      label: 'Model Number',
+      sortable: true
+    },
+    {
+      key: 'sizes',
+      label: 'Sizes',
+      sortable: true,
+      render: (value) => value || '-'
+    },
+    {
+      key: 'power_w',
+      label: 'Power (W)',
+      sortable: true,
+      render: (value) => value || '-'
+    },
+    {
+      key: 'Voltage',
+      label: 'Voltage',
+      sortable: true,
+      render: (value) => value || '-'
+    },
+    {
+      key: 'CCT',
+      label: 'CCT',
+      sortable: true,
+      render: (value) => value || '-'
+    },
+    {
+      key: 'cri_ra',
+      label: 'CRI (Ra)',
+      sortable: true,
+      render: (value) => value || '-'
+    },
+    {
+      key: 'lumen',
+      label: 'Lumen',
+      sortable: true,
+      render: (value) => value || '-'
+    },
+    {
+      key: 'beamAngle',
+      label: 'Beam Angle',
+      sortable: true,
+      render: (value) => value || '-'
+    },
+    {
+      key: 'Power Factor',
+      label: 'Power Factor',
+      sortable: true,
+      render: (value) => value || '-'
+    },
+    {
+      key: 'Dimmable',
+      label: 'Dimmable',
+      sortable: true,
+      render: (value) => value || '-'
+    },
+    {
+      key: 'Material Finish',
+      label: 'Material Finish',
+      sortable: true,
+      render: (value) => value || '-'
+    },
+    {
+      key: 'ledType',
+      label: 'LED Type',
+      sortable: true,
+      render: (value) => value || '-'
+    },
+    {
+      key: 'Driver Brand',
+      label: 'Driver Brand',
+      sortable: true,
+      render: (value) => value || '-'
+    },
+    {
+      key: 'adjustment_dial',
+      label: 'Adjustment Dial',
+      sortable: true,
+      render: (value) => value || '-'
+    },
+    {
+      key: 'certifications',
+      label: 'Certifications',
+      sortable: true,
+      render: (value) => value || '-'
+    },
+    {
+      key: 'price_pc',
+      label: 'Price',
+      sortable: true,
+      render: (value) => value ? `$${value}` : '-'
+    },
+    {
+      key: 'actions',
+      label: 'Actions',
+      render: (_, row) => (
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button variant="ghost" size="sm">
+              <MoreHorizontal className="h-4 w-4" />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end">
+            <DropdownMenuItem onClick={() => handleEditProduct(row)}>
+              <Edit className="h-4 w-4 mr-2" />
+              Edit
+            </DropdownMenuItem>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem
+              onClick={() => handleDeleteProduct(row)}
+              className="text-destructive"
+            >
+              <Trash2 className="h-4 w-4 mr-2" />
+              Delete
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+      )
+    }
+  // Statistics
+  const stats = useMemo(() => {
+    const indoorCount = products.filter(p => p.type === 'indoor').length;
+    const outdoorCount = products.filter(p => p.type === 'outdoor').length;
+    const totalValue = products.reduce((sum, p) => sum + (parseFloat(p.price_pc) || 0), 0);
+
+    return {
+      totalProducts: totalItems,
+      indoorProducts: indoorCount,
+      outdoorProducts: outdoorCount,
+      totalValue: totalValue.toFixed(2),
+      selectedCount: selectedRows.length
+    };
+  }, [products, totalItems, selectedRows]);
+
+  if (loading) {
+    return (
+      <div className='min-h-screen bg-gradient-to-br from-purple-50/50 via-indigo-50/30 to-blue-50/50 dark:from-purple-950/20 dark:via-indigo-950/10 dark:to-blue-950/20'>
+        <div className="container mx-auto p-4 max-w-7xl">
+          <div className="space-y-6">
+            <StatsCardsSkeleton count={5} />
+            <DataTableSkeleton />
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-purple-50/50 via-indigo-50/30 to-blue-50/50 dark:from-purple-950/20 dark:via-indigo-950/10 dark:to-blue-950/20 relative">
+      {/* Background Pattern */}
+      <div className="absolute inset-0 opacity-[0.02] dark:opacity-[0.05]">
+        <svg className="w-full h-full" xmlns="http://www.w3.org/2000/svg">
+          <defs>
+            <pattern id="data-grid" width="60" height="60" patternUnits="userSpaceOnUse">
+              <path d="M 60 0 L 0 0 0 60" fill="none" stroke="currentColor" strokeWidth="1" />
+            </pattern>
+          </defs>
+          <rect width="100%" height="100%" fill="url(#data-grid)" />
+        </svg>
+      </div>
+
+      <div className="container mx-auto p-4 max-w-7xl relative z-10 space-y-6">
+        {/* Header */}
+        <Card className="border border-border/50 hover:border-primary/30 transition-all duration-300">
+          <CardHeader>
+            <div className="flex items-center justify-between">
+              <div className="flex gap-2">
+                <Button onClick={handleCreateProduct} variant="default" size="sm">
+                  <Plus className="h-4 w-4 mr-2" />
+                  Add Product
+                </Button>
+                <Button
+                  onClick={handleRefresh}
+                  disabled={refreshing}
+                  variant="outline"
+                  size="sm"
+                >
+                  <RefreshCw className={`h-4 w-4 mr-2 ${refreshing ? 'animate-spin' : ''}`} />
+                  Refresh
+                </Button>
+              </div>
+            </div>
+          </CardHeader>
+        </Card>
+
+        {/* Statistics Cards */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+          <Card className="border border-border/50 hover:shadow-lg transition-all duration-300">
+            <CardContent className="p-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-medium text-muted-foreground">Total Products</p>
+                  <p className="text-2xl font-bold text-foreground">{stats.totalProducts}</p>
+                </div>
+                <Package className="h-8 w-8 text-blue-500" />
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card className="border border-border/50 hover:shadow-lg transition-all duration-300">
+            <CardContent className="p-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-medium text-muted-foreground">Indoor Products</p>
+                  <p className="text-2xl font-bold text-foreground">{stats.indoorProducts}</p>
+                </div>
+                <Package className="h-8 w-8 text-green-500" />
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card className="border border-border/50 hover:shadow-lg transition-all duration-300">
+            <CardContent className="p-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-medium text-muted-foreground">Outdoor Products</p>
+                  <p className="text-2xl font-bold text-foreground">{stats.outdoorProducts}</p>
+                </div>
+                <Package className="h-8 w-8 text-orange-500" />
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card className="border border-border/50 hover:shadow-lg transition-all duration-300">
+            <CardContent className="p-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-medium text-muted-foreground">Total Value</p>
+                  <p className="text-2xl font-bold text-foreground">${stats.totalValue}</p>
+                </div>
+                <BarChart3 className="h-8 w-8 text-purple-500" />
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card className="border border-border/50 hover:shadow-lg transition-all duration-300">
+            <CardContent className="p-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-medium text-muted-foreground">Selected</p>
+                  <p className="text-2xl font-bold text-foreground">{stats.selectedCount}</p>
+                </div>
+                <CheckSquare className="h-8 w-8 text-primary" />
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Bulk Operations Toolbar */}
+        {selectedRows.length > 0 && (
+          <Card className="border border-primary/50 bg-primary/5">
+            <CardContent className="p-4">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-4">
+                  <span className="text-sm font-medium">
+                    {selectedRows.length} product{selectedRows.length !== 1 ? 's' : ''} selected
+                  </span>
+                  <Button
+                    onClick={() => setBulkAction('category')}
+                    variant="outline"
+                    size="sm"
+                  >
+                    Set Category
+                  </Button>
+                  <Button
+                    onClick={() => setBulkAction('update')}
+                    variant="outline"
+                    size="sm"
+                  >
+                    Mass Update
+                  </Button>
+                  <Button
+                    onClick={handleExportSelected}
+                    variant="outline"
+                    size="sm"
+                  >
+                    <Download className="h-4 w-4 mr-2" />
+                    Export Selected
+                  </Button>
+                  <Button
+                    onClick={handleBulkDelete}
+                    variant="destructive"
+                    size="sm"
+                  >
+                    <Trash2 className="h-4 w-4 mr-2" />
+                    Delete Selected
+                  </Button>
+                </div>
+                <Button
+                  onClick={() => setSelectedRows([])}
+                  variant="ghost"
+                  size="sm"
+                >
+                  <X className="h-4 w-4 mr-2" />
+                  Clear Selection
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Filters and Actions */}
+        <Card className="border border-border/50">
+          <CardContent className="p-6">
+            <div className="flex flex-col lg:flex-row gap-4 items-start lg:items-center justify-between">
+              <div className="flex flex-col sm:flex-row gap-4 flex-1">
+                {/* Type Toggle */}
+                <div className="flex gap-2">
+                  {[
+                    { value: 'both', label: 'Both' },
+                    { value: 'indoor', label: 'Indoor' },
+                    { value: 'outdoor', label: 'Outdoor' }
+                  ].map(type => (
+                    <Button
+                      key={type.value}
+                      onClick={() => setTypeFilter(type.value)}
+                      variant={typeFilter === type.value ? 'default' : 'outline'}
+                      size="sm"
+                    >
+                      {type.label}
+                    </Button>
+                  ))}
+                </div>
+
+                {/* Category Filter */}
+                <Select value={categoryFilter} onValueChange={setCategoryFilter}>
+                  <SelectTrigger className="w-40">
+                    <SelectValue placeholder="All Categories" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Categories</SelectItem>
+                    {categories.map(category => (
+                      <SelectItem key={category} value={category}>{category}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+
+                {/* Product Type Filter */}
+                <Select value={productTypeFilter} onValueChange={setProductTypeFilter}>
+                  <SelectTrigger className="w-40">
+                    <SelectValue placeholder="All Product Types" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Product Types</SelectItem>
+                    {getDynamicOptions('producttype').map(type => (
+                      <SelectItem key={type} value={type}>{type}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+
+                {/* Voltage Filter */}
+                <Select value={voltageFilter} onValueChange={setVoltageFilter}>
+                  <SelectTrigger className="w-32">
+                    <SelectValue placeholder="All Voltages" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Voltages</SelectItem>
+                    {getDynamicOptions('Voltage').map(voltage => (
+                      <SelectItem key={voltage} value={voltage}>{voltage}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+
+                {/* Power Filter */}
+                <Select value={powerFilter} onValueChange={setPowerFilter}>
+                  <SelectTrigger className="w-32">
+                    <SelectValue placeholder="All Powers" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Powers</SelectItem>
+                    {getDynamicOptions('power_w').map(power => (
+                      <SelectItem key={power} value={power}>{power}W</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+
+                {/* CCT Filter */}
+                <Select value={cctFilter} onValueChange={setCctFilter}>
+                  <SelectTrigger className="w-32">
+                    <SelectValue placeholder="All CCT" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All CCT</SelectItem>
+                    {getDynamicOptions('CCT').map(cct => (
+                      <SelectItem key={cct} value={cct}>{cct}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+
+                {/* CRI Filter */}
+                <Select value={criFilter} onValueChange={setCriFilter}>
+                  <SelectTrigger className="w-32">
+                    <SelectValue placeholder="All CRI" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All CRI</SelectItem>
+                    {getDynamicOptions('cri_ra').map(cri => (
+                      <SelectItem key={cri} value={cri}>{cri}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+
+                {/* Dimmable Filter */}
+                <Select value={dimmableFilter} onValueChange={setDimmableFilter}>
+                  <SelectTrigger className="w-32">
+                    <SelectValue placeholder="All Dimmable" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Dimmable</SelectItem>
+                    {getDynamicOptions('Dimmable').map(dimmable => (
+                      <SelectItem key={dimmable} value={dimmable}>{dimmable}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+
+                {/* LED Type Filter */}
+                <Select value={ledTypeFilter} onValueChange={setLedTypeFilter}>
+                  <SelectTrigger className="w-36">
+                    <SelectValue placeholder="All LED Types" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All LED Types</SelectItem>
+                    {getDynamicOptions('ledType').map(ledType => (
+                      <SelectItem key={ledType} value={ledType}>{ledType}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+
+                {/* Driver Brand Filter */}
+                <Select value={driverBrandFilter} onValueChange={setDriverBrandFilter}>
+                  <SelectTrigger className="w-36">
+                    <SelectValue placeholder="All Driver Brands" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Driver Brands</SelectItem>
+                    {getDynamicOptions('Driver Brand').map(brand => (
+                      <SelectItem key={brand} value={brand}>{brand}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+
+                {/* Search */}
+                <div className="relative flex-1 max-w-sm">
+                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                  <Input
+                    placeholder="Search model number or product type..."
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    className="pl-10"
+                  />
+                </div>
+              </div>
+
+              {/* Actions */}
+              <div className="flex gap-2">
+                <Button onClick={handleSelectAll} variant="outline" size="sm">
+                  {selectedRows.length === getFilteredProducts().length && getFilteredProducts().length > 0 ? 'Deselect All' : 'Select All'}
+                </Button>
+                <Button onClick={handleExportAll} variant="outline" size="sm">
+                  <Download className="h-4 w-4 mr-2" />
+                  Export CSV
+                </Button>
+                <Button onClick={() => setIsCustomExportOpen(true)} variant="outline" size="sm">
+                  <Settings className="h-4 w-4 mr-2" />
+                  Custom Export
+                </Button>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Data Table */}
+        <Card className="border border-border/50">
+          <CardHeader>
+            <CardTitle className="text-lg">Product Data ({totalItems} total)</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <DataTable
+              data={getFilteredProducts()}
+              columns={columns}
+              loading={false}
+              emptyMessage="No products found matching your criteria"
+              pageSize={pageSize >= 1000 ? totalItems : pageSize} // Show actual total when showing all
+              currentPage={pageSize >= 1000 ? 1 : currentPage} // Always show page 1 when showing all
+              totalItems={totalItems}
+              onPageChange={setCurrentPage}
+              onPageSizeChange={handlePageSizeChange}
+              isShowingAll={pageSize >= 1000}
+              showRowSelection={true}
+              selectedRows={selectedRows}
+              onRowSelect={handleRowSelect}
+            />
+          </CardContent>
+        </Card>
+
+        {/* Modals */}
+        <EditProductModal
+          product={editProduct}
+          isOpen={!!editProduct}
+          onClose={() => setEditProduct(null)}
+          onSave={(updatedProduct) => {
+            if (updatedProduct === null && editProduct) {
+              setProducts(prev => prev.filter(p => p.id !== editProduct.id));
+              setTotalItems(prev => Math.max(prev - 1, 0));
+            } else if (updatedProduct) {
+              setProducts(prev => prev.map(p =>
+                p.id === updatedProduct.id ? updatedProduct : p
+              ));
+            }
+            setEditProduct(null);
+          }}
+        />
+
+        <EditProductModal
+          product={createProduct}
+          isOpen={!!createProduct}
+          onClose={() => setCreateProduct(null)}
+          onSave={handleSaveCreateProduct}
+          isCreate={true}
+        />
+
+        <BulkUpdateModal
+          selectedProducts={selectedRows}
+          action={bulkAction}
+          isOpen={!!bulkAction}
+          onClose={() => setBulkAction(null)}
+          onComplete={(result) => {
+            if (bulkAction === 'update') {
+              handleBulkUpdate(result);
+            } else if (bulkAction === 'category') {
+              handleBulkSetCategory(result);
+            }
+            setBulkAction(null);
+          }}
+          availableCategories={categories}
+        />
+
+        <Dialog open={isCustomExportOpen} onOpenChange={setIsCustomExportOpen}>
+          <DialogContent className="max-w-lg">
+            <DialogHeader>
+              <DialogTitle>Custom Export</DialogTitle>
+            </DialogHeader>
+            <div className="space-y-4">
+              <div className="space-y-2">
+                <p className="text-sm text-muted-foreground">
+                  Select the columns you want to include in the exported file.
+                </p>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-64 overflow-y-auto rounded-md border border-border/50 p-3">
+                  {productFieldOptions.map(field => (
+                    <label key={field} className="flex items-center gap-2 text-sm">
+                      <input
+                        type="checkbox"
+                        className="h-4 w-4 rounded border-border/50"
+                        checked={customExportFields.has(field)}
+                        onChange={() => toggleCustomExportField(field)}
+                      />
+                      {field}
+                    </label>
+                  ))}
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <span className="text-sm font-medium">Export Scope</span>
+                <div className="flex flex-col sm:flex-row gap-3">
+                  <label className="flex items-center gap-2 text-sm">
+                    <input
+                      type="radio"
+                      name="custom-export-scope"
+                      className="h-4 w-4"
+                      value="all"
+                      checked={customExportScope === 'all'}
+                      onChange={() => setCustomExportScope('all')}
+                    />
+                    All loaded products ({products.length})
+                  </label>
+                  <label className="flex items-center gap-2 text-sm">
+                    <input
+                      type="radio"
+                      name="custom-export-scope"
+                      className="h-4 w-4"
+                      value="selected"
+                      checked={customExportScope === 'selected'}
+                      onChange={() => setCustomExportScope('selected')}
+                      disabled={selectedRows.length === 0}
+                    />
+                    Selected products ({selectedRows.length})
+                  </label>
+                </div>
+                {customExportScope === 'selected' && selectedRows.length === 0 && (
+                  <p className="text-sm text-destructive">
+                    Select at least one product to export selected rows.
+                  </p>
+                )}
+              </div>
+            </div>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setIsCustomExportOpen(false)}>
+                Cancel
+              </Button>
+              <Button onClick={handleCustomExport}>
+                Export
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      </div>
+    </div>
+  );
+}

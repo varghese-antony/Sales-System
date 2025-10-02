@@ -9,14 +9,14 @@ import { Badge } from "@/components/ui/badge"
 import { QuantitySelector } from "@/components/ui/quantity-selector"
 import { EnquiryForm } from "@/components/EnquiryForm"
 import { useCart } from "@/contexts/CartContext"
-import { useCoupon } from "@/contexts/CouponContext"
+// import { useCoupon } from "@/contexts/CouponContext"
 import { Input } from "@/components/ui/input"
 import Link from "next/link"
 
 export default function CartPage() {
   const { items, removeFromCart, updateQuantity, clearCart } = useCart()
-  const { coupons, loading, error, appliedCoupon, applyCoupon, removeCoupon } = useCoupon()
-  const [couponCode, setCouponCode] = useState('')
+  // const { coupons, loading, error, appliedCoupon, applyCoupon, removeCoupon } = useCoupon()
+  // const [couponCode, setCouponCode] = useState('')
   const [selectedShipping, setSelectedShipping] = useState('air')
   const [isEnquiryOpen, setIsEnquiryOpen] = useState(false)
 
@@ -25,53 +25,53 @@ export default function CartPage() {
     updateQuantity(productId, newQuantity)
   }
 
-  const handleApplyCoupon = (e) => {
-    e.preventDefault()
-    if (couponCode.trim()) {
-      applyCoupon(couponCode.trim())
-      setCouponCode('')
-    }
-  }
+  // const handleApplyCoupon = (e) => {
+  //   e.preventDefault()
+  //   if (couponCode.trim()) {
+  //     applyCoupon(couponCode.trim())
+  //     setCouponCode('')
+  //   }
+  // }
 
-  const handleRemoveCoupon = () => {
-    removeCoupon()
-  }
+  // const handleRemoveCoupon = () => {
+  //   removeCoupon()
+  // }
 
-  // Auto-remove expired coupons on mount and when appliedCoupon changes
-  useEffect(() => {
-    if (appliedCoupon && isCouponExpired(appliedCoupon)) {
-      removeCoupon()
-    }
-  }, [appliedCoupon])
+  // // Auto-remove expired coupons on mount and when appliedCoupon changes
+  // useEffect(() => {
+  //   if (appliedCoupon && isCouponExpired(appliedCoupon)) {
+  //     removeCoupon()
+  //   }
+  // }, [appliedCoupon])
 
-  const isCouponExpired = (coupon) => {
-    if (!coupon) return false
-    const now = new Date()
-    const expiry = new Date(coupon.expiry)
-    return now > expiry
-  }
+  // const isCouponExpired = (coupon) => {
+  //   if (!coupon) return false
+  //   const now = new Date()
+  //   const expiry = new Date(coupon.expiry)
+  //   return now > expiry
+  // }
 
   const getTotalItems = () => {
     return items.reduce((total, item) => total + item.quantity, 0)
   }
 
-  const calculateDiscount = () => {
-    if (!appliedCoupon) return 0
-    const change = parseFloat(appliedCoupon.change)
-    if (isNaN(change)) return 0
+  // const calculateDiscount = () => {
+  //   if (!appliedCoupon) return 0
+  //   const change = parseFloat(appliedCoupon.change)
+  //   if (isNaN(change)) return 0
 
-    // For now, we'll assume a base total of $1000 for demo purposes
-    // In a real app, this would be the actual cart total
-    const baseTotal = 1000
-    const discount = change > 0 ? baseTotal * (change / 100) : baseTotal * Math.abs(change) / 100
-    return change > 0 ? discount : -discount
-  }
+  //   // For now, we'll assume a base total of $1000 for demo purposes
+  //   // In a real app, this would be the actual cart total
+  //   const baseTotal = 1000
+  //   const discount = change > 0 ? baseTotal * (change / 100) : baseTotal * Math.abs(change) / 100
+  //   return change > 0 ? discount : -discount
+  // }
 
-  const getDiscountedTotal = () => {
-    const baseTotal = 1000 // This should be calculated from actual cart items
-    const discount = calculateDiscount()
-    return Math.max(0, baseTotal + discount)
-  }
+  // const getDiscountedTotal = () => {
+  //   const baseTotal = 1000 // This should be calculated from actual cart items
+  //   const discount = calculateDiscount()
+  //   return Math.max(0, baseTotal + discount)
+  // }
 
   const getShippingTime = () => {
     return selectedShipping === 'air' ? 30 : 35
@@ -248,8 +248,8 @@ export default function CartPage() {
                 <CardTitle>Cart Summary</CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
-                {/* Coupon Section */}
-                <div className="space-y-3">
+                {/* Coupon Section - Temporarily Disabled */}
+                {/* <div className="space-y-3">
                   <h4 className="font-medium flex items-center gap-2">
                     <Percent className="w-4 h-4" />
                     Coupon Code
@@ -291,7 +291,7 @@ export default function CartPage() {
                   {error && (
                     <p className="text-sm text-destructive">{error}</p>
                   )}
-                </div>
+                </div> */}
 
                 {/* Shipping Options Section */}
                 <div className="space-y-3">
@@ -362,7 +362,7 @@ export default function CartPage() {
                 </div>
 
                 <div className="border-t pt-4 space-y-2">
-                  {appliedCoupon && !isCouponExpired(appliedCoupon) && (
+                  {/* {appliedCoupon && !isCouponExpired(appliedCoupon) && (
                     <div className="flex justify-between items-center py-2 border-t border-dashed">
                       <span className="text-lg font-semibold">Total:</span>
                       <span className="text-lg font-bold">${getDiscountedTotal().toFixed(2)}</span>
@@ -375,7 +375,7 @@ export default function CartPage() {
                         This coupon has expired. Please remove it and try a different coupon code.
                       </p>
                     </div>
-                  )}
+                  )} */}
                 </div>
 
                 <div className="space-y-2">
@@ -388,16 +388,16 @@ export default function CartPage() {
                   className="w-full"
                   size="lg"
                   onClick={() => setIsEnquiryOpen(true)}
-                  disabled={appliedCoupon && isCouponExpired(appliedCoupon)}
+                  // disabled={appliedCoupon && isCouponExpired(appliedCoupon)}
                 >
                   Submit Enquiry
                 </Button>
 
-                {appliedCoupon && isCouponExpired(appliedCoupon) && (
+                {/* {appliedCoupon && isCouponExpired(appliedCoupon) && (
                   <p className="text-xs text-red-600 text-center">
                     Please remove the expired coupon before submitting your enquiry.
                   </p>
-                )}
+                )} */}
 
                 <p className="text-xs text-muted-foreground text-center">
                   Our team will review your selection and get back to you with detailed pricing and availability information.
@@ -414,7 +414,7 @@ export default function CartPage() {
         onClose={() => setIsEnquiryOpen(false)}
         cartItems={items}
         onSuccess={clearCart}
-        appliedCoupon={appliedCoupon}
+        // appliedCoupon={appliedCoupon}
         selectedShipping={selectedShipping}
       />
     </div>

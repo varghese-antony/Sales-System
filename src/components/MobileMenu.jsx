@@ -2,11 +2,12 @@
 
 import { useState } from "react"
 import { motion, AnimatePresence } from "framer-motion"
-import { Lightbulb, Sun, Home, X, ChevronRight } from "lucide-react"
+import { Lightbulb, Sun, Home, X, ChevronRight, LayoutDashboard, User, LogOut, UserCircle, LogIn } from "lucide-react"
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { ThemeToggle } from "@/components/ThemeToggle"
 import { CartButton } from "@/components/CartButton"
+import { useAuth } from "@/contexts/AuthContext"
 
 const menuVariants = {
   closed: {
@@ -32,7 +33,8 @@ const itemVariants = {
   open: { opacity: 1, x: 0 }
 }
 
-export function MobileMenu({ isOpen, onClose, indoorCategories = [], outdoorCategories = [] }) {
+export function MobileMenu({ isOpen, onClose, indoorCategories = [], outdoorCategories = [], isAdmin, loading }) {
+  const { user, profile, signOut } = useAuth()
   const [expandedSection, setExpandedSection] = useState(null)
 
   const toggleSection = (section) => {
@@ -100,6 +102,20 @@ export function MobileMenu({ isOpen, onClose, indoorCategories = [], outdoorCate
                       <span className="font-medium">Home</span>
                     </Link>
                   </motion.div>
+
+                  {/* Dashboard */}
+                  {!loading && isAdmin && (
+                    <motion.div variants={itemVariants}>
+                      <Link
+                        href="/admin-dashboard"
+                        onClick={onClose}
+                        className="flex items-center space-x-3 p-3 rounded-xl hover:bg-accent transition-colors duration-200"
+                      >
+                        <LayoutDashboard className="w-5 h-5 text-primary" />
+                        <span className="font-medium">Dashboard</span>
+                      </Link>
+                    </motion.div>
+                  )}
 
                   {/* Indoor Section */}
                   <motion.div variants={itemVariants}>
@@ -200,6 +216,66 @@ export function MobileMenu({ isOpen, onClose, indoorCategories = [], outdoorCate
                       )}
                     </AnimatePresence>
                   </motion.div>
+
+                  {/* Authentication Section */}
+                  {!loading && (
+                    <motion.div variants={itemVariants} className="pt-4 border-t border-border">
+                      {user ? (
+                        // User is authenticated - show profile and sign out
+                        <div className="space-y-3">
+                          <div className="flex items-center space-x-3 p-3 rounded-xl bg-accent/50">
+                            <UserCircle className="w-5 h-5 text-primary" />
+                            <div className="flex-1">
+                              <p className="font-medium text-sm">
+                                {profile?.full_name || 'User'}
+                              </p>
+                              <p className="text-xs text-muted-foreground">
+                                {user.email}
+                              </p>
+                            </div>
+                          </div>
+                          <Link
+                            href="/profile"
+                            onClick={onClose}
+                            className="flex items-center space-x-3 p-3 rounded-xl hover:bg-accent transition-colors duration-200"
+                          >
+                            <User className="w-5 h-5 text-primary" />
+                            <span className="font-medium">Profile</span>
+                          </Link>
+                          <button
+                            onClick={() => {
+                              signOut()
+                              onClose()
+                            }}
+                            className="flex items-center space-x-3 p-3 rounded-xl hover:bg-accent transition-colors duration-200 w-full text-left text-red-600"
+                          >
+                            <LogOut className="w-5 h-5" />
+                            <span className="font-medium">Sign Out</span>
+                          </button>
+                        </div>
+                      ) : (
+                        // User is not authenticated - show sign in/up buttons
+                        <div className="space-y-3">
+                          <Link
+                            href="/login"
+                            onClick={onClose}
+                            className="flex items-center justify-center space-x-2 p-3 rounded-xl border border-border hover:bg-accent transition-colors duration-200"
+                          >
+                            <LogIn className="w-5 h-5 text-primary" />
+                            <span className="font-medium">Sign In</span>
+                          </Link>
+                          <Link
+                            href="/register"
+                            onClick={onClose}
+                            className="flex items-center justify-center space-x-2 p-3 rounded-xl bg-gradient-to-r from-blue-600 to-purple-600 text-white hover:from-blue-700 hover:to-purple-700 transition-colors duration-200"
+                          >
+                            <UserCircle className="w-5 h-5" />
+                            <span className="font-medium">Sign Up</span>
+                          </Link>
+                        </div>
+                      )}
+                    </motion.div>
+                  )}
                 </motion.div>
               </div>
 

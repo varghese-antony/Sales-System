@@ -1,5 +1,6 @@
 "use client"
 
+import { useMemo } from 'react'
 import { motion } from "framer-motion"
 import { Check, Zap, Info } from "lucide-react"
 import { Button } from "@/components/ui/button"
@@ -54,18 +55,43 @@ export function OptionSelector({
     return variants[index % variants.length]
   }
 
-  const getProductImage = (value) => {
-    // Find a product that matches this option value and has a photo
-    const matchingProduct = products.find(product => {
-      const productValue = product[title]
-      return productValue === value && product.Photo
-    })
-    return matchingProduct?.Photo
+  const norm = v => (v ?? '').toString().trim().toLowerCase();
+
+  const getModelNumbers = (value) => {
+    // Find all products that match this option value and have model numbers
+    const matchingProducts = products.filter(p => norm(p[title]) === norm(value) && p.model_number);
+
+    // Extract unique model numbers
+    const modelNumbers = [...new Set(matchingProducts.map(product => product.model_number))]
+
+    return modelNumbers
   }
+
+  const getProductImage = (value) => {
+    const match = products.find(p => p[title] === value && (p.image || p.image_url || p.thumbnail));
+    return match?.image || match?.image_url || match?.thumbnail || null;
+  };
+
+  const modelMap = useMemo(() => {
+    const map = {};
+    products.forEach(product => {
+      const normalizedTitle = norm(product[title]);
+      if (product.model_number) {
+        if (!map[normalizedTitle]) {
+          map[normalizedTitle] = new Set();
+        }
+        map[normalizedTitle].add(product.model_number);
+      }
+    });
+    // Convert sets to arrays
+    Object.keys(map).forEach(key => {
+      map[key] = Array.from(map[key]);
+    });
+    return map;
+  }, [products, title]);
 
   return (
     <div className="space-y-8">
-      {/* Header */}
       <motion.div
         initial={{ opacity: 0, y: -20 }}
         animate={{ opacity: 1, y: 0 }}
@@ -111,12 +137,13 @@ export function OptionSelector({
           const isSelected = selectedValue === value
           const icon = getOptionIcon(value)
           const productImage = getProductImage(value)
-          
+          const modelNumbers = modelMap[norm(value)] || []
+
           return (
             <motion.div
               key={index}
               variants={itemVariants}
-              whileHover={{ 
+              whileHover={{
                 scale: 1.02,
                 transition: { duration: 0.2 }
               }}
@@ -127,8 +154,8 @@ export function OptionSelector({
                 className={`
                   relative w-full h-auto p-4 flex flex-col items-center gap-3 text-center
                   transition-all duration-300 group overflow-hidden
-                  ${isSelected 
-                    ? 'bg-gradient-to-br from-blue-500 to-purple-600 text-white shadow-lg shadow-blue-500/25 border-transparent' 
+                  ${isSelected
+                    ? 'bg-gradient-to-br from-blue-500 to-purple-600 text-white shadow-lg shadow-blue-500/25 border-transparent'
                     : 'hover:border-primary/50 hover:shadow-md hover:bg-accent/50'
                   }
                   ${isLoading ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}
@@ -160,8 +187,8 @@ export function OptionSelector({
                     />
                     <div className={`
                       absolute inset-0 transition-opacity duration-300 pointer-events-none
-                      ${isSelected 
-                        ? 'bg-blue-500/20' 
+                      ${isSelected
+                        ? 'bg-blue-500/20'
                         : 'bg-black/0 group-hover:bg-black/10'
                       }
                     `} />
@@ -172,8 +199,8 @@ export function OptionSelector({
                 {!productImage && icon && (
                   <div className={`
                     p-2 rounded-lg transition-colors duration-300
-                    ${isSelected 
-                      ? 'bg-white/20 text-white' 
+                    ${isSelected
+                      ? 'bg-white/20 text-white'
                       : 'bg-primary/10 text-primary group-hover:bg-primary/20'
                     }
                   `}>
@@ -181,19 +208,58 @@ export function OptionSelector({
                   </div>
                 )}
 
-                {/* Value */}
-                <div className="space-y-1">
+                {/* Value and Model Numbers */}
+                <div className="space-y-2">
                   <div className={`
                     font-semibold text-sm md:text-base leading-tight
                     ${isSelected ? 'text-white' : 'text-foreground'}
                   `}>
                     {value === 'N/A' ? 'Not Specified' : value}
                   </div>
-                  
+
+                  {/* Model Numbers */}
+                  {modelNumbers.length > 0 && (
+                    <div className={`
+                      text-xs leading-relaxed
+                      ${isSelected ? 'text-white/80' : 'text-muted-foreground'}
+                    `}>
+                      <div className="flex flex-wrap gap-1 justify-center">
+                        {modelNumbers.slice(0, 2).map((modelNumber, idx) => (
+                          <span
+                            key={idx}
+                            className={`
+                              px-2 py-1 rounded-md
+                              ${isSelected
+                                ? 'bg-white/20 text-white'
+                                : 'bg-muted text-muted-foreground'
+                              }
+                            `}
+                          >
+                            {modelNumber}
+                          </span>
+                        ))}
+                        {modelNumbers.length > 2 && (
+                          <span
+                            className={`
+                              px-2 py-1 rounded-md text-xs
+                              ${isSelected
+                                ? 'bg-white/10 text-white/60'
+                                : 'bg-muted/50 text-muted-foreground/60'
+                              }
+                            `}
+                            title={`And ${modelNumbers.length - 2} more model${modelNumbers.length - 2 > 1 ? 's' : ''}`}
+                          >
+                            +{modelNumbers.length - 2}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  )}
+
                   {/* Additional Info */}
                   {value !== 'N/A' && value?.toString().includes('W') && (
-                    <Badge 
-                      variant={isSelected ? "secondary" : "outline"} 
+                    <Badge
+                      variant={isSelected ? "secondary" : "outline"}
                       size="sm"
                       className={isSelected ? 'bg-white/20 text-white border-white/30' : ''}
                     >

@@ -1,3 +1,19 @@
+/*
+ * TEMPORARILY DISABLED COUPON DATABASE FUNCTIONS
+ *
+ * This file contains coupon database functions including:
+ * - getAllCoupons: Fetch all coupons from database
+ * - createCoupon: Create new coupon in database
+ * - deleteCoupon: Delete coupon by ID
+ * - validateCoupon: Validate coupon code
+ * - isCouponExpired: Check if coupon is expired
+ * - applyCouponDiscount: Apply coupon discount to price
+ *
+ * To restore coupon functionality, uncomment the entire block below.
+ * All database functions are preserved for future restoration.
+ */
+
+/*
 import { supabase } from '../supabase'
 
 // Get all coupons
@@ -100,3 +116,4 @@ export function applyCouponDiscount(originalPrice, coupon) {
     return originalPrice * (1 - discount / 100)
   }
 }
+*/

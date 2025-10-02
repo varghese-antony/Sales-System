@@ -27,6 +27,7 @@ const badgeVariants = cva(
       size: {
         default: "px-3 py-1 text-xs",
         sm: "px-2 py-0.5 text-xs",
+        compact: "px-1.5 py-0.5 text-[10px]",
         lg: "px-4 py-1.5 text-sm",
       },
     },
@@ -37,9 +38,13 @@ const badgeVariants = cva(
   }
 )
 
+/**
+ * @param {Object} props
+ * @param {"default" | "sm" | "compact" | "lg"} [props.size="default"]
+ */
 function Badge({ className, variant, size, ...props }) {
   return (
-    <div className={cn(badgeVariants({ variant, size }), className)} {...props} />
+    <span className={cn(badgeVariants({ variant, size }), className)} {...props} />
   )
 }
 

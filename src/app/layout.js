@@ -4,7 +4,9 @@ import { Navbar } from "@/components/Navbar";
 import { Footer } from "@/components/Footer";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { CartProvider } from "@/contexts/CartContext";
-import { CouponProvider } from "@/contexts/CouponContext";
+import { AuthProvider } from "@/contexts/AuthContext";
+import { ToastProvider } from "@/contexts/ToastContext";
+// import { CouponProvider } from "@/contexts/CouponContext";
 
 const inter = Inter({
   variable: "--font-inter",
@@ -25,23 +27,25 @@ export const metadata = {
 
 export default function RootLayout({ children }) {
   return (
-    <html lang="en" className="scroll-smooth">
+    <html lang="en" className="scroll-smooth" data-scroll-behavior="smooth">
       <body
         className={`${inter.variable} ${jetbrainsMono.variable} antialiased font-sans`}
       >
-        <CartProvider>
-          <CouponProvider>
-            <TooltipProvider>
-              <div className="min-h-screen flex flex-col">
-                <Navbar/>
-                <main className="flex-1 animate-fade-in">
-                  {children}
-                </main>
-                {/* <Footer/> */}
-              </div>
-            </TooltipProvider>
-          </CouponProvider>
-        </CartProvider>
+        <AuthProvider>
+          <CartProvider>
+            <ToastProvider>
+              <TooltipProvider>
+                <div className="min-h-screen flex flex-col">
+                  <Navbar/>
+                  <main className="flex-1 animate-fade-in">
+                    {children}
+                  </main>
+                  {/* <Footer/> */}
+                </div>
+              </TooltipProvider>
+            </ToastProvider>
+          </CartProvider>
+        </AuthProvider>
       </body>
     </html>
   );

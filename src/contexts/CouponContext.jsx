@@ -1,3 +1,16 @@
+/*
+ * TEMPORARILY DISABLED COUPON FUNCTIONALITY
+ *
+ * This file contains the complete coupon context implementation including:
+ * - CouponProvider component with reducer pattern for state management
+ * - Coupon context with functions for CRUD operations
+ * - useCoupon custom hook for accessing coupon functionality
+ *
+ * To restore coupon functionality, uncomment the entire block below.
+ * All imports, context creation, reducer logic, provider component, and custom hook are preserved.
+ */
+
+/*
 "use client"
 
 import { createContext, useContext, useReducer, useEffect, useState } from 'react'
@@ -153,3 +166,4 @@ export function useCoupon() {
   }
   return context
 }
+*/

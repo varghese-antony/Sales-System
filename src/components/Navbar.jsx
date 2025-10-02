@@ -3,12 +3,14 @@
 import { getDistinctCategories } from '@/lib/database/products'
 import * as React from "react"
 import Link from "next/link"
-import { Lightbulb, Home, Sun, Menu } from "lucide-react"
+import { Lightbulb, Home, Sun, Menu, LayoutDashboard, User, LogOut, UserCircle, Shield } from "lucide-react"
 import { useEffect, useState } from "react"
 import { Button } from "@/components/ui/button"
 import { ThemeToggle } from "@/components/ThemeToggle"
 import { MobileMenu } from "@/components/MobileMenu"
 import { CartButton } from "@/components/CartButton"
+import { useAuth } from "@/contexts/AuthContext"
+import { Badge } from "@/components/ui/badge"
 
 import {
   NavigationMenu,
@@ -19,10 +21,20 @@ import {
   NavigationMenuTrigger,
 } from "@/components/ui/navigation-menu"
 
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
+
 export function Navbar() {
   const [indoorCategories, setIndoorCategories] = useState([])
   const [outdoorCategories, setOutdoorCategories] = useState([])
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
+  const { user, profile, isAdmin, loading, signOut } = useAuth()
 
   useEffect(() => {
     async function fetchCategories() {
@@ -71,6 +83,22 @@ export function Navbar() {
                       <span>Home</span>
                     </Link>
                   </NavigationMenuItem>
+
+                  {!loading && isAdmin && (
+                    <NavigationMenuItem>
+                      <Link 
+                        href="/admin-dashboard" 
+                        className="flex items-center space-x-2 px-3 py-2 rounded-lg hover:bg-accent transition-colors duration-200 group"
+                        title="Admin Dashboard - Manage products and enquiries"
+                      >
+                        <LayoutDashboard className="w-4 h-4" />
+                        <span>Dashboard</span>
+                        <Badge variant="secondary" className="ml-1 text-xs bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300">
+                          Admin
+                        </Badge>
+                      </Link>
+                    </NavigationMenuItem>
+                  )}
 
                   <NavigationMenuItem>
                     <NavigationMenuTrigger className="flex items-center space-x-2">
@@ -153,6 +181,95 @@ export function Navbar() {
               {/* Cart Button */}
               <CartButton />
 
+              {/* Authentication Buttons */}
+              {loading ? (
+                <div className="flex items-center space-x-2">
+                  <div className="h-9 w-20 bg-muted animate-pulse rounded-md" />
+                </div>
+              ) : (
+                <div className="flex items-center space-x-2">
+                  {user ? (
+                    // User is authenticated - show profile dropdown
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button variant="ghost" className="flex items-center space-x-2 px-3 py-2 relative">
+                          <UserCircle className="w-4 h-4" />
+                          <span className="hidden md:inline">
+                            {profile?.full_name || user.email?.split('@')[0] || 'User'}
+                          </span>
+                          {isAdmin && (
+                            <Badge variant="secondary" className="ml-1 text-xs bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300">
+                              Admin
+                            </Badge>
+                          )}
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end" className="w-56">
+                        <DropdownMenuLabel className="font-normal">
+                          <div className="flex flex-col space-y-1">
+                            <div className="flex items-center justify-between">
+                              <p className="text-sm font-medium leading-none">
+                                {profile?.full_name || 'User'}
+                              </p>
+                              {isAdmin && (
+                                <Badge variant="secondary" className="text-xs bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300">
+                                  <Shield className="w-3 h-3 mr-1" />
+                                  Admin
+                                </Badge>
+                              )}
+                            </div>
+                            <p className="text-xs leading-none text-muted-foreground">
+                              {user.email}
+                            </p>
+                            {profile?.user_type && (
+                              <p className="text-xs leading-none text-muted-foreground pt-1">
+                                Account: <span className="font-medium">{profile.user_type === 'admin' ? 'Administrator' : 'Customer'}</span>
+                              </p>
+                            )}
+                          </div>
+                        </DropdownMenuLabel>
+                        <DropdownMenuSeparator />
+                        <DropdownMenuItem asChild>
+                          <Link href="/profile" className="flex items-center space-x-2 cursor-pointer">
+                            <User className="w-4 h-4" />
+                            <span>Profile</span>
+                          </Link>
+                        </DropdownMenuItem>
+                        {isAdmin && (
+                          <DropdownMenuItem asChild>
+                            <Link href="/admin-dashboard" className="flex items-center justify-between cursor-pointer">
+                              <div className="flex items-center space-x-2">
+                                <LayoutDashboard className="w-4 h-4" />
+                                <span>Dashboard</span>
+                              </div>
+                              <Shield className="w-3 h-3 text-purple-600 dark:text-purple-400" />
+                            </Link>
+                          </DropdownMenuItem>
+                        )}
+                        <DropdownMenuSeparator />
+                        <DropdownMenuItem 
+                          onClick={signOut}
+                          className="flex items-center space-x-2 cursor-pointer text-red-600 focus:text-red-600"
+                        >
+                          <LogOut className="w-4 h-4" />
+                          <span>Sign Out</span>
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  ) : (
+                    // User is not authenticated - show sign in/up buttons
+                    <div className="flex items-center space-x-2">
+                      <Button variant="ghost" size="sm" asChild>
+                        <Link href="/login">Sign In</Link>
+                      </Button>
+                      <Button size="sm" asChild className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700">
+                        <Link href="/register">Sign Up</Link>
+                      </Button>
+                    </div>
+                  )}
+                </div>
+              )}
+
               {/* Theme Toggle */}
               <ThemeToggle />
             </div>
@@ -179,6 +296,8 @@ export function Navbar() {
         onClose={() => setIsMobileMenuOpen(false)}
         indoorCategories={indoorCategories}
         outdoorCategories={outdoorCategories}
+        isAdmin={isAdmin}
+        loading={loading}
       />
     </nav>
   )
