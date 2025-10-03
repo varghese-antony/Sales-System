@@ -9,6 +9,13 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip
 import { getOptimizedImageUrl } from "@/lib/image-utils"
 import { ImageWithLoading } from "@/components/ui/image-with-loading"
 
+/**
+ * @deprecated This component was previously used for step-by-step product filtering.
+ * The filtering system has been replaced with ProductFilterModal.
+ * This component is kept for potential future use cases but is not currently used in the application.
+ * Consider removing if no other use cases emerge.
+ */
+
 const containerVariants = {
   hidden: { opacity: 0 },
   visible: {

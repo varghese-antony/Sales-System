@@ -3,25 +3,25 @@ import React from 'react'
 import { useState, useEffect } from 'react'
 import { getProductsByType } from '@/lib/database/products'
 import { motion } from "framer-motion"
-import { OptionSelector } from "@/components/OptionSelector"
 import { ProductDetails } from "@/components/ProductDetails"
+import ProductFilterModal from "@/components/ProductFilterModal"
+import { ProductCard } from "@/components/ProductCard"
+import { useProductFilters } from "@/hooks/useProductFilters"
 import { LoadingSpinner } from "@/components/ui/loading"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 
-import { Sun, Home, ArrowLeft, RotateCcw } from "lucide-react"
+import { Sun, Home, ArrowLeft, RotateCcw, Filter, X } from "lucide-react"
 import Link from "next/link"
 
 
 export default function OutdoorProductPage({ params }) {
-  const {slug} = React.use(params)
+  const { slug } = params;
   
-  const [products, setProducts] = useState([])
-  const [selectedFilters, setSelectedFilters] = useState({})
-  const [currentStep, setCurrentStep] = useState(0)
+  const [initialProducts, setInitialProducts] = useState([])
   const [finalProduct, setFinalProduct] = useState(null)
-  const [isLoading, setIsLoading] = useState(false)
+  const [isInitialLoading, setIsInitialLoading] = useState(false)
   const [error, setError] = useState(null)
 
 
@@ -30,201 +30,61 @@ export default function OutdoorProductPage({ params }) {
   const addOutdoorTableField = (items) =>
     Array.isArray(items) ? items.map((item) => ({ ...item, table: 'outdoor' })) : []
 
-  const desiredKeys = [
-    'Size', 'power_w', 'Voltage', 'CCT', 'cri_ra', 'Lumen','efficacy_lmw',
-    'Dimming Type', 'Material Finish', 'sensor_microwave_bluetooth', 'plugin_sensor',
-    'emergency_backup_battery', 'junction_cover', 'remote_control', 'Mounting',
-    'installation_kits', 'adjustment_dial', 'Certifications'
-  ]
-
-  const keyDescriptions = {
-    'Size': 'Choose the dimensions that fit your outdoor space perfectly',
-    'power_w': 'Select the power consumption for optimal energy efficiency',
-    'Voltage': 'Pick the voltage compatible with your outdoor electrical system',
-    'CCT': 'Choose the color temperature for the desired outdoor ambiance',
-    'cri_ra': 'Select the color rendering index for accurate outdoor color representation',
-    'Lumen': 'Pick the brightness level suitable for your outdoor application',
-    'efficacy_lmw': 'Choose the energy efficiency rating for outdoor use',
-    'Dimming Type': 'Select your preferred outdoor dimming control method',
-    'Material Finish': 'Choose the weather-resistant finish for your outdoor environment',
-    'Mounting': 'Select the outdoor installation method that works for your space'
-  }
+  // Initialize the product filters hook
+  const {
+    selectedFilters,
+    isFilterModalOpen,
+    availableOptions,
+    filteredProducts,
+    filteredProductCount,
+    isLoading,
+    openFilterModal,
+    closeFilterModal,
+    applyFilters,
+    resetFilters,
+    getFilterCount
+  } = useProductFilters('outdoor', productType, initialProducts)
 
   useEffect(() => {
     fetchInitialProducts()
   }, [])
 
-  const fetchData = async (type, productType, filters = {}) => {
-    try {
-      const { data, error } = await getProductsByType(type, productType, { filters })
-      if (error) throw error
-      return Array.isArray(data) ? data : []
-    } catch (error) {
-      console.error('Error fetching data:', error)
-      throw error
+  // Auto-select product if only one result after filtering
+  useEffect(() => {
+    if (filteredProducts.length === 1 && !finalProduct) {
+      setFinalProduct(filteredProducts[0])
     }
-  }
-
-  const buildSupabaseFilters = (filters) => {
-    // Convert frontend filter names to database column names
-    const columnMapping = {
-      'Size': 'Size',
-      'Power (W)': 'power_w',
-      'Voltage': 'Voltage',
-      'CCT': 'CCT',
-      'CRI/RA': 'cri_ra',
-      'Lumen': 'Lumen',
-      'Efficacy (lm/W)': 'efficacy_lmw',
-      'Dimming Type': 'Dimming Type',
-      'Material Finish': 'Material Finish',
-      'Sensor(Microwave/Bluetooth)': 'sensor_microwave_bluetooth',
-      'Plug-in Sensor': 'plugin_sensor',
-      'Eme. Backup-Battery': 'emergency_backup_battery',
-      'Junction Cover': 'junction_cover',
-      'Remote Control': 'remote_control',
-      'Mounting': 'Mounting',
-      'Installation Kits': 'installation_kits',
-      'Adjustment Dial': 'adjustment_dial',
-      'Certifications': 'Certifications'
-    }
-
-    // Convert the filters object to use database column names
-    const supabaseFilters = {}
-    Object.entries(filters).forEach(([key, value]) => {
-      const dbColumn = columnMapping[key] || key
-      supabaseFilters[dbColumn] = value
-    })
-
-    return supabaseFilters
-  }
+  }, [filteredProducts, finalProduct])
 
   const fetchInitialProducts = async () => {
-    setIsLoading(true)
+    setIsInitialLoading(true)
     setError(null)
     try {
-      const data = await fetchData('outdoor', productType)
-      const productsWithTable = addOutdoorTableField(data)
-      setProducts(productsWithTable)
+      const { data, error: fetchError } = await getProductsByType('outdoor', productType)
+      if (fetchError) throw fetchError
+      const productsWithTable = addOutdoorTableField(data || [])
+      setInitialProducts(productsWithTable)
       if (productsWithTable.length === 0) {
         setError('No products found for this category.')
       }
     } catch (error) {
       console.error('Error:', error)
       setError('Failed to load products. Please try again.')
-      setProducts([])
+      setInitialProducts([])
     }
-    setIsLoading(false)
+    setIsInitialLoading(false)
   }
 
-  const filterProducts = async (key, value) => {
-    setIsLoading(true)
-    setError(null)
-    
-    // Convert database column name back to frontend name for filtering
-    const reverseColumnMapping = {
-      'Size': 'Size',
-      'power_w': 'Power (W)',
-      'Voltage': 'Voltage',
-      'CCT': 'CCT',
-      'cri_ra': 'CRI/RA',
-      'Lumen': 'Lumen',
-      'efficacy_lmw': 'Efficacy (lm/W)',
-      'Dimming Type': 'Dimming Type',
-      'Material Finish': 'Material Finish',
-      'sensor_microwave_bluetooth': 'Sensor(Microwave/Bluetooth)',
-      'plugin_sensor': 'Plug-in Sensor',
-      'emergency_backup_battery': 'Eme. Backup-Battery',
-      'junction_cover': 'Junction Cover',
-      'remote_control': 'Remote Control',
-      'Mounting': 'Mounting',
-      'installation_kits': 'Installation Kits',
-      'adjustment_dial': 'Adjustment Dial',
-      'Certifications': 'Certifications'
-    }
-    
-    const frontendKey = reverseColumnMapping[key] || key
-    const newFilters = { ...selectedFilters, [frontendKey]: value }
-    setSelectedFilters(newFilters)
-    
-    try {
-      const filtered = await fetchData('outdoor', productType, buildSupabaseFilters(newFilters))
-      const filteredWithTable = addOutdoorTableField(filtered)
-      if (filteredWithTable.length === 1) {
-        setFinalProduct(filteredWithTable[0])
-      } else if (filteredWithTable.length === 0) {
-        setError('No products match your current selection. Please try different options.')
-        setProducts([])
-      } else {
-        setProducts(filteredWithTable)
-        setCurrentStep(prev => prev + 1)
-      }
-    } catch (error) {
-      console.error('Error:', error)
-      setError('Failed to filter products. Please try again.')
-    } finally {
-      setIsLoading(false)
-    }
+  const handleRemoveFilter = (filterKey) => {
+    const newFilters = { ...selectedFilters }
+    delete newFilters[filterKey]
+    applyFilters(newFilters)
   }
 
-  const resetSelection = () => {
-    setSelectedFilters({})
-    setCurrentStep(0)
-    setFinalProduct(null)
-    setError(null)
-    fetchInitialProducts()
-  }
-
-  const goBack = async () => {
+  const goBack = () => {
     if (finalProduct) {
       setFinalProduct(null)
       return
-    }
-    
-    if (currentStep > 0) {
-      const newStep = currentStep - 1
-      const newFilters = { ...selectedFilters }
-      const currentKey = desiredKeys[currentStep]
-      
-      // Convert database column name back to frontend name for removal
-      const reverseColumnMapping = {
-        'Size': 'Size',
-        'power_w': 'Power (W)',
-        'Voltage': 'Voltage',
-        'CCT': 'CCT',
-        'cri_ra': 'CRI/RA',
-        'Lumen': 'Lumen',
-        'efficacy_lmw': 'Efficacy (lm/W)',
-        'Dimming Type': 'Dimming Type',
-        'Material Finish': 'Material Finish',
-        'sensor_microwave_bluetooth': 'Sensor(Microwave/Bluetooth)',
-        'plugin_sensor': 'Plug-in Sensor',
-        'emergency_backup_battery': 'Eme. Backup-Battery',
-        'junction_cover': 'Junction Cover',
-        'remote_control': 'Remote Control',
-        'Mounting': 'Mounting',
-        'installation_kits': 'Installation Kits',
-        'adjustment_dial': 'Adjustment Dial',
-        'Certifications': 'Certifications'
-      }
-      
-      const frontendKey = reverseColumnMapping[currentKey] || currentKey
-      delete newFilters[frontendKey]
-      
-      setSelectedFilters(newFilters)
-      setCurrentStep(newStep)
-      setError(null)
-      
-      // Refetch with previous filters
-      if (Object.keys(newFilters).length === 0) {
-        fetchInitialProducts()
-      } else {
-        try {
-          const filtered = await fetchData('outdoor', productType, buildSupabaseFilters(newFilters))
-          setProducts(addOutdoorTableField(filtered))
-        } catch (error) {
-          console.error('Error:', error)
-        }
-      }
     }
   }
 
@@ -234,7 +94,7 @@ export default function OutdoorProductPage({ params }) {
   }
 
   // Show loading state
-  if (isLoading && products.length === 0 && currentStep === 0) {
+  if (isInitialLoading) {
     return (
       <div className='min-h-screen flex items-center justify-center bg-gradient-to-br from-green-50/50 via-teal-50/30 to-emerald-50/50 dark:from-green-950/20 dark:via-teal-950/10 dark:to-emerald-950/20'>
         <div className="text-center space-y-4 flex items-center justify-center flex-col">
@@ -244,12 +104,6 @@ export default function OutdoorProductPage({ params }) {
       </div>
     )
   }
-
-  const currentKey = desiredKeys[currentStep]
-  const currentValues = [...new Set(products.map(p => { 
-    const value = p[currentKey]; 
-    return value === null || value === undefined ? 'N/A' : value; 
-  }))].filter(v => v?.toString().trim())
 
   return (
     <div className='min-h-screen bg-gradient-to-br from-green-50/50 via-teal-50/30 to-emerald-50/50 dark:from-green-950/20 dark:via-teal-950/10 dark:to-emerald-950/20'>
@@ -300,35 +154,57 @@ export default function OutdoorProductPage({ params }) {
             </h1>
             
             <p className="text-lg text-muted-foreground max-w-2xl mx-auto mb-6">
-              Configure your perfect outdoor lighting solution by selecting from the weather-resistant options below.
+              Find your perfect weather-resistant outdoor lighting solution using our advanced filter system.
             </p>
+
+            {/* Filter Button */}
+            <div className="flex flex-wrap justify-center gap-3 mb-6">
+              <Button 
+                onClick={openFilterModal}
+                className="bg-gradient-to-r from-green-500 to-teal-600 hover:from-green-600 hover:to-teal-700 text-white shadow-lg transition-all hover:shadow-xl hover:scale-[1.02]"
+              >
+                <Filter className="w-4 h-4 mr-2" />
+                Filter Products
+                {getFilterCount() > 0 && (
+                  <Badge variant="secondary" className="ml-2 bg-white text-green-600">
+                    {getFilterCount()}
+                  </Badge>
+                )}
+              </Button>
+              
+              {getFilterCount() > 0 && (
+                <Button variant="ghost" onClick={resetFilters} className="group">
+                  <RotateCcw className="w-4 h-4 mr-2 group-hover:rotate-180 transition-transform" />
+                  Reset All Filters
+                </Button>
+              )}
+            </div>
 
             {/* Selected Filters */}
             {Object.keys(selectedFilters).length > 0 && (
               <div className="flex flex-wrap justify-center gap-2 mb-6">
                 {Object.entries(selectedFilters).map(([key, value]) => (
-                  <Badge key={key} variant="secondary" className="flex items-center gap-2 bg-gradient-to-r from-green-500/10 to-teal-500/10 border-green-500/20">
-                    {key}: {value || 'Not Specified'}
+                  <Badge key={key} variant="secondary" className="flex items-center gap-2 pr-1 bg-gradient-to-r from-green-500/10 to-teal-500/10 border-green-500/20">
+                    <span>{key}: {value}</span>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-4 w-4 p-0 hover:bg-destructive/20 hover:text-destructive"
+                      onClick={() => handleRemoveFilter(key)}
+                    >
+                      <X className="h-3 w-3" />
+                    </Button>
                   </Badge>
                 ))}
               </div>
             )}
 
-            {/* Action Buttons */}
-            <div className="flex flex-wrap justify-center gap-3">
-              {(currentStep > 0 || Object.keys(selectedFilters).length > 0) && (
-                <Button variant="outline" onClick={goBack} className="group">
-                  <ArrowLeft className="w-4 h-4 mr-2 group-hover:-translate-x-1 transition-transform" />
-                  Go Back
-                </Button>
-              )}
-              {Object.keys(selectedFilters).length > 0 && (
-                <Button variant="ghost" onClick={resetSelection} className="group">
-                  <RotateCcw className="w-4 h-4 mr-2 group-hover:rotate-180 transition-transform" />
-                  Reset Selection
-                </Button>
-              )}
-            </div>
+            {/* Product Count */}
+            {!isLoading && (
+              <p className="text-sm text-muted-foreground mb-6">
+                {filteredProductCount} product{filteredProductCount !== 1 ? 's' : ''} available
+              </p>
+            )}
           </div>
         </motion.div>
 
@@ -345,24 +221,83 @@ export default function OutdoorProductPage({ params }) {
           </motion.div>
         )}
 
-        {/* Option Selection */}
-        {!error && currentValues.length > 0 && (
-          <OptionSelector
-            title={currentKey}
-            description={keyDescriptions[currentKey]}
-            options={currentValues}
-            onSelect={(value) => filterProducts(currentKey, value)}
-            isLoading={isLoading}
-            step={currentStep + 1}
-            totalSteps={desiredKeys.length}
-            products={products}
-          />
+        {/* Filter Modal */}
+        <ProductFilterModal
+          isOpen={isFilterModalOpen}
+          onClose={closeFilterModal}
+          filters={selectedFilters}
+          onApplyFilters={applyFilters}
+          availableOptions={availableOptions}
+          type="outdoor"
+          productType={productType}
+        />
+
+        {/* Loading State */}
+        {isLoading && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            className="flex justify-center py-8"
+          >
+            <LoadingSpinner size="lg" />
+          </motion.div>
         )}
 
-
+        {/* Product Grid */}
+        {!isLoading && !error && filteredProducts.length > 1 && (
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.6 }}
+            className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6"
+          >
+            {filteredProducts.map((product, index) => (
+              <motion.div
+                key={product.id || index}
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.6, delay: index * 0.1 }}
+              >
+                <ProductCard
+                  variant="product"
+                  product={product}
+                  showSpecs={true}
+                  onSelect={() => setFinalProduct(product)}
+                />
+              </motion.div>
+            ))}
+          </motion.div>
+        )}
 
         {/* Empty State */}
-        {!isLoading && !error && currentValues.length === 0 && products.length === 0 && (
+        {!isLoading && !error && filteredProducts.length === 0 && getFilterCount() > 0 && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            className="text-center py-16"
+          >
+            <div className="w-24 h-24 mx-auto mb-6 rounded-full bg-muted flex items-center justify-center">
+              <Filter className="w-12 h-12 text-muted-foreground" />
+            </div>
+            <h3 className="text-2xl font-semibold mb-4">No Products Match Your Filters</h3>
+            <p className="text-muted-foreground mb-6 max-w-md mx-auto">
+              Try adjusting your filter selections to see more outdoor products.
+            </p>
+            <div className="flex flex-wrap justify-center gap-3">
+              <Button onClick={openFilterModal} variant="outline">
+                <Filter className="w-4 h-4 mr-2" />
+                Adjust Filters
+              </Button>
+              <Button onClick={resetFilters} variant="ghost">
+                <RotateCcw className="w-4 h-4 mr-2" />
+                Reset All Filters
+              </Button>
+            </div>
+          </motion.div>
+        )}
+
+        {/* No Products Available */}
+        {!isInitialLoading && !error && initialProducts.length === 0 && (
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
@@ -371,12 +306,13 @@ export default function OutdoorProductPage({ params }) {
             <div className="w-24 h-24 mx-auto mb-6 rounded-full bg-muted flex items-center justify-center">
               <Sun className="w-12 h-12 text-muted-foreground" />
             </div>
-            <h3 className="text-2xl font-semibold mb-4">No Options Available</h3>
+            <h3 className="text-2xl font-semibold mb-4">No Products Available</h3>
             <p className="text-muted-foreground mb-6 max-w-md mx-auto">
-              We couldn't find any outdoor products matching your current selection. Try adjusting your filters or contact our support team.
+              We couldn't find any outdoor products in this category. Please try a different product type or contact our support team.
             </p>
-            <Button onClick={resetSelection} variant="outline">
-              Start Over
+            <Button onClick={() => window.history.back()} variant="outline">
+              <ArrowLeft className="w-4 h-4 mr-2" />
+              Go Back
             </Button>
           </motion.div>
         )}
