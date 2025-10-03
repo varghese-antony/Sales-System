@@ -23,7 +23,6 @@ import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { useToast } from '@/contexts/ToastContext';
-import { getCustomerWithEnquiries, updateCustomerDiscount } from '@/lib/database/profiles';
 import { format } from 'date-fns';
 
 const STATUS_COLORS = {
@@ -62,9 +61,15 @@ export function CustomerDetailsModal({ isOpen, onClose, customer, onDiscountUpda
 
     setLoadingEnquiries(true);
     try {
-      const { data, error } = await getCustomerWithEnquiries(customer.id);
-      if (error) throw new Error(error);
-      setCustomerEnquiries(data?.enquiries || []);
+      const response = await fetch(`/api/admin/customers/${customer.id}`);
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => null);
+        throw new Error(errorData?.error || 'Failed to load customer details');
+      }
+
+      const result = await response.json();
+      setCustomerEnquiries(result?.enquiries || []);
     } catch (error) {
       console.error('Error loading customer enquiries:', error);
       toast({
@@ -89,19 +94,27 @@ export function CustomerDetailsModal({ isOpen, onClose, customer, onDiscountUpda
     try {
       setSavingDiscount(true);
 
-      const discountValue = newDiscount === '' || newDiscount === null ? null : parseFloat(newDiscount);
-      
-      if (discountValue !== null && (isNaN(discountValue) || discountValue < 0 || discountValue > 100)) {
+      const discountValue = newDiscount === '' || newDiscount === null ? null : Number(newDiscount);
+
+      if (discountValue !== null && (!Number.isFinite(discountValue) || !Number.isInteger(discountValue))) {
         toast({
           title: 'Invalid discount',
-          description: 'Discount must be between 0 and 100.',
+          description: 'Discount must be an integer. Positive values decrease price, negative values increase price.',
           variant: 'destructive'
         });
         return;
       }
 
-      const { data, error } = await updateCustomerDiscount(customer.id, discountValue);
-      if (error) throw new Error(error);
+      const response = await fetch('/api/admin/customers/discount', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ customerId: customer.id, discount: discountValue })
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => null);
+        throw new Error(errorData?.error || 'Failed to update discount');
+      }
 
       toast({
         title: 'Discount updated',
@@ -155,9 +168,9 @@ export function CustomerDetailsModal({ isOpen, onClose, customer, onDiscountUpda
               <DialogTitle className="text-xl">{customer.full_name}</DialogTitle>
               <Badge variant="secondary">Customer</Badge>
             </div>
-            <Button variant="ghost" size="sm" onClick={onClose}>
+            {/* <Button variant="ghost" size="sm" onClick={onClose}>
               <X className="h-4 w-4" />
-            </Button>
+            </Button> */}
           </div>
           <div className="text-sm text-muted-foreground">
             Customer ID: {customer.id.slice(0, 8)}... • Member since {format(new Date(customer.created_at), 'PPP')}
@@ -192,7 +205,7 @@ export function CustomerDetailsModal({ isOpen, onClose, customer, onDiscountUpda
                   </div>
                 </div>
 
-                <div className="space-y-2">
+                <div className="space-y-2 md:col-span-2">
                   <label className="text-sm font-medium flex items-center gap-2">
                     <Mail className="h-4 w-4" />
                     Email
@@ -248,18 +261,16 @@ export function CustomerDetailsModal({ isOpen, onClose, customer, onDiscountUpda
                       <div className="flex items-center space-x-2">
                         <Input
                           type="number"
-                          min="0"
-                          max="100"
-                          step="0.01"
-                          value={newDiscount || ''}
+                          step="1"
+                          value={newDiscount ?? ''}
                           onChange={(e) => setNewDiscount(e.target.value)}
-                          placeholder="Enter discount percentage"
+                          placeholder="Enter integer percentage"
                           className="max-w-xs"
                         />
                         <span className="text-muted-foreground">%</span>
                       </div>
                       <p className="text-xs text-muted-foreground">
-                        Enter a value between 0 and 100, or leave empty to remove discount
+                        Positive values discount the price, negative values add markup. Leave empty to remove discount.
                       </p>
                     </div>
                   ) : (

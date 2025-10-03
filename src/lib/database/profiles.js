@@ -274,26 +274,32 @@ export async function updateCustomerDiscount(userId, discountPercentage) {
     }
 
     // Validate discount percentage
+    let normalizedDiscount = null
     if (discountPercentage !== null && discountPercentage !== undefined) {
-      const discount = parseFloat(discountPercentage)
-      if (isNaN(discount) || discount < 0 || discount > 100) {
-        return { data: null, error: 'Discount percentage must be a number between 0 and 100' }
+      const discountNumber = Number(discountPercentage)
+      if (!Number.isFinite(discountNumber) || !Number.isInteger(discountNumber)) {
+        return { data: null, error: 'Discount percentage must be an integer' }
       }
+      normalizedDiscount = discountNumber
     }
-
     const { data, error } = await supabase
       .from('profiles')
-      .update({ discount_percentage: discountPercentage })
+      .update({ discount_percentage: normalizedDiscount })
       .eq('id', userId)
       .select()
-      .single()
 
     if (error) {
       console.error('Database error in updateCustomerDiscount:', error)
       throw error
     }
 
-    return { data, error: null }
+    const updatedProfile = Array.isArray(data) ? data[0] : data
+
+    if (!updatedProfile) {
+      return { data: null, error: 'Customer not found' }
+    }
+
+    return { data: updatedProfile, error: null }
   } catch (error) {
     console.error('Error updating customer discount:', error)
     return { data: null, error: error.message }
@@ -398,16 +404,18 @@ export async function getCustomerWithEnquiries(userId) {
     }
 
     // Get customer profile
-    const { data: profile, error: profileError } = await supabase
+    const { data: profileData, error: profileError } = await supabase
       .from('profiles')
       .select('*')
       .eq('id', userId)
-      .single()
+      .limit(1)
 
     if (profileError) {
       console.error('Database error in getCustomerWithEnquiries:', profileError)
       throw profileError
     }
+
+    const profile = Array.isArray(profileData) ? profileData[0] : profileData
 
     if (!profile) {
       return { data: null, error: 'Customer not found' }
@@ -457,7 +465,6 @@ export async function getCustomerWithEnquiries(userId) {
 // Get customer statistics
 export async function getCustomerStats() {
   try {
-    // Fetch all customers with fields needed for stats
     const { data: customers, error } = await supabase
       .from('profiles')
       .select('discount_percentage, created_at')
@@ -465,37 +472,58 @@ export async function getCustomerStats() {
 
     if (error) throw error
 
-    const totalCustomers = customers?.length ?? 0
-
-    const customersWithDiscount = (customers || []).filter(customer => customer.discount_percentage !== null && customer.discount_percentage !== undefined)
-    const customersWithDiscountCount = customersWithDiscount.length
-
-    let averageDiscount = 0
-    if (customersWithDiscountCount > 0) {
-      const sum = customersWithDiscount.reduce((acc, row) => acc + (parseFloat(row.discount_percentage) || 0), 0)
-      averageDiscount = parseFloat((sum / customersWithDiscountCount).toFixed(2))
-    }
-
-    const thirtyDaysAgo = new Date()
-    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30)
-    const thirtyDaysAgoISO = thirtyDaysAgo.toISOString()
-
-    const recentRegistrations = (customers || []).filter(customer => {
-      const createdAt = customer.created_at ? new Date(customer.created_at).toISOString() : null
-      return createdAt && createdAt >= thirtyDaysAgoISO
-    }).length
-
-    return {
-      data: {
-        totalCustomers,
-        customersWithDiscount: customersWithDiscountCount,
-        averageDiscount,
-        recentRegistrations
-      },
-      error: null
-    }
+    return buildCustomerStats(customers)
   } catch (error) {
     console.error('Error fetching customer stats:', error)
     return { data: null, error: error.message }
+  }
+}
+
+// Admin variant that accepts a custom Supabase client
+export async function getCustomerStatsAdmin(supabaseClient) {
+  try {
+    const { data: customers, error } = await supabaseClient
+      .from('profiles')
+      .select('discount_percentage, created_at')
+      .eq('user_type', 'customer')
+
+    if (error) throw error
+
+    return buildCustomerStats(customers)
+  } catch (error) {
+    console.error('Error fetching customer stats (admin):', error)
+    return { data: null, error: error.message }
+  }
+}
+
+function buildCustomerStats(customers = []) {
+  const totalCustomers = customers.length
+
+  const customersWithDiscount = customers.filter(customer => customer.discount_percentage !== null && customer.discount_percentage !== undefined)
+  const customersWithDiscountCount = customersWithDiscount.length
+
+  let averageDiscount = 0
+  if (customersWithDiscountCount > 0) {
+    const sum = customersWithDiscount.reduce((acc, row) => acc + (parseFloat(row.discount_percentage) || 0), 0)
+    averageDiscount = parseFloat((sum / customersWithDiscountCount).toFixed(2))
+  }
+
+  const thirtyDaysAgo = new Date()
+  thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30)
+  const thirtyDaysAgoISO = thirtyDaysAgo.toISOString()
+
+  const recentRegistrations = customers.filter(customer => {
+    const createdAt = customer.created_at ? new Date(customer.created_at).toISOString() : null
+    return createdAt && createdAt >= thirtyDaysAgoISO
+  }).length
+
+  return {
+    data: {
+      totalCustomers,
+      customersWithDiscount: customersWithDiscountCount,
+      averageDiscount,
+      recentRegistrations
+    },
+    error: null
   }
 }

@@ -49,7 +49,6 @@ export default function ManageCustomersPage() {
       if (searchTerm) params.append('searchTerm', searchTerm);
       if (discountFilter === 'with-discount') params.append('hasDiscount', 'true');
       if (discountFilter === 'no-discount') params.append('hasDiscount', 'false');
-      params.append('sortBy', sortBy);
       params.append('sortOrder', sortOrder);
 
       const response = await fetch(`/api/admin/customers?${params.toString()}`);
@@ -92,19 +91,27 @@ export default function ManageCustomersPage() {
 
   const handleSaveDiscount = async (customerId) => {
     try {
-      const discountValue = tempDiscount === '' ? null : parseFloat(tempDiscount);
-      
-      if (discountValue !== null && (isNaN(discountValue) || discountValue < 0 || discountValue > 100)) {
+      const discountValue = tempDiscount === '' ? null : Number(tempDiscount);
+
+      if (discountValue !== null && (!Number.isFinite(discountValue) || !Number.isInteger(discountValue))) {
         toast({
           title: 'Invalid discount',
-          description: 'Discount must be between 0 and 100.',
+          description: 'Discount must be an integer. Positive values discount the price, negative values add markup.',
           variant: 'destructive'
         });
         return;
       }
 
-      const { error } = await updateCustomerDiscount(customerId, discountValue);
-      if (error) throw new Error(error);
+      const response = await fetch('/api/admin/customers/discount', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ customerId, discount: discountValue })
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to update discount');
+      }
 
       setCustomers(prev => prev.map(customer => 
         customer.id === customerId 
@@ -112,9 +119,9 @@ export default function ManageCustomersPage() {
           : customer
       ));
 
-      const response = await fetch('/api/admin/customers');
-      if (response.ok) {
-        const result = await response.json();
+      const statsResponse = await fetch('/api/admin/customers');
+      if (statsResponse.ok) {
+        const result = await statsResponse.json();
         setStats(result.stats);
       }
 
@@ -187,13 +194,11 @@ export default function ManageCustomersPage() {
             <div className="flex items-center space-x-2">
               <Input
                 type="number"
-                min="0"
-                max="100"
-                step="0.01"
+                step="1"
                 value={tempDiscount}
                 onChange={(e) => setTempDiscount(e.target.value)}
                 className="w-24 h-8"
-                placeholder="0-100"
+                placeholder="Enter integer"
               />
               <span className="text-xs">%</span>
               <Button
