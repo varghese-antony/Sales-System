@@ -8,6 +8,7 @@ import { Badge } from "@/components/ui/badge"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 import { getOptimizedImageUrl } from "@/lib/image-utils"
 import { ImageWithLoading } from "@/components/ui/image-with-loading"
+import { fieldMapping } from '@/lib/database/products'
 
 /**
  * @deprecated This component was previously used for step-by-step product filtering.
@@ -75,8 +76,12 @@ export function OptionSelector({
   }
 
   const getProductImage = (value) => {
-    const match = products.find(p => p[title] === value && (p.image || p.image_url || p.thumbnail));
-    return match?.image || match?.image_url || match?.thumbnail || null;
+    const match = products.find(p => {
+      // Check if product matches the option value and has any image field
+      const imageFields = ['image', 'image_url', 'thumbnail', 'Photo'];
+      return p[title] === value && imageFields.some(field => p[field]);
+    });
+    return match?.image || match?.image_url || match?.thumbnail || match?.Photo || null;
   };
 
   const modelMap = useMemo(() => {

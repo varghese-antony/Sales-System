@@ -11,6 +11,7 @@ import { useCart } from "@/contexts/CartContext"
 import { ImageModal } from "@/components/ui/image-modal"
 import { getOptimizedImageUrl } from "@/lib/image-utils"
 import { ImageWithLoading } from "@/components/ui/image-with-loading"
+import { fieldMapping } from '@/lib/database/products'
 
 export function ProductDetails({ product, onBack }) {
   const { addToCart, items } = useCart()
@@ -19,6 +20,14 @@ export function ProductDetails({ product, onBack }) {
   const [isImageModalOpen, setIsImageModalOpen] = useState(false)
   
   // Convert database field names to frontend field names for display
+  const reverseFieldMapping = useMemo(() => {
+    const mapping = {};
+    Object.entries(fieldMapping).forEach(([frontend, db]) => {
+      mapping[db] = frontend;
+    });
+    return mapping;
+  }, []);
+
   const mappedProduct = useMemo(() => {
     const mapped = {}
     Object.entries(product).forEach(([key, value]) => {
