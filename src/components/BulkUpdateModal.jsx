@@ -231,8 +231,8 @@ export function BulkUpdateModal({ selectedProducts, action, isOpen, onClose, onC
     const fieldType = field.type || 'text';
 
     return (
-      <div key={field.key} className="space-y-2">
-        <label className={labelClass}>{field.label}</label>
+      <div key={field.key} className="space-y-1.5 sm:space-y-2">
+        <label className="text-xs sm:text-sm font-medium text-foreground">{field.label}</label>
         {field.type === 'select' ? (
           <Select
             value={fieldValues[field.key] || ''}
@@ -271,14 +271,14 @@ export function BulkUpdateModal({ selectedProducts, action, isOpen, onClose, onC
     return (
       <motion.div key={title} variants={gridVariants}>
         <Card className={cardClass}>
-          <CardHeader className="pb-3 border-b border-border/60 bg-gradient-to-r from-transparent via-primary/5 to-transparent">
+          <CardHeader className="p-3 sm:p-4 pb-3 border-b border-border/60 bg-gradient-to-r from-transparent via-primary/5 to-transparent">
             <div className="flex items-center justify-between">
-              <CardTitle className="text-base text-gradient flex items-center gap-2">
+              <CardTitle className="text-sm sm:text-base text-gradient flex items-center gap-2">
                 {Icon && <Icon className="h-4 w-4 text-primary" />}
                 {title}
               </CardTitle>
               <div className="flex items-center gap-2">
-                <span className="text-sm text-muted-foreground">
+                <span className="text-xs sm:text-sm text-muted-foreground">
                   {selectedInGroup}/{fields.length} selected
                 </span>
                 <Button
@@ -292,22 +292,22 @@ export function BulkUpdateModal({ selectedProducts, action, isOpen, onClose, onC
               </div>
             </div>
           </CardHeader>
-          <CardContent className="space-y-3 pt-4">
+          <CardContent className="space-y-2 sm:space-y-3 pt-3 sm:pt-4 p-3 sm:p-4">
             {fields.map(field => (
               <div
                 key={field.key}
-                className="flex items-center space-x-3 rounded-md border border-border/50 bg-background/60 px-3 py-2 transition-colors hover:border-primary/40"
+                className="flex items-center space-x-3 rounded-md border border-border/50 bg-background/60 px-2 py-1.5 sm:px-3 sm:py-2 transition-colors hover:border-primary/40"
               >
                 <input
                   type="checkbox"
                   id={field.key}
                   checked={selectedFields.has(field.key)}
                   onChange={() => handleFieldToggle(field.key)}
-                  className="rounded border-border/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/30"
+                  className="min-w-5 min-h-5 rounded border-border/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/30"
                 />
                 <label
                   htmlFor={field.key}
-                  className="text-sm font-medium leading-none cursor-pointer text-foreground/90"
+                  className="text-xs sm:text-sm font-medium leading-none cursor-pointer text-foreground/90"
                 >
                   {field.label}
                 </label>
@@ -321,20 +321,20 @@ export function BulkUpdateModal({ selectedProducts, action, isOpen, onClose, onC
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="relative max-w-4xl max-h-[90vh] overflow-y-auto glass-effect border-2 border-primary/20 shadow-2xl animate-modal-slide-up">
+      <DialogContent className="relative max-w-full sm:max-w-2xl lg:max-w-4xl max-h-[90vh] overflow-y-auto glass-effect border-2 border-primary/20 shadow-2xl animate-modal-slide-up p-4 sm:p-6">
         {loading && (
           <div className="absolute inset-0 z-20 flex items-center justify-center rounded-lg bg-background/80 backdrop-blur-sm">
             <Loader2 className="h-6 w-6 animate-spin text-primary" />
           </div>
         )}
 
-        <DialogHeader className="pb-4 border-b border-primary/20 bg-gradient-to-r from-primary/5 via-primary/10 to-primary/5 rounded-t-lg">
-          <DialogTitle className="flex flex-wrap items-center gap-3 text-gradient">
-            <span className="flex items-center gap-2 capitalize">
+        <DialogHeader className="pb-3 sm:pb-4 border-b border-primary/20 bg-gradient-to-r from-primary/5 via-primary/10 to-primary/5 rounded-t-lg">
+          <DialogTitle className="flex flex-col sm:flex-row flex-wrap items-start sm:items-center gap-2 sm:gap-3 text-gradient">
+            <span className="flex items-center gap-2 capitalize text-lg sm:text-xl lg:text-2xl">
               <DialogIcon className="h-5 w-5 text-primary" />
               {action === 'update' ? 'Bulk Update Products' : 'Set Category for Products'}
             </span>
-            <Badge variant="secondary" className="glass-effect-subtle border border-primary/30 text-xs uppercase tracking-wide">
+            <Badge variant="secondary" className="glass-effect-subtle border border-primary/30 text-[10px] sm:text-xs uppercase tracking-wide">
               {selectedProducts.length} product{selectedProducts.length !== 1 ? 's' : ''} selected
             </Badge>
           </DialogTitle>
@@ -342,15 +342,15 @@ export function BulkUpdateModal({ selectedProducts, action, isOpen, onClose, onC
 
         {action === 'update' ? (
           <motion.div
-            className="grid grid-cols-1 gap-6 lg:grid-cols-2"
+            className="grid grid-cols-1 gap-4 sm:gap-6 lg:grid-cols-2"
             variants={staggerContainer}
             initial="hidden"
             animate="visible"
           >
             {/* Field Selection */}
-            <motion.div className="space-y-4" variants={gridVariants}>
-              <h3 className="text-lg font-semibold text-gradient">Select Fields to Update</h3>
-              <div className="space-y-4">
+            <motion.div className="space-y-3 sm:space-y-4" variants={gridVariants}>
+              <h3 className="text-base sm:text-lg font-semibold text-gradient">Select Fields to Update</h3>
+              <div className="space-y-3 sm:space-y-4">
                 {fieldGroupOrder.map(({ title, key }) => (
                   renderFieldGroup(title, fieldGroups[key])
                 ))}
@@ -358,11 +358,11 @@ export function BulkUpdateModal({ selectedProducts, action, isOpen, onClose, onC
             </motion.div>
 
             {/* Value Input */}
-            <motion.div className="space-y-4" variants={gridVariants}>
-              <h3 className="text-lg font-semibold text-gradient">Set Values</h3>
-              <div className="space-y-4">
+            <motion.div className="space-y-3 sm:space-y-4" variants={gridVariants}>
+              <h3 className="text-base sm:text-lg font-semibold text-gradient">Set Values</h3>
+              <div className="space-y-3 sm:space-y-4">
                 {selectedFields.size === 0 ? (
-                  <div className="glass-effect-subtle rounded-lg border border-dashed border-muted-foreground/30 py-10 text-center text-sm text-muted-foreground">
+                  <div className="glass-effect-subtle rounded-lg border border-dashed border-muted-foreground/30 py-8 sm:py-10 text-center text-xs sm:text-sm text-muted-foreground">
                     Select fields on the left to set their values
                   </div>
                 ) : (
@@ -380,16 +380,16 @@ export function BulkUpdateModal({ selectedProducts, action, isOpen, onClose, onC
           </motion.div>
         ) : (
           /* Category Selection */
-          <motion.div className="space-y-4" variants={gridVariants} initial="hidden" animate="visible">
-            <h3 className="text-lg font-semibold text-gradient">Select Category</h3>
-            <div className="space-y-2">
-              <label className={labelClass}>New Category</label>
+          <motion.div className="space-y-3 sm:space-y-4" variants={gridVariants} initial="hidden" animate="visible">
+            <h3 className="text-base sm:text-lg font-semibold text-gradient">Select Category</h3>
+            <div className="space-y-1.5 sm:space-y-2">
+              <label className="text-xs sm:text-sm font-medium text-foreground">New Category</label>
               {availableCategories.length > 0 ? (
                 <Select
                   value={categoryValue || undefined}
                   onValueChange={(value) => setCategoryValue(value)}
                 >
-                  <SelectTrigger className={`${selectTriggerClass} w-full`}>
+                  <SelectTrigger className="h-9 w-full">
                     <SelectValue placeholder="Choose a category" />
                   </SelectTrigger>
                   <SelectContent>
@@ -401,7 +401,7 @@ export function BulkUpdateModal({ selectedProducts, action, isOpen, onClose, onC
                   </SelectContent>
                 </Select>
               ) : (
-                <div className="glass-effect-subtle rounded-md border border-dashed border-muted-foreground/30 p-3 text-sm text-muted-foreground">
+                <div className="glass-effect-subtle rounded-md border border-dashed border-muted-foreground/30 p-2 sm:p-3 text-xs sm:text-sm text-muted-foreground">
                   No categories available. Please add categories first.
                 </div>
               )}
@@ -414,24 +414,24 @@ export function BulkUpdateModal({ selectedProducts, action, isOpen, onClose, onC
           <>
             <Separator />
             <Card className={cardClass}>
-              <CardHeader className="border-b border-border/60 bg-gradient-to-r from-transparent via-primary/5 to-transparent">
-                <CardTitle className="text-base text-gradient flex items-center gap-2">
+              <CardHeader className="p-3 sm:p-4 border-b border-border/60 bg-gradient-to-r from-transparent via-primary/5 to-transparent">
+                <CardTitle className="text-sm sm:text-base text-gradient flex items-center gap-2">
                   <Eye className="h-4 w-4 text-primary" />
                   Preview Changes
                 </CardTitle>
               </CardHeader>
-              <CardContent className="space-y-3">
+              <CardContent className="p-3 sm:p-4 space-y-3">
                 <div className="space-y-2">
-                  <p className="text-sm text-muted-foreground">
+                  <p className="text-xs sm:text-sm text-muted-foreground">
                     This will update {preview.affectedCount} product{preview.affectedCount !== 1 ? 's' : ''} with the following changes:
                   </p>
-                  <ul className="list-disc list-inside space-y-1 text-sm text-foreground/90">
+                  <ul className="list-disc list-inside space-y-1 text-xs sm:text-sm text-foreground/90">
                     {preview.changes.map((change, index) => (
                       <li key={index}>{change}</li>
                     ))}
                   </ul>
-                  <div className="mt-4 rounded-md border border-yellow-200 bg-yellow-50 p-3 dark:border-yellow-800 dark:bg-yellow-950/20">
-                    <p className="text-sm text-yellow-800 dark:text-yellow-200">
+                  <div className="mt-4 rounded-md border border-yellow-200 bg-yellow-50 p-2 sm:p-3 dark:border-yellow-800 dark:bg-yellow-950/20">
+                    <p className="text-xs sm:text-sm text-yellow-800 dark:text-yellow-200">
                       ⚠️ This action cannot be undone. Please review the changes carefully.
                     </p>
                   </div>
@@ -441,15 +441,15 @@ export function BulkUpdateModal({ selectedProducts, action, isOpen, onClose, onC
           </>
         )}
 
-        <DialogFooter className="flex-col gap-3 border-t border-primary/10 pt-4 sm:flex-row sm:items-center sm:justify-between">
-          <Button variant="outline" onClick={onClose} disabled={loading} className="transition-all hover:border-primary/50 hover:shadow-md">
+        <DialogFooter className="flex-col gap-2 sm:gap-3 border-t border-primary/10 pt-3 sm:pt-4 sm:flex-row sm:items-center sm:justify-between">
+          <Button variant="outline" onClick={onClose} disabled={loading} className="w-full sm:w-auto transition-all hover:border-primary/50 hover:shadow-md">
             Cancel
           </Button>
           <Button
             onClick={handleApply}
             disabled={loading || !preview || (action === 'category' && !categoryValue)}
             variant="gradient"
-            className="shadow-lg transition-all hover:-translate-y-0.5 hover:shadow-xl"
+            className="w-full sm:w-auto shadow-lg transition-all hover:-translate-y-0.5 hover:shadow-xl"
           >
             {loading ? 'Applying...' : `Apply to ${selectedProducts.length} Product${selectedProducts.length !== 1 ? 's' : ''}`}
           </Button>

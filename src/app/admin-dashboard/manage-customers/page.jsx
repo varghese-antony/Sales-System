@@ -197,25 +197,23 @@ export default function ManageCustomersPage() {
                 step="1"
                 value={tempDiscount}
                 onChange={(e) => setTempDiscount(e.target.value)}
-                className="w-24 h-8"
+                className="w-28 h-11"
                 placeholder="Enter integer"
               />
-              <span className="text-xs">%</span>
+              <span className="text-sm">%</span>
               <Button
-                size="sm"
                 variant="ghost"
                 onClick={() => handleSaveDiscount(row.id)}
-                className="h-8 w-8 p-0"
+                className="h-11 w-11 sm:h-9 sm:w-9 p-0"
               >
-                <Save className="h-4 w-4" />
+                <Save className="h-5 w-5 sm:h-4 sm:w-4" />
               </Button>
               <Button
-                size="sm"
                 variant="ghost"
                 onClick={handleCancelEdit}
-                className="h-8 w-8 p-0"
+                className="h-11 w-11 sm:h-9 sm:w-9 p-0"
               >
-                <X className="h-4 w-4" />
+                <X className="h-5 w-5 sm:h-4 sm:w-4" />
               </Button>
             </div>
           );
@@ -256,7 +254,7 @@ export default function ManageCustomersPage() {
       <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-purple-50/50 via-indigo-50/30 to-blue-50/50 dark:from-purple-950/20 dark:via-indigo-950/10 dark:to-blue-950/20">
         <div className="text-center space-y-4 flex items-center justify-center flex-col">
           <LoadingSpinner size="lg" />
-          <p className="text-muted-foreground">Loading customer management...</p>
+          <p className="text-sm sm:text-base text-muted-foreground">Loading customer management...</p>
         </div>
       </div>
     );
@@ -275,13 +273,13 @@ export default function ManageCustomersPage() {
         </svg>
       </div>
 
-      <div className="container mx-auto p-4 max-w-7xl relative z-10 space-y-6">
+      <div className="container mx-auto p-3 sm:p-4 lg:p-6 max-w-7xl relative z-10 space-y-4 sm:space-y-5 lg:space-y-6">
         {/* Header */}
         <Card className="border border-border/50 hover:border-primary/30 transition-all duration-300">
           <CardHeader>
             <div className="flex items-center justify-between">
               <div>
-                <CardTitle className="text-2xl font-bold text-foreground flex items-center gap-2">
+                <CardTitle className="text-xl sm:text-2xl font-bold text-foreground flex items-center gap-2">
                   <Users className="h-6 w-6" />
                   Manage Customers
                 </CardTitle>
@@ -291,7 +289,7 @@ export default function ManageCustomersPage() {
                 onClick={handleRefresh}
                 disabled={refreshing}
                 variant="outline"
-                size="sm"
+                className="h-11 sm:h-9 w-full sm:w-auto"
               >
                 <RefreshCw className={`h-4 w-4 mr-2 ${refreshing ? 'animate-spin' : ''}`} />
                 Refresh
@@ -301,13 +299,13 @@ export default function ManageCustomersPage() {
         </Card>
 
         {/* Statistics */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
           <Card className="border border-border/50 hover:shadow-lg transition-all duration-300">
-            <CardContent className="p-6">
+            <CardContent className="p-4 sm:p-5 lg:p-6">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm font-medium text-muted-foreground">Total Customers</p>
-                  <p className="text-2xl font-bold text-foreground">{stats?.totalCustomers || 0}</p>
+                  <p className="text-xs sm:text-sm font-medium text-muted-foreground">Total Customers</p>
+                  <p className="text-xl sm:text-2xl font-bold text-foreground">{stats?.totalCustomers || 0}</p>
                 </div>
                 <Users className="h-8 w-8 text-blue-500" />
               </div>
@@ -315,11 +313,11 @@ export default function ManageCustomersPage() {
           </Card>
 
           <Card className="border border-border/50 hover:shadow-lg transition-all duration-300">
-            <CardContent className="p-6">
+            <CardContent className="p-4 sm:p-5 lg:p-6">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm font-medium text-muted-foreground">Customers with Discounts</p>
-                  <p className="text-2xl font-bold text-foreground">{stats?.customersWithDiscount || 0}</p>
+                  <p className="text-xs sm:text-sm font-medium text-muted-foreground">Customers with Discounts</p>
+                  <p className="text-xl sm:text-2xl font-bold text-foreground">{stats?.customersWithDiscount || 0}</p>
                 </div>
                 <Award className="h-8 w-8 text-purple-500" />
               </div>
@@ -327,11 +325,11 @@ export default function ManageCustomersPage() {
           </Card>
 
           <Card className="border border-border/50 hover:shadow-lg transition-all duration-300">
-            <CardContent className="p-6">
+            <CardContent className="p-4 sm:p-5 lg:p-6">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm font-medium text-muted-foreground">Average Discount</p>
-                  <p className="text-2xl font-bold text-foreground">{stats?.averageDiscount || 0}%</p>
+                  <p className="text-xs sm:text-sm font-medium text-muted-foreground">Average Discount</p>
+                  <p className="text-xl sm:text-2xl font-bold text-foreground">{stats?.averageDiscount || 0}%</p>
                 </div>
                 <Percent className="h-8 w-8 text-green-500" />
               </div>
@@ -339,11 +337,11 @@ export default function ManageCustomersPage() {
           </Card>
 
           <Card className="border border-border/50 hover:shadow-lg transition-all duration-300">
-            <CardContent className="p-6">
+            <CardContent className="p-4 sm:p-5 lg:p-6">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm font-medium text-muted-foreground">Recent Registrations</p>
-                  <p className="text-2xl font-bold text-foreground">{stats?.recentRegistrations || 0}</p>
+                  <p className="text-xs sm:text-sm font-medium text-muted-foreground">Recent Registrations</p>
+                  <p className="text-xl sm:text-2xl font-bold text-foreground">{stats?.recentRegistrations || 0}</p>
                 </div>
                 <Calendar className="h-8 w-8 text-orange-500" />
               </div>
@@ -353,21 +351,21 @@ export default function ManageCustomersPage() {
 
         {/* Filters */}
         <Card className="border border-border/50">
-          <CardContent className="p-6">
-            <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between">
-              <div className="flex flex-col sm:flex-row gap-4 flex-1">
-                <div className="relative flex-1 max-w-sm">
+          <CardContent className="p-4 sm:p-5 lg:p-6">
+            <div className="flex flex-col gap-3 sm:gap-4 items-stretch">
+              <div className="flex flex-col gap-3 w-full">
+                <div className="relative w-full sm:max-w-sm">
                   <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                   <Input
                     placeholder="Search by name or email..."
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
-                    className="pl-10"
+                    className="pl-10 h-11"
                   />
                 </div>
 
                 <Select value={discountFilter} onValueChange={setDiscountFilter}>
-                  <SelectTrigger className="w-48">
+                  <SelectTrigger className="w-full sm:w-48">
                     <SelectValue placeholder="Filter by discount" />
                   </SelectTrigger>
                   <SelectContent>
@@ -378,7 +376,7 @@ export default function ManageCustomersPage() {
                 </Select>
 
                 <Select value={sortBy} onValueChange={setSortBy}>
-                  <SelectTrigger className="w-48">
+                  <SelectTrigger className="w-full sm:w-48">
                     <SelectValue placeholder="Sort by" />
                   </SelectTrigger>
                   <SelectContent>
@@ -391,7 +389,7 @@ export default function ManageCustomersPage() {
 
                 <Button
                   variant="outline"
-                  size="sm"
+                  className="h-11 sm:h-9 w-full sm:w-auto"
                   onClick={() => setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc')}
                 >
                   {sortOrder === 'asc' ? '↑' : '↓'}
@@ -403,10 +401,10 @@ export default function ManageCustomersPage() {
 
         {/* Data Table */}
         <Card className="border border-border/50">
-          <CardHeader>
-            <CardTitle className="text-lg">Customer List</CardTitle>
+          <CardHeader className="p-4 sm:p-5 lg:p-6">
+            <CardTitle className="text-base sm:text-lg">Customer List</CardTitle>
           </CardHeader>
-          <CardContent>
+          <CardContent className="p-3 sm:p-4 lg:p-6">
             <DataTable
               data={customers}
               columns={columns}

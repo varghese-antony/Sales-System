@@ -1,6 +1,7 @@
-import React, { useState, useMemo } from 'react'
+import React, { useState, useMemo, useEffect } from 'react'
 import { ChevronUp, ChevronDown, ChevronsUpDown, MoreHorizontal, ChevronLeft, ChevronRight, Loader2 } from 'lucide-react'
 import { Button } from './button'
+import { Card, CardHeader, CardTitle, CardContent, CardFooter } from './card'
 import { cn } from '@/lib/utils'
 
 /**
@@ -30,6 +31,18 @@ export function DataTable({
   ...props
 }) {
   const [sortConfig, setSortConfig] = useState({ key: null, direction: null })
+  const [isMobile, setIsMobile] = useState(false)
+
+  useEffect(() => {
+    const checkMobile = () => {
+      setIsMobile(window.innerWidth < 768)
+    }
+
+    checkMobile()
+    window.addEventListener('resize', checkMobile)
+    
+    return () => window.removeEventListener('resize', checkMobile)
+  }, [])
 
   const densityStyles = {
     default: {
@@ -126,28 +139,113 @@ export function DataTable({
   const isAllSelected = paginatedData.length > 0 && paginatedData.every(row => selectedIds.has(row.id))
   const isSomeSelected = paginatedData.some(row => selectedIds.has(row.id))
 
+  // Mobile Card View Component
+  const MobileCardView = ({ data, columns, actions, showRowSelection, selectedIds, handleRowSelect, density, styles }) => {
+    return (
+      <div className="space-y-3 md:space-y-4">
+        {data.map((row, rowIndex) => (
+          <Card key={`mobile-${row.id}-${rowIndex}`} className="mobile-data-card">
+            <CardHeader className="pb-3">
+              <div className="flex items-center justify-between">
+                <CardTitle className="text-base">
+                  {columns.find(col => col.key !== 'actions')?.render
+                    ? columns.find(col => col.key !== 'actions').render(row[columns.find(col => col.key !== 'actions').key], row)
+                    : row[columns.find(col => col.key !== 'actions')?.key] || 'Item'
+                  }
+                </CardTitle>
+                {showRowSelection && (
+                  <input
+                    type="checkbox"
+                    checked={selectedIds.has(row.id)}
+                    onChange={(e) => handleRowSelect(row.id, e.target.checked)}
+                    className={cn("rounded border-border/50", styles.checkboxSize)}
+                  />
+                )}
+              </div>
+            </CardHeader>
+            <CardContent className="pt-0">
+              <div className="grid grid-cols-1 gap-2">
+                {columns.filter(column => column.key !== 'actions').slice(1).map((column) => (
+                  <div key={column.key} className="data-table-mobile-field">
+                    <label className="data-table-mobile-label">{column.label}</label>
+                    <div className="data-table-mobile-value">
+                      {column.render
+                        ? column.render(row[column.key], row)
+                        : row[column.key] || '-'
+                      }
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </CardContent>
+            {actions.length > 0 && (
+              <CardFooter className="pt-3">
+                <div className="flex gap-2 justify-end w-full">
+                  {actions.map((action, actionIndex) => (
+                    <Button
+                      key={actionIndex}
+                      variant={action.variant || "ghost"}
+                      size={density === "compact" ? "compact" : "sm"}
+                      onClick={() => action.onClick(row)}
+                      className={cn(action.className, "min-h-[44px] md:min-h-0")}
+                    >
+                      {action.icon && <action.icon className={styles.iconSize} />}
+                      {action.label}
+                    </Button>
+                  ))}
+                </div>
+              </CardFooter>
+            )}
+          </Card>
+        ))}
+      </div>
+    )
+  }
+
   if (loading) {
     return (
       <div className={cn(styles.outerSpacing, className)}>
-        {/* Table skeleton */}
-        <div className={cn(styles.tableRounded, "border border-border/50 bg-card overflow-hidden")}>
-          <div className={styles.skeletonPadding}>
-            <div className="flex items-center space-x-2">
-              <Loader2 className="h-4 w-4 animate-spin" />
-              <span className="text-sm text-muted-foreground">Loading data...</span>
+        {/* Desktop Table skeleton */}
+        <div className="hidden md:block">
+          <div className={cn(styles.tableRounded, "border border-border/50 bg-card overflow-hidden")}>
+            <div className={styles.skeletonPadding}>
+              <div className="flex items-center space-x-2">
+                <Loader2 className="h-4 w-4 animate-spin" />
+                <span className="text-sm text-muted-foreground">Loading data...</span>
+              </div>
+            </div>
+            <div className="border-t border-border/50">
+              {Array.from({ length: pageSize }).map((_, index) => (
+                <div key={index} className={cn("flex items-center space-x-4 border-b border-border/50 last:border-b-0", styles.skeletonPadding)}>
+                  {showRowSelection && <div className={cn(styles.checkboxSize, "bg-muted animate-pulse rounded")} />}
+                  {columns.map((column, colIndex) => (
+                    <div key={colIndex} className="flex-1">
+                      <div className="h-4 bg-muted animate-pulse rounded w-3/4"></div>
+                    </div>
+                  ))}
+                  {actions.length > 0 && <div className="w-8 h-8 bg-muted animate-pulse rounded" />}
+                </div>
+              ))}
             </div>
           </div>
-          <div className="border-t border-border/50">
-            {Array.from({ length: pageSize }).map((_, index) => (
-              <div key={index} className={cn("flex items-center space-x-4 border-b border-border/50 last:border-b-0", styles.skeletonPadding)}>
-                {showRowSelection && <div className={cn(styles.checkboxSize, "bg-muted animate-pulse rounded")} />}
-                {columns.map((column, colIndex) => (
-                  <div key={colIndex} className="flex-1">
+        </div>
+        {/* Mobile Card skeleton */}
+        <div className="block md:hidden">
+          <div className="space-y-3">
+            {Array.from({ length: 4 }).map((_, index) => (
+              <Card key={index}>
+                <CardHeader>
+                  <div className="h-5 bg-muted animate-pulse rounded w-1/2"></div>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-2">
+                    <div className="h-3 bg-muted animate-pulse rounded w-1/4"></div>
                     <div className="h-4 bg-muted animate-pulse rounded w-3/4"></div>
+                    <div className="h-3 bg-muted animate-pulse rounded w-1/4"></div>
+                    <div className="h-4 bg-muted animate-pulse rounded w-1/2"></div>
                   </div>
-                ))}
-                {actions.length > 0 && <div className="w-8 h-8 bg-muted animate-pulse rounded" />}
-              </div>
+                </CardContent>
+              </Card>
             ))}
           </div>
         </div>
@@ -157,8 +255,34 @@ export function DataTable({
 
   return (
     <div className={cn(styles.outerSpacing, className)} {...props}>
-      {/* Table */}
-      <div className={cn(styles.tableRounded, "border border-border/50 bg-card overflow-hidden shadow-lg")}>
+      {/* Mobile Card View */}
+      <div className="block md:hidden">
+        {isMobile && (
+          paginatedData.length === 0 ? (
+            <Card>
+              <CardContent className={cn(density === "compact" ? "py-8" : "py-12", "text-center text-muted-foreground")}>
+                <div className="flex flex-col items-center space-y-2">
+                  <div className="text-sm">{emptyMessage}</div>
+                </div>
+              </CardContent>
+            </Card>
+          ) : (
+            <MobileCardView
+              data={paginatedData}
+              columns={columns}
+              actions={actions}
+              showRowSelection={showRowSelection}
+              selectedIds={selectedIds}
+              handleRowSelect={handleRowSelect}
+              density={density}
+              styles={styles}
+            />
+          )
+        )}
+      </div>
+      {/* Desktop Table */}
+      <div className="hidden md:block">
+        <div className={cn(styles.tableRounded, "border border-border/50 bg-card overflow-hidden shadow-lg")}>
         <div className="overflow-x-auto">
           <table className="w-full">
             {/* Table Header */}
@@ -250,14 +374,14 @@ export function DataTable({
                     ))}
                     {actions.length > 0 && (
                       <td className={cn(styles.bodyCell, "text-right")}>
-                        <div className="flex items-center justify-end space-x-2">
+                        <div className="flex items-center justify-end space-x-2 data-table-actions">
                           {actions.map((action, actionIndex) => (
                             <Button
                               key={actionIndex}
                               variant={action.variant || "ghost"}
                               size={density === "compact" ? "compact" : "sm"}
                               onClick={() => action.onClick(row)}
-                              className={action.className}
+                              className={cn(action.className, "min-h-[44px] md:min-h-0")}
                             >
                               {action.icon && <action.icon className={styles.iconSize} />}
                               {action.label}
@@ -273,16 +397,17 @@ export function DataTable({
           </table>
         </div>
       </div>
+      </div>
 
       {/* Pagination */}
       {showPaginationControls && (
-        <div className="flex items-center justify-between">
-          <div className={cn(styles.paginationText, "text-muted-foreground")}>
+        <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+          <div className={cn(styles.paginationText, "text-muted-foreground w-full md:w-auto")}>
             {totalAvailable === 0
               ? 'No entries'
               : `Showing ${displayStart} to ${displayEnd} of ${totalAvailable} entries`}
           </div>
-          <div className="flex items-center space-x-2">
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 sm:gap-2 w-full md:w-auto">
             <div className="flex items-center space-x-2">
               <span className={cn(styles.paginationText, "text-muted-foreground")}>Rows per page:</span>
               <select
@@ -295,7 +420,7 @@ export function DataTable({
                     onPageSizeChange && onPageSizeChange(parseInt(value));
                   }
                 }}
-                className="px-2 py-1 text-sm border border-border rounded bg-background"
+                className="px-2 py-1 text-sm border border-border rounded bg-background w-full sm:w-auto"
               >
                 {[10, 25, 50, 100].map(size => (
                   <option key={size} value={size}>{size}</option>
@@ -309,12 +434,13 @@ export function DataTable({
               size={density === "compact" ? "compact" : "sm"}
               onClick={() => onPageChange && onPageChange(currentPage - 1)}
               disabled={currentPage <= 1}
+              className="flex-1 sm:flex-initial"
             >
               <ChevronLeft className={styles.iconSize} />
               Previous
             </Button>
 
-            <div className="flex items-center space-x-1">
+            <div className="flex items-center gap-1 overflow-x-auto pb-2 sm:pb-0">
               {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
                 const pageNum = Math.max(1, Math.min(totalPages - 4, currentPage - 2)) + i
                 if (pageNum > totalPages) return null
@@ -325,7 +451,7 @@ export function DataTable({
                     variant={currentPage === pageNum ? "default" : "outline"}
                     size={density === "compact" ? "compact" : "sm"}
                     onClick={() => onPageChange && onPageChange(pageNum)}
-                    className="w-8 h-8 p-0"
+                    className="w-8 h-8 p-0 flex-shrink-0"
                   >
                     {pageNum}
                   </Button>
@@ -338,6 +464,7 @@ export function DataTable({
               size={density === "compact" ? "compact" : "sm"}
               onClick={() => onPageChange && onPageChange(currentPage + 1)}
               disabled={currentPage >= totalPages}
+              className="flex-1 sm:flex-initial"
             >
               Next
               <ChevronRight className={styles.iconSize} />
@@ -348,11 +475,11 @@ export function DataTable({
 
       {/* Show page size info when showing all items */}
       {!showPaginationControls && showPagination && (
-        <div className="flex items-center justify-between">
-          <div className={cn(styles.paginationText, "text-muted-foreground")}>
+        <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+          <div className={cn(styles.paginationText, "text-muted-foreground w-full md:w-auto")}>
             Showing all {totalItems || data.length} entries
           </div>
-          <div className="flex items-center space-x-2">
+          <div className="flex items-center space-x-2 w-full md:w-auto">
             <div className="flex items-center space-x-2">
               <span className={cn(styles.paginationText, "text-muted-foreground")}>Page size:</span>
               <select
@@ -365,7 +492,7 @@ export function DataTable({
                     onPageSizeChange && onPageSizeChange(parseInt(value));
                   }
                 }}
-                className="px-2 py-1 text-sm border border-border rounded bg-background"
+                className="px-2 py-1 text-sm border border-border rounded bg-background w-full sm:w-auto"
               >
                 {[10, 25, 50, 100].map(size => (
                   <option key={size} value={size}>{size}</option>

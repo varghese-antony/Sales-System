@@ -290,12 +290,12 @@ export function EditProductModal({ product, isOpen, onClose, onSave, isCreate = 
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-4xl max-h-[10vh] glass-effect border-2 border-primary/20 shadow-2xl animate-modal-slide-up">
+      <DialogContent className="max-w-full sm:max-w-2xl lg:max-w-4xl max-h-[90vh] overflow-y-auto glass-effect border-2 border-primary/20 shadow-2xl animate-modal-slide-up p-4 sm:p-6">
         {(saving || loading) && (
           <div className="inset-0 bg-background/80 backdrop-blur-sm flex items-center justify-center z-50 rounded-lg">
             <div className="flex flex-col items-center gap-3">
-              <div className="animate-spin rounded-full h-12 w-12 border-4 border-primary border-t-transparent" />
-              <p className="text-sm font-medium text-muted-foreground">
+              <div className="animate-spin rounded-full h-10 w-10 sm:h-12 sm:w-12 border-4 border-primary border-t-transparent" />
+              <p className="text-xs sm:text-sm font-medium text-muted-foreground">
                 {saving ? 'Saving changes...' : 'Deleting product...'}
               </p>
             </div>
@@ -314,8 +314,8 @@ export function EditProductModal({ product, isOpen, onClose, onSave, isCreate = 
           </motion.div>
         )}
 
-        <DialogHeader className="pb-4 border-b border-primary/20 bg-gradient-to-r from-primary/5 via-primary/10 to-primary/5">
-          <DialogTitle className="flex items-center gap-2 text-gradient">
+        <DialogHeader className="pb-3 sm:pb-4 border-b border-primary/20 bg-gradient-to-r from-primary/5 via-primary/10 to-primary/5">
+          <DialogTitle className="flex flex-wrap items-center gap-2 text-lg sm:text-xl text-gradient">
             <Badge variant={badgeVariant} className="animate-scale-in">
               {badgeLabel}
             </Badge>
@@ -323,23 +323,23 @@ export function EditProductModal({ product, isOpen, onClose, onSave, isCreate = 
           </DialogTitle>
         </DialogHeader>
 
-        <div className="space-y-4 sm:space-y-6">
+        <div className="space-y-3 sm:space-y-4 lg:space-y-6">
           {/* Basic Information */}
           <Card className="transition-all duration-300 hover:shadow-xl hover:shadow-primary/5 hover:border-primary/30 hover-lift">
-            <CardHeader className="bg-gradient-to-r from-transparent via-primary/5 to-transparent">
-              <CardTitle className="text-lg font-semibold text-gradient flex items-center gap-2">
+            <CardHeader className="p-3 sm:p-4 lg:p-6 bg-gradient-to-r from-transparent via-primary/5 to-transparent">
+              <CardTitle className="text-base sm:text-lg font-semibold text-gradient flex items-center gap-2">
                 <Info className="h-5 w-5 text-primary" />
                 Basic Information
               </CardTitle>
             </CardHeader>
-            <CardContent className="space-y-4">
+            <CardContent className="p-3 sm:p-4 lg:p-6 space-y-3 sm:space-y-4">
               <motion.div
-                className="grid grid-cols-1 sm:grid-cols-2 gap-4"
+                className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4"
                 variants={gridContainerVariants}
                 initial="hidden"
                 animate="visible"
               >
-                <motion.div className="space-y-2" variants={gridItemVariants}>
+                <motion.div className="space-y-1.5 sm:space-y-2" variants={gridItemVariants}>
                   <label className={labelClass}>Type</label>
                   {isCreate ? (
                     <Select
@@ -360,7 +360,7 @@ export function EditProductModal({ product, isOpen, onClose, onSave, isCreate = 
                     </div>
                   )}
                 </motion.div>
-                <motion.div className="space-y-2" variants={gridItemVariants}>
+                <motion.div className="space-y-1.5 sm:space-y-2" variants={gridItemVariants}>
                   <label className={labelClass}>
                     Product Type <span className="text-destructive">*</span>
                   </label>
@@ -380,7 +380,7 @@ export function EditProductModal({ product, isOpen, onClose, onSave, isCreate = 
                 initial="hidden"
                 animate="visible"
               >
-                <motion.div className="space-y-2" variants={gridItemVariants}>
+                <motion.div className="space-y-1.5 sm:space-y-2" variants={gridItemVariants}>
                   <label className={labelClass}>
                     Model Number <span className="text-destructive">*</span>
                   </label>
@@ -392,7 +392,7 @@ export function EditProductModal({ product, isOpen, onClose, onSave, isCreate = 
                     className={inputClass}
                   />
                 </motion.div>
-                <motion.div className="space-y-2" variants={gridItemVariants}>
+                <motion.div className="space-y-1.5 sm:space-y-2" variants={gridItemVariants}>
                   <label className={labelClass}>Product Name</label>
                   <Input
                     value={formData.name || ''}
@@ -403,7 +403,7 @@ export function EditProductModal({ product, isOpen, onClose, onSave, isCreate = 
                 </motion.div>
               </motion.div>
 
-              <motion.div className="space-y-2" variants={gridItemVariants} initial="hidden" animate="visible">
+              <motion.div className="space-y-1.5 sm:space-y-2" variants={gridItemVariants} initial="hidden" animate="visible">
                 <label className={labelClass}>Description</label>
                 <Textarea
                   value={formData.description || ''}
@@ -420,7 +420,7 @@ export function EditProductModal({ product, isOpen, onClose, onSave, isCreate = 
                 initial="hidden"
                 animate="visible"
               >
-                <motion.div className="space-y-2" variants={gridItemVariants}>
+                <motion.div className="space-y-1.5 sm:space-y-2" variants={gridItemVariants}>
                   <label className={labelClass}>Sizes</label>
                   <Input
                     value={formData.sizes || ''}
@@ -429,7 +429,7 @@ export function EditProductModal({ product, isOpen, onClose, onSave, isCreate = 
                     className={inputClass}
                   />
                 </motion.div>
-                <motion.div className="space-y-2" variants={gridItemVariants}>
+                <motion.div className="space-y-1.5 sm:space-y-2" variants={gridItemVariants}>
                   <label className={labelClass}>Mounting</label>
                   <Input
                     value={formData.mounting || ''}
@@ -458,7 +458,7 @@ export function EditProductModal({ product, isOpen, onClose, onSave, isCreate = 
                 animate="visible"
               >
                 {technicalFields.map((field) => (
-                  <motion.div key={field.key} className="space-y-2" variants={gridItemVariants}>
+                  <motion.div key={field.key} className="space-y-1.5 sm:space-y-2" variants={gridItemVariants}>
                     <label className={labelClass}>{field.label}</label>
                     <Input
                       value={formData[field.key] || ''}
@@ -474,21 +474,21 @@ export function EditProductModal({ product, isOpen, onClose, onSave, isCreate = 
 
           {/* Design & Features */}
           <Card className="transition-all duration-300 hover:shadow-xl hover:shadow-primary/5 hover:border-primary/30 hover-lift">
-            <CardHeader className="bg-gradient-to-r from-transparent via-primary/5 to-transparent">
-              <CardTitle className="text-lg font-semibold text-gradient flex items-center gap-2">
+            <CardHeader className="p-3 sm:p-4 lg:p-6 bg-gradient-to-r from-transparent via-primary/5 to-transparent">
+              <CardTitle className="text-base sm:text-lg font-semibold text-gradient flex items-center gap-2">
                 <Palette className="h-5 w-5 text-primary" />
                 Design & Features
               </CardTitle>
             </CardHeader>
-            <CardContent className="space-y-4">
+            <CardContent className="p-3 sm:p-4 lg:p-6 space-y-3 sm:space-y-4">
               <motion.div
-                className="grid grid-cols-1 sm:grid-cols-2 gap-4"
+                className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4"
                 variants={gridContainerVariants}
                 initial="hidden"
                 animate="visible"
               >
                 {designFields.slice(0, 2).map((field) => (
-                  <motion.div key={field.key} className="space-y-2" variants={gridItemVariants}>
+                  <motion.div key={field.key} className="space-y-1.5 sm:space-y-2" variants={gridItemVariants}>
                     <label className={labelClass}>{field.label}</label>
                     <Input
                       value={formData[field.key] || ''}
@@ -500,7 +500,7 @@ export function EditProductModal({ product, isOpen, onClose, onSave, isCreate = 
                 ))}
               </motion.div>
               {designFields.slice(2).map((field) => (
-                <motion.div key={field.key} className="space-y-2" variants={gridItemVariants} initial="hidden" animate="visible">
+                <motion.div key={field.key} className="space-y-1.5 sm:space-y-2" variants={gridItemVariants} initial="hidden" animate="visible">
                   <label className={labelClass}>{field.label}</label>
                   <Input
                     value={formData[field.key] || ''}
@@ -529,7 +529,7 @@ export function EditProductModal({ product, isOpen, onClose, onSave, isCreate = 
                 animate="visible"
               >
                 {logisticsFields.map((field) => (
-                  <motion.div key={field.key} className="space-y-2" variants={gridItemVariants}>
+                  <motion.div key={field.key} className="space-y-1.5 sm:space-y-2" variants={gridItemVariants}>
                     <label className={labelClass}>{field.label}</label>
                     <Input
                       type={field.type || 'text'}
@@ -547,21 +547,21 @@ export function EditProductModal({ product, isOpen, onClose, onSave, isCreate = 
 
           {/* Media & Documentation */}
           <Card className="transition-all duration-300 hover:shadow-xl hover:shadow-primary/5 hover:border-primary/30 hover-lift">
-            <CardHeader className="bg-gradient-to-r from-transparent via-primary/5 to-transparent">
-              <CardTitle className="text-lg font-semibold text-gradient flex items-center gap-2">
+            <CardHeader className="p-3 sm:p-4 lg:p-6 bg-gradient-to-r from-transparent via-primary/5 to-transparent">
+              <CardTitle className="text-base sm:text-lg font-semibold text-gradient flex items-center gap-2">
                 <Image className="h-5 w-5 text-primary" />
                 Media & Documentation
               </CardTitle>
             </CardHeader>
-            <CardContent className="space-y-4">
+            <CardContent className="p-3 sm:p-4 lg:p-6 space-y-3 sm:space-y-4">
               <motion.div
-                className="grid grid-cols-1 sm:grid-cols-2 gap-4"
+                className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4"
                 variants={gridContainerVariants}
                 initial="hidden"
                 animate="visible"
               >
                 {mediaFields.slice(0, 2).map((field) => (
-                  <motion.div key={field.key} className="space-y-2" variants={gridItemVariants}>
+                  <motion.div key={field.key} className="space-y-1.5 sm:space-y-2" variants={gridItemVariants}>
                     <label className={labelClass}>{field.label}</label>
                     <Input
                       value={formData[field.key] || ''}
@@ -573,7 +573,7 @@ export function EditProductModal({ product, isOpen, onClose, onSave, isCreate = 
                 ))}
               </motion.div>
               {mediaFields.slice(2).map((field) => (
-                <motion.div key={field.key} className="space-y-2" variants={gridItemVariants} initial="hidden" animate="visible">
+                <motion.div key={field.key} className="space-y-1.5 sm:space-y-2" variants={gridItemVariants} initial="hidden" animate="visible">
                   <label className={labelClass}>{field.label}</label>
                   <Input
                     value={formData[field.key] || ''}
@@ -603,7 +603,7 @@ export function EditProductModal({ product, isOpen, onClose, onSave, isCreate = 
                   animate="visible"
                 >
                   {outdoorFields.map((field) => (
-                    <motion.div key={field.key} className="space-y-2" variants={gridItemVariants}>
+                    <motion.div key={field.key} className="space-y-1.5 sm:space-y-2" variants={gridItemVariants}>
                       <label className={labelClass}>{field.label}</label>
                       <Input
                         value={formData[field.key] || ''}
@@ -620,14 +620,14 @@ export function EditProductModal({ product, isOpen, onClose, onSave, isCreate = 
 
           {/* Category */}
           <Card className="transition-all duration-300 hover:shadow-xl hover:shadow-primary/5 hover:border-primary/30 hover-lift">
-            <CardHeader className="bg-gradient-to-r from-transparent via-primary/5 to-transparent">
-              <CardTitle className="text-lg font-semibold text-gradient flex items-center gap-2">
+            <CardHeader className="p-3 sm:p-4 lg:p-6 bg-gradient-to-r from-transparent via-primary/5 to-transparent">
+              <CardTitle className="text-base sm:text-lg font-semibold text-gradient flex items-center gap-2">
                 <Tag className="h-5 w-5 text-primary" />
                 Category
               </CardTitle>
             </CardHeader>
-            <CardContent>
-              <div className="space-y-2">
+            <CardContent className="p-3 sm:p-4 lg:p-6">
+              <div className="space-y-1.5 sm:space-y-2">
                 <label className={labelClass}>Indoor/Outdoor Category</label>
                 {isCreate ? (
                   <Input
@@ -651,13 +651,13 @@ export function EditProductModal({ product, isOpen, onClose, onSave, isCreate = 
           </Card>
         </div>
 
-        <DialogFooter className="flex-col sm:flex-row gap-3 sm:items-center sm:justify-between border-t border-primary/10 pt-4 mt-6">
+        <DialogFooter className="flex-col sm:flex-row gap-2 sm:gap-3 sm:items-center sm:justify-between border-t border-primary/10 pt-3 sm:pt-4 mt-4 sm:mt-6">
           <div className="flex w-full sm:w-auto flex-col sm:flex-row gap-2">
             <Button
               variant="outline"
               onClick={handleReset}
               disabled={saving || loading}
-              className="transition-all hover:border-primary/50 hover:shadow-md"
+              className="w-full sm:w-auto transition-all hover:border-primary/50 hover:shadow-md"
             >
               Reset
             </Button>
@@ -666,7 +666,7 @@ export function EditProductModal({ product, isOpen, onClose, onSave, isCreate = 
                 variant="destructive"
                 onClick={handleDelete}
                 disabled={saving || loading}
-                className="transition-all hover:shadow-lg hover:shadow-destructive/20 hover:-translate-y-0.5"
+                className="w-full sm:w-auto transition-all hover:shadow-lg hover:shadow-destructive/20 hover:-translate-y-0.5"
               >
                 {loading ? 'Deleting...' : 'Delete Product'}
               </Button>
@@ -677,7 +677,7 @@ export function EditProductModal({ product, isOpen, onClose, onSave, isCreate = 
               variant="outline"
               onClick={onClose}
               disabled={saving || loading}
-              className="transition-all hover:border-primary/50 hover:shadow-md"
+              className="w-full sm:w-auto transition-all hover:border-primary/50 hover:shadow-md"
             >
               Cancel
             </Button>
@@ -685,7 +685,7 @@ export function EditProductModal({ product, isOpen, onClose, onSave, isCreate = 
               onClick={handleSave}
               disabled={saving || loading}
               variant="gradient"
-              className="shadow-lg hover:shadow-xl hover:-translate-y-0.5 transition-all"
+              className="w-full sm:w-auto shadow-lg hover:shadow-xl hover:-translate-y-0.5 transition-all"
             >
               {saving ? 'Saving...' : isCreate ? 'Create Product' : 'Save Changes'}
             </Button>

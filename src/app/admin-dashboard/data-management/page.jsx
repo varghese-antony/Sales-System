@@ -42,6 +42,16 @@ import {
   DialogDescription
 } from '@/components/ui/dialog';
 import {
+  Drawer,
+  DrawerClose,
+  DrawerContent,
+  DrawerHeader,
+  DrawerTitle,
+  DrawerDescription,
+  DrawerFooter,
+  DrawerTrigger
+} from '@/components/ui/drawer';
+import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
@@ -129,6 +139,7 @@ export default function DataManagementPage() {
   const [refreshing, setRefreshing] = useState(false);
   const [requestId, setRequestId] = useState(0);
   const [isFiltersOpen, setIsFiltersOpen] = useState(false);
+  const [isMobile, setIsMobile] = useState(false);
 
   // Filter states
   const [typeFilter, setTypeFilter] = useState('both');
@@ -604,6 +615,20 @@ export default function DataManagementPage() {
   useEffect(() => {
     setSelectedRows(prev => cleanSelectedRows(prev));
   }, [products]);
+
+  // Mobile breakpoint detection
+  useEffect(() => {
+    const checkIsMobile = () => {
+      setIsMobile(window.innerWidth < 768);
+    };
+
+    checkIsMobile();
+    window.addEventListener('resize', checkIsMobile);
+
+    return () => {
+      window.removeEventListener('resize', checkIsMobile);
+    };
+  }, []);
 
   useEffect(() => {
     setCurrentPage(prev => (prev === 1 ? prev : 1));
@@ -1198,59 +1223,59 @@ export default function DataManagementPage() {
         </svg>
       </div>
 
-      <div className="container mx-auto p-3 md:p-4 max-w-7xl relative z-10 space-y-3">
+      <div className="container mx-auto p-3 sm:p-4 lg:p-6 max-w-7xl relative z-10 space-y-3 sm:space-y-4">
         {/* Consolidated Stats & Actions Card */}
         <Card density="compact" className="border border-border/50 hover:border-primary/30 transition-all duration-300">
           <CardContent density="compact">
-            <div className="flex items-center justify-between gap-4">
-              {/* Stats Section - Compact Inline */}
-              <div className="flex items-center gap-4 flex-1">
-                <div className="flex items-center gap-1.5">
+            <div className="flex flex-col lg:flex-row items-stretch lg:items-center gap-3 lg:gap-4">
+              {/* Stats Section - Responsive Grid */}
+              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 sm:gap-4 w-full lg:w-auto">
+                <div className="flex flex-col sm:flex-row items-start sm:items-center gap-1 sm:gap-1.5">
                   <Package className="h-4 w-4 text-blue-500" />
                   <div>
-                    <p className="text-[9px] text-muted-foreground leading-none">Total</p>
-                    <p className="text-sm font-bold text-foreground leading-none mt-0.5">{stats.totalProducts}</p>
+                    <p className="text-[10px] sm:text-[9px] text-muted-foreground leading-none">Total</p>
+                    <p className="text-base sm:text-sm font-bold text-foreground leading-none mt-0.5">{stats.totalProducts}</p>
                   </div>
                 </div>
                 
-                <div className="flex items-center gap-1.5">
+                <div className="flex flex-col sm:flex-row items-start sm:items-center gap-1 sm:gap-1.5">
                   <Package className="h-4 w-4 text-green-500" />
                   <div>
-                    <p className="text-[9px] text-muted-foreground leading-none">Indoor</p>
-                    <p className="text-sm font-bold text-foreground leading-none mt-0.5">{stats.indoorProducts}</p>
+                    <p className="text-[10px] sm:text-[9px] text-muted-foreground leading-none">Indoor</p>
+                    <p className="text-base sm:text-sm font-bold text-foreground leading-none mt-0.5">{stats.indoorProducts}</p>
                   </div>
                 </div>
                 
-                <div className="flex items-center gap-1.5">
+                <div className="flex flex-col sm:flex-row items-start sm:items-center gap-1 sm:gap-1.5">
                   <Package className="h-4 w-4 text-orange-500" />
                   <div>
-                    <p className="text-[9px] text-muted-foreground leading-none">Outdoor</p>
-                    <p className="text-sm font-bold text-foreground leading-none mt-0.5">{stats.outdoorProducts}</p>
+                    <p className="text-[10px] sm:text-[9px] text-muted-foreground leading-none">Outdoor</p>
+                    <p className="text-base sm:text-sm font-bold text-foreground leading-none mt-0.5">{stats.outdoorProducts}</p>
                   </div>
                 </div>
                 
-                <div className="flex items-center gap-1.5">
+                <div className="flex flex-col sm:flex-row items-start sm:items-center gap-1 sm:gap-1.5">
                   <BarChart3 className="h-4 w-4 text-purple-500" />
                   <div>
-                    <p className="text-[9px] text-muted-foreground leading-none">Value</p>
-                    <p className="text-sm font-bold text-foreground leading-none mt-0.5">${stats.totalValue}</p>
+                    <p className="text-[10px] sm:text-[9px] text-muted-foreground leading-none">Value</p>
+                    <p className="text-base sm:text-sm font-bold text-foreground leading-none mt-0.5">${stats.totalValue}</p>
                   </div>
                 </div>
                 
-                <div className="flex items-center gap-1.5">
+                <div className="flex flex-col sm:flex-row items-start sm:items-center gap-1 sm:gap-1.5">
                   <CheckSquare className="h-4 w-4 text-primary" />
                   <div>
-                    <p className="text-[9px] text-muted-foreground leading-none">Selected</p>
-                    <p className="text-sm font-bold text-foreground leading-none mt-0.5">{stats.selectedCount}</p>
+                    <p className="text-[10px] sm:text-[9px] text-muted-foreground leading-none">Selected</p>
+                    <p className="text-base sm:text-sm font-bold text-foreground leading-none mt-0.5">{stats.selectedCount}</p>
                   </div>
                 </div>
               </div>
 
               {/* Divider */}
-              <div className="h-8 w-px bg-border" />
+              <div className="h-8 w-px bg-border hidden lg:block" />
 
               {/* Search Section */}
-              <div className="flex items-center gap-2 flex-1 max-w-md">
+              <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 w-full lg:w-auto lg:flex-1 lg:max-w-md">
                 <div className="relative flex-1">
                   <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                   <Input
@@ -1258,14 +1283,15 @@ export default function DataManagementPage() {
                     value={searchInput}
                     onChange={(e) => setSearchInput(e.target.value)}
                     onKeyPress={handleSearchKeyPress}
-                    className="pl-10 h-8 text-sm"
+                    className="pl-10 h-11 sm:h-8 text-sm"
                   />
                 </div>
                 <Button
                   onClick={handleSearch}
                   variant="outline"
-                  size="compact"
+                  size={isMobile ? "default" : "compact"}
                   title="Search"
+                  className="h-11 sm:h-auto"
                 >
                   <Search className="h-3.5 w-3.5" />
                 </Button>
@@ -1276,8 +1302,9 @@ export default function DataManagementPage() {
                       setSearchInput('');
                     }}
                     variant="ghost"
-                    size="compact"
+                    size={isMobile ? "default" : "compact"}
                     title="Clear Search"
+                    className="h-11 sm:h-auto"
                   >
                     <X className="h-3.5 w-3.5" />
                   </Button>
@@ -1285,11 +1312,11 @@ export default function DataManagementPage() {
               </div>
 
               {/* Divider */}
-              <div className="h-8 w-px bg-border" />
+              <div className="h-8 w-px bg-border hidden lg:block" />
 
               {/* Actions Section */}
-              <div className="flex items-center gap-1.5">
-                <Button onClick={() => router.push('/admin-dashboard/data-entry')} variant="default" size="compact" title="Add Product">
+              <div className="grid grid-cols-2 sm:grid-cols-4 lg:flex lg:items-center gap-2 w-full lg:w-auto">
+                <Button onClick={() => router.push('/admin-dashboard/data-entry')} variant="default" size={isMobile ? "default" : "compact"} title="Add Product" className="col-span-2 sm:col-span-1 h-11 sm:h-9 md:h-7">
                   <Plus className="h-3.5 w-3.5" />
                 </Button>
 
@@ -1297,14 +1324,15 @@ export default function DataManagementPage() {
                   onClick={handleRefresh}
                   disabled={refreshing}
                   variant="outline"
-                  size="compact"
+                  size={isMobile ? "default" : "compact"}
                   title="Refresh Data"
+                  className="h-11 sm:h-9 md:h-7"
                 >
                   <RefreshCw className={`h-3.5 w-3.5 ${refreshing ? 'animate-spin' : ''}`} />
                 </Button>
 
                 {refreshing && (
-                  <div className="flex items-center gap-1 text-[11px] text-muted-foreground">
+                  <div className="flex items-center gap-1 text-sm sm:text-xs text-muted-foreground col-span-2 sm:col-span-4 lg:col-span-1">
                     <RefreshCw className="h-3 w-3 animate-spin" />
                     <span>Updating…</span>
                   </div>
@@ -1313,11 +1341,12 @@ export default function DataManagementPage() {
                 <Button 
                   onClick={() => setIsFiltersOpen(true)} 
                   variant="outline" 
-                  size="compact" 
-                  className="relative"
+                  size={isMobile ? "default" : "compact"} 
+                  className="relative h-11 sm:h-9 md:h-7"
                   title={`Filters${getActiveFilterCount > 0 ? ` (${getActiveFilterCount} active)` : ''}`}
                 >
                   <Filter className="h-3.5 w-3.5" />
+                  <span className="hidden sm:inline ml-1">Filters</span><span className="sm:hidden ml-1">Filter</span>
                   {getActiveFilterCount > 0 && (
                     <Badge variant="default" size="compact" className="absolute -top-1 -right-1 h-4 w-4 rounded-full p-0 flex items-center justify-center text-[9px]">
                       {getActiveFilterCount}
@@ -1328,8 +1357,9 @@ export default function DataManagementPage() {
                 <Button 
                   onClick={handleSelectAll} 
                   variant="outline" 
-                  size="compact"
+                  size={isMobile ? "default" : "compact"}
                   title={allSelectableSelected ? 'Deselect All' : 'Select All'}
+                  className="h-11 sm:h-9 md:h-7"
                 >
                   {allSelectableSelected ? (
                     <Square className="h-3.5 w-3.5" />
@@ -1338,11 +1368,11 @@ export default function DataManagementPage() {
                   )}
                 </Button>
 
-                <Button onClick={handleExportAll} variant="outline" size="compact" title="Export All as CSV">
+                <Button onClick={handleExportAll} variant="outline" size={isMobile ? "default" : "compact"} title="Export All as CSV" className="h-11 sm:h-9 md:h-7">
                   <Download className="h-3.5 w-3.5" />
                 </Button>
 
-                <Button onClick={() => setIsCustomExportOpen(true)} variant="outline" size="compact" title="Custom Export Options">
+                <Button onClick={() => setIsCustomExportOpen(true)} variant="outline" size={isMobile ? "default" : "compact"} title="Custom Export Options" className="h-11 sm:h-9 md:h-7">
                   <Settings className="h-3.5 w-3.5" />
                 </Button>
               </div>
@@ -1354,29 +1384,32 @@ export default function DataManagementPage() {
         {selectedRows.length > 0 && (
           <Card density="compact" className="border border-primary/50 bg-primary/5">
             <CardContent density="compact">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-1.5">
-                  <span className="text-xs font-medium">
+              <div className="flex flex-col md:flex-row items-stretch md:items-center gap-3">
+                <div className="flex flex-col sm:flex-row flex-wrap items-stretch sm:items-center gap-2">
+                  <span className="text-sm sm:text-xs font-medium">
                     {selectedRows.length} product{selectedRows.length !== 1 ? 's' : ''} selected
                   </span>
                   <Button
                     onClick={() => setBulkAction('category')}
                     variant="outline"
-                    size="compact"
+                    size={isMobile ? "default" : "compact"}
+                    className="w-full sm:w-auto h-11 sm:h-9 md:h-7"
                   >
                     Set Category
                   </Button>
                   <Button
                     onClick={() => setBulkAction('update')}
                     variant="outline"
-                    size="compact"
+                    size={isMobile ? "default" : "compact"}
+                    className="w-full sm:w-auto h-11 sm:h-9 md:h-7"
                   >
                     Mass Update
                   </Button>
                   <Button
                     onClick={handleExportSelected}
                     variant="outline"
-                    size="compact"
+                    size={isMobile ? "default" : "compact"}
+                    className="w-full sm:w-auto h-11 sm:h-9 md:h-7"
                   >
                     <Download className="h-3.5 w-3.5 mr-1" />
                     Export Selected
@@ -1384,7 +1417,8 @@ export default function DataManagementPage() {
                   <Button
                     onClick={handleBulkDelete}
                     variant="destructive"
-                    size="compact"
+                    size={isMobile ? "default" : "compact"}
+                    className="w-full sm:w-auto h-11 sm:h-9 md:h-7"
                   >
                     <Trash2 className="h-3.5 w-3.5 mr-1" />
                     Delete Selected
@@ -1393,7 +1427,8 @@ export default function DataManagementPage() {
                 <Button
                   onClick={() => setSelectedRows([])}
                   variant="ghost"
-                  size="compact"
+                  size={isMobile ? "default" : "compact"}
+                  className="w-full md:w-auto mt-2 md:mt-0 h-11 sm:h-9 md:h-7"
                 >
                   <X className="h-3.5 w-3.5 mr-1" />
                   Clear Selection
@@ -1405,9 +1440,170 @@ export default function DataManagementPage() {
 
         
 
-        {/* Filters Dialog */}
-        <Dialog open={isFiltersOpen} onOpenChange={setIsFiltersOpen}>
-          <DialogContent className="max-w-4xl max-h-[90vh] w-full overflow-hidden flex flex-col glass-effect border-2 border-primary/20 shadow-2xl">
+        {/* Mobile Filters Drawer */}
+        {isMobile && (
+          <Drawer open={isFiltersOpen} onOpenChange={setIsFiltersOpen}>
+            <DrawerContent className="h-[85vh] flex flex-col">
+              <DrawerHeader className="px-4 py-3 border-b">
+                <DrawerTitle className="text-lg font-bold flex items-center gap-2">
+                  <Filter className="h-5 w-5 text-primary" />
+                  Filter Products
+                </DrawerTitle>
+                <DrawerDescription>
+                  {getActiveFilterCount > 0 ? (
+                    <span className="inline-flex items-center gap-2">
+                      <Badge variant="default" className="text-xs">
+                        {getActiveFilterCount} filter{getActiveFilterCount !== 1 ? 's' : ''} active
+                      </Badge>
+                    </span>
+                  ) : (
+                    <span className="text-muted-foreground text-sm">No active filters</span>
+                  )}
+                </DrawerDescription>
+              </DrawerHeader>
+
+              <div className="flex-1 overflow-y-auto px-4 pb-4">
+                <Tabs defaultValue="basic" className="w-full">
+                  <TabsList className="grid w-full grid-cols-3 mb-4 mt-4">
+                    <TabsTrigger value="basic" className="text-xs">Basic</TabsTrigger>
+                    <TabsTrigger value="technical" className="text-xs">Technical</TabsTrigger>
+                    <TabsTrigger value="features" className="text-xs">Features</TabsTrigger>
+                  </TabsList>
+
+                  <TabsContent value="basic" className="space-y-4 mt-0">
+                    <div className="space-y-3">
+                      <h3 className="text-sm font-medium">Product Type & Category</h3>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        <div className="space-y-2">
+                          <label className="text-xs font-medium">Product Type</label>
+                          <Select value={typeFilter} onValueChange={setTypeFilter}>
+                            <SelectTrigger className="h-9">
+                              <SelectValue placeholder="Select type" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="both">All Types</SelectItem>
+                              <SelectItem value="indoor">Indoor Only</SelectItem>
+                              <SelectItem value="outdoor">Outdoor Only</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+                        <div className="space-y-2">
+                          <label className="text-xs font-medium">Category</label>
+                          <Select value={categoryFilter} onValueChange={setCategoryFilter}>
+                            <SelectTrigger className="h-9">
+                              <SelectValue placeholder="Select category" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="all">All Categories</SelectItem>
+                              {Array.from(new Set(products.map(p => p.category).filter(Boolean))).map(category => (
+                                <SelectItem key={category} value={category}>{category}</SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                      </div>
+                    </div>
+                  </TabsContent>
+
+                  <TabsContent value="technical" className="space-y-4 mt-0">
+                    <div className="space-y-3">
+                      <h3 className="text-sm font-medium">Technical Specifications</h3>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        <div className="space-y-2">
+                          <label className="text-xs font-medium">Voltage</label>
+                          <Select value={voltageFilter} onValueChange={setVoltageFilter}>
+                            <SelectTrigger className="h-9">
+                              <SelectValue placeholder="Select voltage" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="all">All Voltages</SelectItem>
+                              {Array.from(new Set(products.map(p => p.voltage).filter(Boolean))).map(voltage => (
+                                <SelectItem key={voltage} value={voltage}>{voltage}</SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                        <div className="space-y-2">
+                          <label className="text-xs font-medium">Power (W)</label>
+                          <Select value={powerFilter} onValueChange={setPowerFilter}>
+                            <SelectTrigger className="h-9">
+                              <SelectValue placeholder="Select power" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="all">All Power</SelectItem>
+                              {Array.from(new Set(products.map(p => p.power_w).filter(Boolean))).map(power => (
+                                <SelectItem key={power} value={power}>{power}</SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                      </div>
+                    </div>
+                  </TabsContent>
+
+                  <TabsContent value="features" className="space-y-4 mt-0">
+                    <div className="space-y-3">
+                      <h3 className="text-sm font-medium">Features & Ratings</h3>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        <div className="space-y-2">
+                          <label className="text-xs font-medium">IP Rating</label>
+                          <Select value={ipRatingFilter} onValueChange={setIpRatingFilter}>
+                            <SelectTrigger className="h-9">
+                              <SelectValue placeholder="Select IP rating" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="all">All IP Ratings</SelectItem>
+                              {Array.from(new Set(products.map(p => p.ip_rating).filter(Boolean))).map(rating => (
+                                <SelectItem key={rating} value={rating}>{rating}</SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                        <div className="space-y-2">
+                          <label className="text-xs font-medium">IK Rating</label>
+                          <Select value={ikRatingFilter} onValueChange={setIkRatingFilter}>
+                            <SelectTrigger className="h-9">
+                              <SelectValue placeholder="Select IK rating" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="all">All IK Ratings</SelectItem>
+                              {Array.from(new Set(products.map(p => p.ik_rating).filter(Boolean))).map(rating => (
+                                <SelectItem key={rating} value={rating}>{rating}</SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                      </div>
+                    </div>
+                  </TabsContent>
+                </Tabs>
+              </div>
+
+              <DrawerFooter className="px-4 py-3 border-t">
+                <div className="flex gap-2">
+                  <Button 
+                    variant="outline" 
+                    onClick={clearAllFilters}
+                    className="flex-1"
+                  >
+                    Clear All
+                  </Button>
+                  <Button 
+                    onClick={() => setIsFiltersOpen(false)}
+                    className="flex-1"
+                  >
+                    Apply Filters
+                  </Button>
+                </div>
+              </DrawerFooter>
+            </DrawerContent>
+          </Drawer>
+        )}
+
+        {/* Filters - Desktop Dialog */}
+        {!isMobile && (
+          <Dialog open={isFiltersOpen} onOpenChange={setIsFiltersOpen}>
+            <DialogContent className="max-w-3xl lg:max-w-4xl max-h-[90vh] w-full overflow-hidden flex flex-col glass-effect border-2 border-primary/20 shadow-2xl">
             <DialogHeader className="pb-4 border-b border-primary/20 bg-gradient-to-r from-primary/5 via-primary/10 to-primary/5">
               <DialogTitle className="text-2xl font-bold text-gradient flex items-center gap-2">
                 <Filter className="h-6 w-6 text-primary" />
@@ -1732,14 +1928,54 @@ export default function DataManagementPage() {
               </Button>
             </DialogFooter>
           </DialogContent>
-        </Dialog>
+          </Dialog>
+        )}
+
+        {/* Filters - Mobile Drawer */}
+        {isMobile && (
+          <Drawer open={isFiltersOpen} onOpenChange={setIsFiltersOpen}>
+            <DrawerContent className="h-[85vh] flex flex-col">
+              <DrawerHeader className="border-b border-primary/20 bg-gradient-to-r from-primary/5 via-primary/10 to-primary/5">
+                <DrawerTitle className="text-lg font-bold text-gradient flex items-center gap-2">
+                  <Filter className="h-5 w-5 text-primary" />
+                  Filter Products
+                </DrawerTitle>
+                <DrawerDescription>
+                  {getActiveFilterCount > 0 ? (
+                    <span className="inline-flex items-center gap-2">
+                      <Badge variant="gradient" className="font-semibold animate-scale-in">
+                        {getActiveFilterCount} filter{getActiveFilterCount !== 1 ? 's' : ''} active
+                      </Badge>
+                    </span>
+                  ) : (
+                    <span className="text-muted-foreground">No active filters</span>
+                  )}
+                </DrawerDescription>
+              </DrawerHeader>
+              <div className="flex-1 overflow-y-auto px-4 pb-4">
+                {/* Copy the Tabs content from dialog here with mobile optimizations */}
+                {/* This will need to be implemented */}
+              </div>
+              <DrawerFooter className="border-t border-primary/20">
+                <div className="flex gap-2">
+                  <Button variant="outline" onClick={clearAllFilters} className="flex-1">
+                    Clear All Filters
+                  </Button>
+                  <Button onClick={() => setIsFiltersOpen(false)} className="flex-1">
+                    Apply Filters
+                  </Button>
+                </div>
+              </DrawerFooter>
+            </DrawerContent>
+          </Drawer>
+        )}
 
         {/* Data Table */}
         <Card density="compact" className="border border-border/50">
-          <CardHeader density="compact">
-            <CardTitle className="text-base">Product Data ({totalItems} total)</CardTitle>
+          <CardHeader density="compact" className="p-4 sm:p-5 lg:p-6">
+            <CardTitle className="text-base sm:text-lg">Product Data ({totalItems} total)</CardTitle>
           </CardHeader>
-          <CardContent density="compact">
+          <CardContent density="compact" className="p-3 sm:p-4 lg:p-6">
             <DataTable
               data={products}
               columns={columns}

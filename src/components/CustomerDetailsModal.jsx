@@ -161,11 +161,11 @@ export function CustomerDetailsModal({ isOpen, onClose, customer, onDiscountUpda
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+      <DialogContent className="max-w-full sm:max-w-2xl lg:max-w-4xl max-h-[90vh] overflow-y-auto p-4 sm:p-6">
         <DialogHeader>
           <div className="flex items-center justify-between">
-            <div className="flex items-center space-x-3">
-              <DialogTitle className="text-xl">{customer.full_name}</DialogTitle>
+            <div className="flex flex-wrap items-center gap-2 sm:gap-3">
+              <DialogTitle className="text-lg sm:text-xl">{customer.full_name}</DialogTitle>
               <Badge variant="secondary">Customer</Badge>
             </div>
             {/* <Button variant="ghost" size="sm" onClick={onClose}>
@@ -177,19 +177,19 @@ export function CustomerDetailsModal({ isOpen, onClose, customer, onDiscountUpda
           </div>
         </DialogHeader>
 
-        <div className="space-y-6">
+        <div className="space-y-4 sm:space-y-5 lg:space-y-6">
           {/* Customer Information */}
           <Card>
-            <CardHeader>
-              <CardTitle className="text-lg flex items-center gap-2">
+            <CardHeader className="p-4 sm:p-5 lg:p-6">
+              <CardTitle className="text-base sm:text-lg flex items-center gap-2">
                 <User className="h-5 w-5" />
                 Customer Information
               </CardTitle>
             </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <label className="text-sm font-medium flex items-center gap-2">
+            <CardContent className="p-4 sm:p-5 lg:p-6 space-y-3 sm:space-y-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
+                <div className="space-y-1.5 sm:space-y-2">
+                  <label className="text-xs sm:text-sm font-medium flex items-center gap-2">
                     <User className="h-4 w-4" />
                     Full Name
                   </label>
@@ -199,14 +199,15 @@ export function CustomerDetailsModal({ isOpen, onClose, customer, onDiscountUpda
                       variant="ghost"
                       size="sm"
                       onClick={() => copyToClipboard(customer.full_name)}
+                      className="h-9 w-9 sm:h-8 sm:w-8"
                     >
                       <Copy className="h-3 w-3" />
                     </Button>
                   </div>
                 </div>
 
-                <div className="space-y-2 md:col-span-2">
-                  <label className="text-sm font-medium flex items-center gap-2">
+                <div className="space-y-1.5 sm:space-y-2 md:col-span-2">
+                  <label className="text-xs sm:text-sm font-medium flex items-center gap-2">
                     <Mail className="h-4 w-4" />
                     Email
                   </label>
@@ -216,14 +217,15 @@ export function CustomerDetailsModal({ isOpen, onClose, customer, onDiscountUpda
                       variant="ghost"
                       size="sm"
                       onClick={() => copyToClipboard(customer.email)}
+                      className="h-9 w-9 sm:h-8 sm:w-8"
                     >
                       <Copy className="h-3 w-3" />
                     </Button>
                   </div>
                 </div>
 
-                <div className="space-y-2">
-                  <label className="text-sm font-medium flex items-center gap-2">
+                <div className="space-y-1.5 sm:space-y-2">
+                  <label className="text-xs sm:text-sm font-medium flex items-center gap-2">
                     <Calendar className="h-4 w-4" />
                     Registration Date
                   </label>
@@ -232,8 +234,8 @@ export function CustomerDetailsModal({ isOpen, onClose, customer, onDiscountUpda
                   </div>
                 </div>
 
-                <div className="space-y-2">
-                  <label className="text-sm font-medium flex items-center gap-2">
+                <div className="space-y-1.5 sm:space-y-2">
+                  <label className="text-xs sm:text-sm font-medium flex items-center gap-2">
                     <User className="h-4 w-4" />
                     User Type
                   </label>
@@ -247,35 +249,35 @@ export function CustomerDetailsModal({ isOpen, onClose, customer, onDiscountUpda
 
           {/* Discount Management */}
           <Card>
-            <CardHeader>
-              <CardTitle className="text-lg flex items-center gap-2">
+            <CardHeader className="p-4 sm:p-5 lg:p-6">
+              <CardTitle className="text-base sm:text-lg flex items-center gap-2">
                 <Percent className="h-5 w-5" />
                 Discount Management
               </CardTitle>
             </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="flex items-center space-x-4">
+            <CardContent className="p-4 sm:p-5 lg:p-6 space-y-3 sm:space-y-4">
+              <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 sm:gap-4">
                 <div className="flex-1">
                   {editingDiscount ? (
-                    <div className="space-y-3">
-                      <div className="flex items-center space-x-2">
+                    <div className="space-y-2 sm:space-y-3">
+                      <div className="flex items-center gap-2 w-full sm:w-auto">
                         <Input
                           type="number"
                           step="1"
                           value={newDiscount ?? ''}
                           onChange={(e) => setNewDiscount(e.target.value)}
                           placeholder="Enter integer percentage"
-                          className="max-w-xs"
+                          className="w-full sm:max-w-xs h-11"
                         />
                         <span className="text-muted-foreground">%</span>
                       </div>
-                      <p className="text-xs text-muted-foreground">
+                      <p className="text-[10px] sm:text-xs text-muted-foreground">
                         Positive values discount the price, negative values add markup. Leave empty to remove discount.
                       </p>
                     </div>
                   ) : (
                     <div>
-                      <p className="text-sm text-muted-foreground">Current Discount</p>
+                      <p className="text-xs sm:text-sm text-muted-foreground">Current Discount</p>
                       {customer.discount_percentage ? (
                         <Badge variant="success" className="mt-1">
                           {customer.discount_percentage}% Discount
@@ -288,10 +290,10 @@ export function CustomerDetailsModal({ isOpen, onClose, customer, onDiscountUpda
                     </div>
                   )}
                 </div>
-                <div className="flex space-x-2">
+                <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
                   {editingDiscount ? (
                     <>
-                      <Button onClick={handleDiscountUpdate} size="sm" disabled={savingDiscount}>
+                      <Button onClick={handleDiscountUpdate} size="sm" disabled={savingDiscount} className="h-11 sm:h-9 w-full sm:w-auto">
                         <Save className="h-4 w-4 mr-2" />
                         Save
                       </Button>
@@ -303,13 +305,14 @@ export function CustomerDetailsModal({ isOpen, onClose, customer, onDiscountUpda
                         }}
                         size="sm"
                         disabled={savingDiscount}
+                        className="h-11 sm:h-9 w-full sm:w-auto"
                       >
                         Cancel
                       </Button>
                     </>
                   ) : (
                     <>
-                      <Button onClick={() => setEditingDiscount(true)} size="sm">
+                      <Button onClick={() => setEditingDiscount(true)} size="sm" className="h-11 sm:h-9 w-full sm:w-auto">
                         <Edit className="h-4 w-4 mr-2" />
                         {customer.discount_percentage ? 'Edit Discount' : 'Set Discount'}
                       </Button>
@@ -318,6 +321,7 @@ export function CustomerDetailsModal({ isOpen, onClose, customer, onDiscountUpda
                           variant="outline"
                           onClick={handleDiscountRemove}
                           size="sm"
+                          className="h-11 sm:h-9 w-full sm:w-auto"
                         >
                           Remove
                         </Button>
@@ -331,23 +335,23 @@ export function CustomerDetailsModal({ isOpen, onClose, customer, onDiscountUpda
 
           {/* Customer Enquiries */}
           <Card>
-            <CardHeader>
-              <CardTitle className="text-lg flex items-center gap-2">
+            <CardHeader className="p-4 sm:p-5 lg:p-6">
+              <CardTitle className="text-base sm:text-lg flex items-center gap-2">
                 <MessageSquare className="h-5 w-5" />
                 Enquiries ({customerEnquiries.length})
               </CardTitle>
             </CardHeader>
-            <CardContent>
+            <CardContent className="p-4 sm:p-5 lg:p-6">
               {loadingEnquiries ? (
                 <div className="flex items-center justify-center py-8">
                   <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
                 </div>
               ) : customerEnquiries.length === 0 ? (
-                <p className="text-sm text-muted-foreground text-center py-8">
+                <p className="text-xs sm:text-sm text-muted-foreground text-center py-8">
                   No enquiries from this customer yet.
                 </p>
               ) : (
-                <div className="space-y-3">
+                <div className="space-y-3 sm:space-y-4">
                   {customerEnquiries.map((enquiry) => {
                     const statusMeta = STATUS_LABELS[enquiry.status];
                     const productTypes = enquiry.cart_items && Array.isArray(enquiry.cart_items)
@@ -355,12 +359,12 @@ export function CustomerDetailsModal({ isOpen, onClose, customer, onDiscountUpda
                       : [];
 
                     return (
-                      <div key={enquiry.id} className="flex items-start space-x-3 p-3 bg-muted/30 rounded-lg border">
+                      <div key={enquiry.id} className="flex items-start gap-2 sm:gap-3 p-3 sm:p-4 bg-muted/30 rounded-lg border">
                         <Package className="h-5 w-5 text-muted-foreground mt-0.5" />
-                        <div className="flex-1 space-y-2">
+                        <div className="flex-1 space-y-1.5 sm:space-y-2">
                           <div className="flex items-center justify-between">
                             <div className="flex items-center gap-2">
-                              <span className="font-medium text-sm">
+                              <span className="font-medium text-xs sm:text-sm">
                                 {format(new Date(enquiry.created_at), 'MMM dd, yyyy')}
                               </span>
                               <Badge variant={STATUS_COLORS[enquiry.status] || 'default'} size="sm">
@@ -369,12 +373,12 @@ export function CustomerDetailsModal({ isOpen, onClose, customer, onDiscountUpda
                             </div>
                           </div>
                           {productTypes.length > 0 && (
-                            <div className="text-sm text-muted-foreground">
+                            <div className="text-xs sm:text-sm text-muted-foreground">
                               Products: {productTypes.join(', ')}
                             </div>
                           )}
                           {enquiry.message && (
-                            <div className="text-sm text-muted-foreground line-clamp-2">
+                            <div className="text-xs sm:text-sm text-muted-foreground line-clamp-2">
                               {enquiry.message}
                             </div>
                           )}
@@ -388,8 +392,8 @@ export function CustomerDetailsModal({ isOpen, onClose, customer, onDiscountUpda
           </Card>
 
           {/* Action Buttons */}
-          <div className="flex justify-end items-center pt-4 border-t">
-            <Button variant="outline" onClick={onClose}>
+          <div className="flex justify-end items-center pt-3 sm:pt-4 border-t px-4 sm:px-0">
+            <Button variant="outline" onClick={onClose} className="h-11 sm:h-9 w-full sm:w-auto">
               Close
             </Button>
           </div>

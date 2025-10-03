@@ -263,7 +263,7 @@ export default function PriceVariationPage() {
       <div className='min-h-screen flex items-center justify-center bg-gradient-to-br from-orange-50/50 via-yellow-50/30 to-amber-50/50 dark:from-orange-950/20 dark:via-yellow-950/10 dark:to-amber-950/20'>
         <div className="text-center space-y-4 flex items-center justify-center flex-col">
           <LoadingSpinner size="lg" />
-          <p className="text-muted-foreground">Loading products for pricing...</p>
+          <p className="text-sm sm:text-base text-muted-foreground">Loading products for pricing...</p>
         </div>
       </div>
     );
@@ -293,10 +293,10 @@ export default function PriceVariationPage() {
         </svg>
       </div>
 
-      <div className="container mx-auto py-8 px-4 max-w-6xl relative z-10">
+      <div className="container mx-auto py-6 px-3 sm:px-4 lg:py-8 max-w-6xl relative z-10">
         {/* Header */}
-        <div className="text-center mb-8">
-          <div className="flex justify-center items-center gap-3 mb-6">
+        <div className="text-center mb-6 sm:mb-8">
+          <div className="flex justify-center items-center gap-2 sm:gap-3 mb-4 sm:mb-6">
             <motion.div
               animate={{
                 rotate: [0, -10, 10, 0],
@@ -312,20 +312,20 @@ export default function PriceVariationPage() {
             </motion.div>
           </div>
 
-          <h1 className="text-4xl font-bold mb-4 text-gray-900 dark:text-white">
+          <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold mb-4 text-gray-900 dark:text-white">
             Bulk Price Variation Setup
           </h1>
 
-          <p className="text-lg text-gray-600 dark:text-gray-300 max-w-2xl mx-auto mb-6">
+          <p className="text-sm sm:text-base lg:text-lg text-gray-600 dark:text-gray-300 max-w-2xl mx-auto mb-6">
             Set prices for multiple products using filters and custom increment amounts. Configure different prices for each variation option.
           </p>
 
           {/* Progress Bar */}
-          <div className="max-w-2xl mx-auto mb-8">
-            <div className="flex justify-between items-center mb-4">
+          <div className="max-w-2xl mx-auto mb-6 sm:mb-8 px-2 sm:px-0">
+            <div className="flex justify-between items-center mb-3 sm:mb-4 gap-1 sm:gap-0">
               {[1, 2, 3, 4].map((step) => (
                 <div key={step} className="flex items-center">
-                  <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium ${
+                  <div className={`w-10 h-10 sm:w-8 sm:h-8 rounded-full flex items-center justify-center text-xs sm:text-sm font-medium ${
                     step <= currentStep
                       ? 'bg-blue-600 text-white'
                       : completedSteps.has(step)
@@ -335,7 +335,7 @@ export default function PriceVariationPage() {
                     {completedSteps.has(step) ? <CheckCircle className="w-4 h-4" /> : step}
                   </div>
                   {step < 4 && (
-                    <div className={`w-16 h-1 mx-2 ${
+                    <div className={`w-8 sm:w-12 lg:w-16 h-1 mx-1 sm:mx-2 ${
                       step < currentStep ? 'bg-green-600' : 'bg-gray-300 dark:bg-gray-600'
                     }`} />
                   )}
@@ -343,7 +343,7 @@ export default function PriceVariationPage() {
               ))}
             </div>
 
-            <div className="text-sm text-gray-600 dark:text-gray-300">
+            <div className="text-xs sm:text-sm text-gray-600 dark:text-gray-300 px-2 sm:px-0">
               {currentStep === 1 && "Select product filters"}
               {currentStep === 2 && "Set base price"}
               {currentStep === 3 && "Configure field variations"}
@@ -355,7 +355,7 @@ export default function PriceVariationPage() {
 
         {/* Error Display */}
         {error && currentStep > 1 && (
-          <Alert variant="destructive" className="mb-6">
+          <Alert variant="destructive" className="mb-4 sm:mb-6 mx-2 sm:mx-0">
             <AlertCircle className="h-4 w-4" />
             <AlertDescription>{error}</AlertDescription>
           </Alert>
@@ -383,13 +383,13 @@ export default function PriceVariationPage() {
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                     <div className="space-y-4">
                       <label className="text-sm font-medium text-foreground">Indoor/Outdoor</label>
-                      <div className="grid grid-cols-2 gap-3">
+                      <div className="grid grid-cols-2 gap-2 sm:gap-3">
                         {['indoor', 'outdoor'].map((type) => (
                           <Button
                             key={type}
                             variant={selectedType === type ? "default" : "outline"}
                             onClick={() => handleTypeSelection(type)}
-                            className="capitalize"
+                            className="capitalize h-11 sm:h-10"
                           >
                             {type}
                           </Button>
@@ -399,14 +399,14 @@ export default function PriceVariationPage() {
 
                     <div className="space-y-4">
                       <label className="text-sm font-medium text-foreground">Product Type</label>
-                      <div className="grid grid-cols-1 gap-2 max-h-48 overflow-y-auto">
+                      <div className="grid grid-cols-1 gap-2 max-h-64 sm:max-h-48 overflow-y-auto">
                         {availableProductTypes.map((pt) => (
                           <Button
                             key={pt.producttype}
                             variant={selectedProductType === pt.producttype ? "default" : "outline"}
                             onClick={() => setSelectedProductType(pt.producttype)}
                             size="sm"
-                            className="justify-start text-left"
+                            className="h-11 sm:h-9 w-full justify-start text-left"
                           >
                             {pt.producttype}
                           </Button>
@@ -416,9 +416,9 @@ export default function PriceVariationPage() {
                   </div>
 
                   {/* Results Preview */}
-                  <div className="bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-4">
-                    <h4 className="font-medium mb-2 text-foreground">Products Found:</h4>
-                    <div className="flex items-center gap-4">
+                  <div className="bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-3 sm:p-4">
+                    <h4 className="text-sm sm:text-base font-medium mb-2 text-foreground">Products Found:</h4>
+                    <div className="flex flex-wrap items-center gap-2 sm:gap-3">
                       <Badge variant="secondary" className="bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-gray-200">
                         {filteredProducts.length} products without prices
                       </Badge>
@@ -431,11 +431,11 @@ export default function PriceVariationPage() {
                     </div>
                   </div>
 
-                  <div className="flex justify-end">
+                  <div className="flex justify-between sm:justify-end gap-2">
                     <Button
                       onClick={() => handleProductTypeSelection(selectedProductType)}
                       disabled={!selectedProductType}
-                      className="min-w-32"
+                      className="min-w-32 h-11 sm:h-10 w-full sm:w-auto"
                     >
                       Next: Set Base Price
                       <ArrowRight className="w-4 h-4 ml-2" />
@@ -462,21 +462,21 @@ export default function PriceVariationPage() {
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-6">
-                  <div className="max-w-md mx-auto space-y-4">
+                  <div className="max-w-md mx-auto space-y-3 sm:space-y-4">
                     <div className="space-y-2">
-                      <label className="text-sm font-medium text-foreground">Base Price per Product ($)</label>
+                      <label className="text-xs sm:text-sm font-medium text-foreground">Base Price per Product ($)</label>
                       <Input
                         type="number"
                         step="0.01"
                         placeholder="Enter base price"
                         value={basePrice}
                         onChange={(e) => setBasePrice(e.target.value)}
-                        className="text-center text-lg bg-background border-border"
+                        className="text-center text-base sm:text-lg bg-background border-border"
                       />
                     </div>
 
-                    <div className="bg-blue-50 dark:bg-blue-950/50 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
-                      <p className="text-sm text-blue-800 dark:text-blue-200">
+                    <div className="bg-blue-50 dark:bg-blue-950/50 border border-blue-200 dark:border-blue-800 rounded-lg p-3 sm:p-4">
+                      <p className="text-xs sm:text-sm text-blue-800 dark:text-blue-200">
                         This base price will be applied to all {filteredProducts.length} selected products.
                         In the next step, you'll set custom increment amounts for each variation option.
                       </p>
@@ -484,14 +484,14 @@ export default function PriceVariationPage() {
                   </div>
 
                   <div className="flex justify-between">
-                    <Button variant="outline" onClick={() => setCurrentStep(1)} className="dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-700">
+                    <Button variant="outline" onClick={() => setCurrentStep(1)} className="dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-700 h-11 sm:h-10 w-full sm:w-auto order-2 sm:order-1">
                       <ArrowLeft className="w-4 h-4 mr-2" />
                       Back to Filters
                     </Button>
                     <Button
                       onClick={handleBasePriceSubmit}
                       disabled={!basePrice || basePrice <= 0}
-                      className="min-w-32"
+                      className="min-w-32 h-11 sm:h-10 w-full sm:w-auto order-1 sm:order-2"
                     >
                       Next: Configure Variations
                       <ArrowRight className="w-4 h-4 ml-2" />
@@ -511,15 +511,15 @@ export default function PriceVariationPage() {
               className="space-y-6"
             >
               <Card className="border border-border/50 hover:border-primary/30 transition-all duration-300">
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2 text-foreground">
+                <CardHeader className="p-4 sm:p-5 lg:p-6">
+                  <CardTitle className="flex items-center gap-2 text-base sm:text-lg text-foreground">
                     <Settings className="w-5 h-5" />
                     Step 3: Configure Field Variations
                   </CardTitle>
                 </CardHeader>
-                <CardContent className="space-y-6">
-                  <div className="bg-green-50 dark:bg-green-950/50 border border-green-200 dark:border-green-800 rounded-lg p-4">
-                    <p className="text-sm text-green-800 dark:text-green-200">
+                <CardContent className="p-4 sm:p-5 lg:p-6 space-y-4 sm:space-y-6">
+                  <div className="bg-green-50 dark:bg-green-950/50 border border-green-200 dark:border-green-800 rounded-lg p-3 sm:p-4">
+                    <p className="text-xs sm:text-sm text-green-800 dark:text-green-200">
                       For each field, set custom increment amounts for each option. Enter 0 or leave empty to skip an option.
                       Each product's final price will be: Base Price + Sum of all selected increments.
                     </p>
@@ -548,10 +548,10 @@ export default function PriceVariationPage() {
 
                     return (
                       <div className="space-y-4">
-                        <div className="flex items-center justify-between">
-                          <h3 className="text-lg font-medium text-foreground">
+                        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 sm:gap-0">
+                          <h3 className="text-base sm:text-lg font-medium text-foreground">
                             {currentField.label}
-                            <span className="text-sm text-gray-500 dark:text-gray-400 ml-2">
+                            <span className="text-xs sm:text-sm text-gray-500 dark:text-gray-400 ml-2">
                               ({currentFieldIndex + 1} of {pricingFields.length})
                             </span>
                           </h3>
@@ -560,7 +560,7 @@ export default function PriceVariationPage() {
                           </Badge>
                         </div>
 
-                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 max-h-64 overflow-y-auto">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4 max-h-96 sm:max-h-64 overflow-y-auto">
                           {Array.from(fieldValues).map((value) => {
                             const currentIncrement = fieldVariations[currentField.key]?.[value] || '';
                             
@@ -578,10 +578,10 @@ export default function PriceVariationPage() {
                             });
                             
                             return (
-                              <div key={value} className="flex flex-col space-y-2 p-3 border border-border rounded-lg bg-card">
+                              <div key={value} className="flex flex-col space-y-2 p-3 sm:p-4 border border-border rounded-lg bg-card">
                                 <div className="flex items-center space-x-3">
                                   <div className="flex-1">
-                                    <label className="text-sm font-medium block mb-1 text-foreground">
+                                    <label className="text-xs sm:text-sm font-medium block mb-1 text-foreground">
                                       {value}
                                     </label>
                                     <div className="flex items-center space-x-2">
@@ -592,7 +592,7 @@ export default function PriceVariationPage() {
                                         placeholder="0.00"
                                         value={currentIncrement === null ? '' : currentIncrement}
                                         onChange={(e) => handleFieldVariation(currentField.key, value, e.target.value)}
-                                        className="w-20 h-8 text-sm bg-background border-border"
+                                        className="w-24 h-11 text-sm bg-background border-border"
                                       />
                                     </div>
                                   </div>
@@ -627,27 +627,27 @@ export default function PriceVariationPage() {
                           })}
                         </div>
 
-                        <div className="flex justify-between">
+                        <div className="flex flex-col sm:flex-row justify-between gap-2 sm:gap-4">
                           <Button
                             variant="outline"
                             onClick={() => setCurrentFieldIndex(Math.max(0, currentFieldIndex - 1))}
                             disabled={currentFieldIndex === 0}
-                            className="dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-700"
+                            className="dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-700 h-11 sm:h-10 w-full sm:w-auto order-2 sm:order-1"
                           >
                             <ArrowLeft className="w-4 h-4 mr-2" />
                             Previous Field
                           </Button>
-                          <div className="flex gap-2">
+                          <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto order-1 sm:order-2">
                             <Button
                               variant="secondary"
                               onClick={handleNextField}
-                              className="dark:bg-gray-700 dark:hover:bg-gray-600 dark:text-gray-300"
+                              className="dark:bg-gray-700 dark:hover:bg-gray-600 dark:text-gray-300 h-11 sm:h-10 w-full sm:w-auto"
                             >
                               Skip This Field
                             </Button>
                             <Button
                               onClick={handleNextField}
-                              className="min-w-32"
+                              className="min-w-32 h-11 sm:h-10 w-full sm:w-auto"
                             >
                               {currentFieldIndex === pricingFields.length - 1 ? 'Review Changes' : 'Next Field'}
                               <ArrowRight className="w-4 h-4 ml-2" />
@@ -671,17 +671,17 @@ export default function PriceVariationPage() {
               className="space-y-6"
             >
               <Card className="border border-border/50 hover:border-primary/30 transition-all duration-300">
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2 text-foreground">
+                <CardHeader className="p-4 sm:p-5 lg:p-6">
+                  <CardTitle className="flex items-center gap-2 text-base sm:text-lg text-foreground">
                     <CheckCircle className="w-5 h-5" />
                     Step 4: Review and Apply Changes
                   </CardTitle>
                 </CardHeader>
-                <CardContent className="space-y-6">
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <CardContent className="p-4 sm:p-5 lg:p-6 space-y-4 sm:space-y-6">
+                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
                     <div>
-                      <h3 className="font-medium mb-3 text-foreground">Configuration Summary</h3>
-                      <div className="space-y-2 text-sm">
+                      <h3 className="text-sm sm:text-base font-medium mb-2 sm:mb-3 text-foreground">Configuration Summary</h3>
+                      <div className="space-y-2 text-xs sm:text-sm">
                         <div className="flex justify-between">
                           <span className="text-muted-foreground">Base Price:</span>
                           <span className="font-medium text-foreground">${basePrice}</span>
@@ -700,8 +700,8 @@ export default function PriceVariationPage() {
                     </div>
 
                     <div>
-                      <h3 className="font-medium mb-3 text-foreground">Sample Price Calculations</h3>
-                      <div className="space-y-2 text-sm">
+                      <h3 className="text-sm sm:text-base font-medium mb-2 sm:mb-3 text-foreground">Sample Price Calculations</h3>
+                      <div className="space-y-2 text-xs sm:text-sm">
                         {filteredProducts.slice(0, 3).map((product, index) => {
                           let finalPrice = parseFloat(basePrice);
                           let totalIncrement = 0;
@@ -720,7 +720,7 @@ export default function PriceVariationPage() {
                           });
 
                           return (
-                            <div key={index} className="flex justify-between items-start p-2 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded">
+                            <div key={index} className="flex justify-between items-start p-2 sm:p-3 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded">
                               <div className="flex-1">
                                 <div className="font-medium text-foreground">
                                   {product.producttype} - {product.model_number}
@@ -746,15 +746,15 @@ export default function PriceVariationPage() {
                     </div>
                   </div>
 
-                  <div className="flex justify-between">
-                    <Button variant="outline" onClick={() => setCurrentStep(3)} className="dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-700">
+                  <div className="flex flex-col sm:flex-row justify-between gap-2 sm:gap-4">
+                    <Button variant="outline" onClick={() => setCurrentStep(3)} className="dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-700 h-11 sm:h-10 w-full sm:w-auto order-2 sm:order-1">
                       <ArrowLeft className="w-4 h-4 mr-2" />
                       Back to Variations
                     </Button>
                     <Button
                       onClick={handleBulkUpdate}
                       disabled={loading}
-                      className="min-w-32"
+                      className="min-w-32 h-11 sm:h-10 w-full sm:w-auto order-1 sm:order-2"
                     >
                       {loading ? <LoadingSpinner size="sm" /> : 'Apply All Changes'}
                     </Button>
@@ -772,29 +772,29 @@ export default function PriceVariationPage() {
               className="text-center space-y-6"
             >
               <Card className="border border-border/50">
-                <CardContent className="pt-12 pb-12">
-                  <div className="w-24 h-24 mx-auto mb-6 rounded-full bg-green-100 dark:bg-green-900 flex items-center justify-center">
+                <CardContent className="p-6 sm:p-8 lg:p-12">
+                  <div className="w-20 h-20 sm:w-24 sm:h-24 mx-auto mb-4 sm:mb-6 rounded-full bg-green-100 dark:bg-green-900 flex items-center justify-center">
                     <CheckCircle className="w-12 h-12 text-green-600 dark:text-green-400" />
                   </div>
 
-                  <h3 className="text-2xl font-semibold mb-4 text-gray-900 dark:text-white">Price Update Complete!</h3>
+                  <h3 className="text-xl sm:text-2xl font-semibold mb-4 text-gray-900 dark:text-white">Price Update Complete!</h3>
 
-                  <p className="text-gray-600 dark:text-gray-300 mb-6">
+                  <p className="text-sm sm:text-base text-gray-600 dark:text-gray-300 mb-4 sm:mb-6">
                     Successfully updated prices for {updatedProductsCount} products using your variation rules.
                   </p>
 
-                  <div className="bg-green-50 dark:bg-green-950/50 border border-green-200 dark:border-green-800 rounded-lg p-4 mb-6">
-                    <p className="text-sm text-green-800 dark:text-green-200">
+                  <div className="bg-green-50 dark:bg-green-950/50 border border-green-200 dark:border-green-800 rounded-lg p-3 sm:p-4 mb-4 sm:mb-6">
+                    <p className="text-xs sm:text-sm text-green-800 dark:text-green-200">
                       <strong>Summary:</strong> Base price of ${basePrice} with custom increment amounts for each variation option.
                       All products now have pricing information based on your custom configuration.
                     </p>
                   </div>
 
-                  <div className="flex justify-center gap-4">
-                    <Button variant="outline" onClick={resetProcess} className="dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-700">
+                  <div className="flex flex-col sm:flex-row justify-center gap-2 sm:gap-4 px-4 sm:px-0">
+                    <Button variant="outline" onClick={resetProcess} className="dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-700 h-11 sm:h-10 w-full sm:w-auto">
                       Set Up More Prices
                     </Button>
-                    <Button onClick={() => window.location.href = '/'}>
+                    <Button onClick={() => window.location.href = '/'} className="h-11 sm:h-10 w-full sm:w-auto">
                       Back to Home
                     </Button>
                   </div>

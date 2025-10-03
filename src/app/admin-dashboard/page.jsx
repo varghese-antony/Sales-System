@@ -177,13 +177,13 @@ export default function AdminDashboardPage() {
         </svg>
       </div>
 
-      <div className="relative z-10 mx-auto flex w-full max-w-7xl flex-col gap-8 px-4 py-10 sm:px-6 lg:px-8">
+      <div className="relative z-10 mx-auto flex w-full max-w-7xl flex-col gap-8 px-4 py-6 sm:px-6 sm:py-8 lg:px-8 lg:py-10">
         {/* Header */}
         <motion.section
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.4 }}
-          className="relative overflow-hidden rounded-3xl border border-white/10 bg-gradient-to-br from-slate-900/80 via-indigo-900/80 to-slate-900/70 p-10 shadow-xl ring-1 ring-white/10"
+          className="relative overflow-hidden rounded-3xl border border-white/10 bg-gradient-to-br from-slate-900/80 via-indigo-900/80 to-slate-900/70 p-4 sm:p-6 lg:p-10 shadow-xl ring-1 ring-white/10"
         >
           <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,_rgba(79,70,229,0.4),_transparent_55%)]" />
           <div className="relative flex flex-col justify-between gap-6 lg:flex-row lg:items-center">
@@ -191,29 +191,29 @@ export default function AdminDashboardPage() {
               <Badge variant="secondary" className="bg-white/10 text-white">
                 Secured Admin Hub
               </Badge>
-              <div className="flex items-center gap-3 text-3xl font-semibold lg:text-4xl">
+              <div className="flex items-center gap-3 text-2xl font-semibold sm:text-3xl lg:text-4xl">
                 <LayoutDashboard className="h-9 w-9" />
                 Welcome back, Administrator
               </div>
-              <p className="max-w-2xl text-base text-white/80 lg:text-lg">
+              <p className="max-w-2xl text-sm text-white/80 sm:text-base lg:text-lg">
                 Manage your entire lighting catalog, pricing workflows, and enquiry lifecycle from a single, unified dashboard. All tools are authenticated and protected for admin access only.
               </p>
-              <div className="flex flex-wrap gap-3">
-                <Button asChild size="lg" className="bg-white text-slate-900 hover:bg-slate-100">
+              <div className="flex flex-col sm:flex-row flex-wrap gap-3">
+                <Button asChild size="lg" className="bg-white text-slate-900 hover:bg-slate-100 w-full sm:w-auto">
                   <Link href="/admin-dashboard/data-entry">Quick Add Product</Link>
                 </Button>
-                <Button asChild variant="outline" size="lg" className="border-white/40 text-white hover:bg-white/10">
+                <Button asChild variant="outline" size="lg" className="border-white/40 text-white hover:bg-white/10 w-full sm:w-auto">
                   <Link href="/admin-dashboard/data-management">Open Data Management</Link>
                 </Button>
               </div>
             </div>
-            <div className="grid gap-4 rounded-2xl border border-white/10 bg-white/5 p-6 text-white">
+            <div className="grid gap-4 rounded-2xl border border-white/10 bg-white/5 p-4 sm:p-6 text-white">
               <div className="flex items-center justify-between">
                 <span className="text-sm uppercase tracking-wide text-white/60">System Health</span>
                 <ShieldCheck className="h-5 w-5 text-emerald-300" />
               </div>
               <div className="flex items-center gap-3">
-                <div className="text-4xl font-semibold">99.9%</div>
+                <div className="text-3xl sm:text-4xl font-semibold">99.9%</div>
                 <Badge className="bg-emerald-500/20 text-emerald-200">
                   Verified
                 </Badge>
@@ -225,7 +225,7 @@ export default function AdminDashboardPage() {
 
         {/* Quick Stats */}
         {stats && quickStats.length > 0 && (
-          <section className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
+          <section className="grid grid-cols-1 gap-3 sm:gap-4 sm:grid-cols-2 lg:grid-cols-4">
             {quickStats.map((stat, index) => (
               <motion.div
                 key={stat.title}
@@ -236,15 +236,15 @@ export default function AdminDashboardPage() {
               >
                 <Card className="border border-border/50 bg-background/60 backdrop-blur">
                   <CardHeader className="space-y-1">
-                    <CardTitle className="text-base font-medium text-muted-foreground">
+                    <CardTitle className="text-sm sm:text-base font-medium text-muted-foreground">
                       {stat.title}
                     </CardTitle>
                     <div className="flex items-center justify-between">
-                      <span className="text-3xl font-semibold text-foreground">{stat.value}</span>
+                      <span className="text-2xl sm:text-3xl font-semibold text-foreground">{stat.value}</span>
                       <stat.icon className="h-8 w-8 text-primary" />
                     </div>
                   </CardHeader>
-                  <CardContent className="flex items-center justify-between text-sm text-muted-foreground">
+                  <CardContent className="flex items-center justify-between text-xs sm:text-sm text-muted-foreground">
                     <span>{stat.description}</span>
                     <Badge variant="outline" className="border-primary/30 text-primary">
                       {stat.change}
@@ -260,17 +260,17 @@ export default function AdminDashboardPage() {
         <section className="space-y-4">
           <div className="flex items-center justify-between gap-4">
             <div>
-              <h2 className="text-2xl font-semibold text-foreground">Admin Tools</h2>
-              <p className="text-sm text-muted-foreground">Navigate to any admin workflow from the cards below</p>
+              <h2 className="text-xl sm:text-2xl font-semibold text-foreground">Admin Tools</h2>
+              <p className="text-xs sm:text-sm text-muted-foreground">Navigate to any admin workflow from the cards below</p>
             </div>
-            <Button asChild variant="outline" className="hidden md:flex">
+            <Button asChild variant="outline" className="hidden lg:flex">
               <Link href="/admin-dashboard/data-management">
                 View Detailed Reports
               </Link>
             </Button>
           </div>
 
-          <div className="grid grid-cols-1 gap-5 md:grid-cols-2 xl:grid-cols-3">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {navigationCards.map((card, index) => (
               <motion.div
                 key={card.title}
@@ -284,7 +284,7 @@ export default function AdminDashboardPage() {
                     <div className={`pointer-events-none absolute inset-0 bg-gradient-to-br ${card.accent} opacity-0 transition-opacity duration-300 group-hover:opacity-100`} />
                     <CardHeader className="relative flex flex-col gap-3">
                       <div className="flex items-center justify-between">
-                        <CardTitle className="flex items-center gap-2 text-xl">
+                        <CardTitle className="flex items-center gap-2 text-lg sm:text-xl">
                           <card.icon className="h-6 w-6" />
                           {card.title}
                         </CardTitle>
@@ -292,11 +292,11 @@ export default function AdminDashboardPage() {
                           Protected
                         </Badge>
                       </div>
-                      <CardDescription className="text-sm text-muted-foreground">
+                      <CardDescription className="text-xs sm:text-sm text-muted-foreground">
                         {card.description}
                       </CardDescription>
                     </CardHeader>
-                    <CardContent className="relative flex items-center justify-between text-sm text-muted-foreground">
+                    <CardContent className="relative flex items-center justify-between text-xs sm:text-sm text-muted-foreground">
                       <span>Enter workflow</span>
                       <motion.span
                         initial={{ x: 0 }}
@@ -315,7 +315,7 @@ export default function AdminDashboardPage() {
 
         {/* Recent Activity */}
         {activities.length > 0 && (
-          <section className="grid grid-cols-1 gap-5 lg:grid-cols-[2fr_1fr]">
+          <section className="grid grid-cols-1 gap-4 sm:gap-5 lg:grid-cols-[2fr_1fr]">
             <motion.div
               variants={cardVariants}
               initial="initial"
@@ -324,21 +324,21 @@ export default function AdminDashboardPage() {
             >
               <Card className="border border-border/50 bg-background/70">
                 <CardHeader>
-                  <CardTitle className="text-lg">Recent Activity</CardTitle>
+                  <CardTitle className="text-base sm:text-lg">Recent Activity</CardTitle>
                   <CardDescription>Live view of catalog and enquiry actions</CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-4">
                   {recentActivity.map((activity) => (
-                    <div key={activity.title} className="rounded-xl border border-border/40 bg-background/60 p-4">
+                    <div key={activity.title} className="rounded-xl border border-border/40 bg-background/60 p-3 sm:p-4">
                       <div className="flex items-center justify-between">
                         <h3 className="font-semibold text-foreground">{activity.title}</h3>
                         <Badge variant="outline" className="border-border/60 text-xs text-muted-foreground">
                           {activity.timestamp}
                         </Badge>
                       </div>
-                      <p className="mt-1 text-sm text-muted-foreground">{activity.details}</p>
+                      <p className="mt-1 text-xs sm:text-sm text-muted-foreground">{activity.details}</p>
                       <div className="mt-3 flex items-center gap-2 text-xs text-muted-foreground">
-                        <span className="inline-flex items-center gap-1 rounded-full bg-muted px-2 py-1 text-[11px] uppercase tracking-wide">
+                        <span className="inline-flex items-center gap-1 rounded-full bg-muted px-2 py-1 text-[10px] sm:text-xs uppercase tracking-wide">
                           <TrendingUp className="h-3 w-3" />
                           {activity.status}
                         </span>
@@ -357,19 +357,19 @@ export default function AdminDashboardPage() {
             >
               <Card className="h-full border border-border/50 bg-background/70">
                 <CardHeader>
-                  <CardTitle className="text-lg">Admin Notes</CardTitle>
+                  <CardTitle className="text-base sm:text-lg">Admin Notes</CardTitle>
                   <CardDescription>Stay aligned with latest changes</CardDescription>
                 </CardHeader>
-                <CardContent className="space-y-3 text-sm text-muted-foreground">
-                  <div className="rounded-lg border border-border/40 bg-background/60 p-4">
+                <CardContent className="space-y-3 text-xs sm:text-sm text-muted-foreground">
+                  <div className="rounded-lg border border-border/40 bg-background/60 p-3 sm:p-4">
                     <h4 className="font-medium text-foreground">Price Verification</h4>
                     <p className="mt-1 text-sm">Ensure all newly added indoor products include regional price variants before publishing.</p>
                   </div>
-                  <div className="rounded-lg border border-border/40 bg-background/60 p-4">
+                  <div className="rounded-lg border border-border/40 bg-background/60 p-3 sm:p-4">
                     <h4 className="font-medium text-foreground">Compliance Update</h4>
                     <p className="mt-1 text-sm">Upload the latest CE and UL certification documents for new outdoor fixtures.</p>
                   </div>
-                  <div className="rounded-lg border border-border/40 bg-background/60 p-4">
+                  <div className="rounded-lg border border-border/40 bg-background/60 p-3 sm:p-4">
                     <h4 className="font-medium text-foreground">Upcoming Release</h4>
                     <p className="mt-1 text-sm">Variation templates for archived products will be available in the next sprint.</p>
                   </div>
