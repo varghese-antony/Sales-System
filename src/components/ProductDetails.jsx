@@ -28,15 +28,14 @@ export function ProductDetails({ product, onBack }) {
     return mapping;
   }, []);
 
-  const optimizedImageUrl = useMemo(() => {
-    const imageFields = ['image', 'image_url', 'thumbnail', 'Photo'];
-    for (const field of imageFields) {
-      if (product[field]) {
-        return getOptimizedImageUrl(product[field]);
-      }
-    }
-    return null;
-  }, [product]);
+  const mappedProduct = useMemo(() => {
+    const mapped = {}
+    Object.entries(product).forEach(([key, value]) => {
+      const frontendKey = reverseFieldMapping[key] || key
+      mapped[frontendKey] = value
+    })
+    return mapped
+  }, [product, reverseFieldMapping])
 
   // Handle ESC key to close modal
   useEffect(() => {
