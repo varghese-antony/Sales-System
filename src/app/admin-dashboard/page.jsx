@@ -183,7 +183,7 @@ export default function AdminDashboardPage() {
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.4 }}
-          className="relative overflow-hidden rounded-3xl border border-white/10 bg-gradient-to-br from-slate-900/80 via-indigo-900/80 to-slate-900/70 p-4 sm:p-6 lg:p-10 shadow-xl ring-1 ring-white/10"
+          className="relative overflow-hidden rounded-3xl border border-white/10 bg-gradient-to-br from-slate-900/80 via-indigo-900/80 to-slate-900/70 p-4 sm:p-6 lg:p-10 shadow-xl ring-1 ring-white/10 dark:border-white/20 dark:from-slate-800/90 dark:via-indigo-800/90 dark:to-slate-800/80 dark:shadow-2xl"
         >
           <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,_rgba(79,70,229,0.4),_transparent_55%)]" />
           <div className="relative flex flex-col justify-between gap-6 lg:flex-row lg:items-center">
@@ -234,23 +234,23 @@ export default function AdminDashboardPage() {
                 animate="animate"
                 transition={{ duration: 0.35, delay: index * 0.05 }}
               >
-                <Card className="border border-border/50 bg-background/60 backdrop-blur">
-                  <CardHeader className="space-y-1">
-                    <CardTitle className="text-sm sm:text-base font-medium text-muted-foreground">
-                      {stat.title}
-                    </CardTitle>
-                    <div className="flex items-center justify-between">
-                      <span className="text-2xl sm:text-3xl font-semibold text-foreground">{stat.value}</span>
-                      <stat.icon className="h-8 w-8 text-primary" />
-                    </div>
-                  </CardHeader>
-                  <CardContent className="flex items-center justify-between text-xs sm:text-sm text-muted-foreground">
-                    <span>{stat.description}</span>
-                    <Badge variant="outline" className="border-primary/30 text-primary">
-                      {stat.change}
-                    </Badge>
-                  </CardContent>
-                </Card>
+              <Card className="border border-border/50 bg-background/60 backdrop-blur dark:border-border/60 dark:bg-background/70">
+                <CardHeader className="space-y-1">
+                  <CardTitle className="text-sm sm:text-base font-medium text-muted-foreground">
+                    {stat.title}
+                  </CardTitle>
+                  <div className="flex items-center justify-between">
+                    <span className="text-2xl sm:text-3xl font-semibold text-foreground">{stat.value}</span>
+                    <stat.icon className="h-8 w-8 text-primary" />
+                  </div>
+                </CardHeader>
+                <CardContent className="flex items-center justify-between text-xs sm:text-sm text-muted-foreground">
+                  <span>{stat.description}</span>
+                  <Badge variant="outline" className="border-primary/30 text-primary dark:border-primary/40 dark:text-primary">
+                    {stat.change}
+                  </Badge>
+                </CardContent>
+              </Card>
               </motion.div>
             ))}
           </section>
@@ -280,7 +280,7 @@ export default function AdminDashboardPage() {
                 transition={{ duration: 0.35, delay: 0.1 + index * 0.07 }}
               >
                 <Link href={card.href} className="group block h-full">
-                  <Card className="relative h-full overflow-hidden border border-border/60 bg-background/70 transition-all duration-300 hover:-translate-y-1 hover:border-primary/40 hover:shadow-lg">
+                  <Card className="relative h-full overflow-hidden border border-border/60 bg-background/70 transition-all duration-300 hover:-translate-y-1 hover:border-primary/40 hover:shadow-lg dark:border-border/70 dark:bg-background/80 dark:hover:border-primary/50 dark:hover:shadow-xl">
                     <div className={`pointer-events-none absolute inset-0 bg-gradient-to-br ${card.accent} opacity-0 transition-opacity duration-300 group-hover:opacity-100`} />
                     <CardHeader className="relative flex flex-col gap-3">
                       <div className="flex items-center justify-between">
@@ -288,7 +288,7 @@ export default function AdminDashboardPage() {
                           <card.icon className="h-6 w-6" />
                           {card.title}
                         </CardTitle>
-                        <Badge variant="secondary" className="bg-white/20 text-xs text-white">
+                        <Badge variant="secondary" className="bg-white/20 text-xs text-white dark:bg-white/10 dark:text-white/90">
                           Protected
                         </Badge>
                       </div>
@@ -322,23 +322,23 @@ export default function AdminDashboardPage() {
               animate="animate"
               transition={{ duration: 0.35, delay: 0.2 }}
             >
-              <Card className="border border-border/50 bg-background/70">
+              <Card className="border border-border/50 bg-background/70 dark:border-border/60 dark:bg-background/80">
                 <CardHeader>
                   <CardTitle className="text-base sm:text-lg">Recent Activity</CardTitle>
                   <CardDescription>Live view of catalog and enquiry actions</CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-4">
                   {recentActivity.map((activity) => (
-                    <div key={activity.title} className="rounded-xl border border-border/40 bg-background/60 p-3 sm:p-4">
+                    <div key={activity.title} className="rounded-xl border border-border/40 bg-background/60 p-3 sm:p-4 dark:border-border/50 dark:bg-background/70">
                       <div className="flex items-center justify-between">
                         <h3 className="font-semibold text-foreground">{activity.title}</h3>
-                        <Badge variant="outline" className="border-border/60 text-xs text-muted-foreground">
+                        <Badge variant="outline" className="border-border/60 text-xs text-muted-foreground dark:border-border/70">
                           {activity.timestamp}
                         </Badge>
                       </div>
                       <p className="mt-1 text-xs sm:text-sm text-muted-foreground">{activity.details}</p>
                       <div className="mt-3 flex items-center gap-2 text-xs text-muted-foreground">
-                        <span className="inline-flex items-center gap-1 rounded-full bg-muted px-2 py-1 text-[10px] sm:text-xs uppercase tracking-wide">
+                        <span className="inline-flex items-center gap-1 rounded-full bg-muted px-2 py-1 text-[10px] sm:text-xs uppercase tracking-wide dark:bg-muted/80">
                           <TrendingUp className="h-3 w-3" />
                           {activity.status}
                         </span>
@@ -355,21 +355,21 @@ export default function AdminDashboardPage() {
               animate="animate"
               transition={{ duration: 0.35, delay: 0.25 }}
             >
-              <Card className="h-full border border-border/50 bg-background/70">
+              <Card className="h-full border border-border/50 bg-background/70 dark:border-border/60 dark:bg-background/80">
                 <CardHeader>
                   <CardTitle className="text-base sm:text-lg">Admin Notes</CardTitle>
                   <CardDescription>Stay aligned with latest changes</CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-3 text-xs sm:text-sm text-muted-foreground">
-                  <div className="rounded-lg border border-border/40 bg-background/60 p-3 sm:p-4">
+                  <div className="rounded-lg border border-border/40 bg-background/60 p-3 sm:p-4 dark:border-border/50 dark:bg-background/70">
                     <h4 className="font-medium text-foreground">Price Verification</h4>
                     <p className="mt-1 text-sm">Ensure all newly added indoor products include regional price variants before publishing.</p>
                   </div>
-                  <div className="rounded-lg border border-border/40 bg-background/60 p-3 sm:p-4">
+                  <div className="rounded-lg border border-border/40 bg-background/60 p-3 sm:p-4 dark:border-border/50 dark:bg-background/70">
                     <h4 className="font-medium text-foreground">Compliance Update</h4>
                     <p className="mt-1 text-sm">Upload the latest CE and UL certification documents for new outdoor fixtures.</p>
                   </div>
-                  <div className="rounded-lg border border-border/40 bg-background/60 p-3 sm:p-4">
+                  <div className="rounded-lg border border-border/40 bg-background/60 p-3 sm:p-4 dark:border-border/50 dark:bg-background/70">
                     <h4 className="font-medium text-foreground">Upcoming Release</h4>
                     <p className="mt-1 text-sm">Variation templates for archived products will be available in the next sprint.</p>
                   </div>

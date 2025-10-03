@@ -101,7 +101,7 @@ function AdminDashboardContent({ children }) {
   }, [sessionRestored, user, profile, toast])
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-background dark:bg-background">
       <Suspense 
         fallback={
           <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50 dark:from-blue-950/20 dark:via-purple-950/10 dark:to-indigo-950/20 flex items-center justify-center">
@@ -112,7 +112,7 @@ function AdminDashboardContent({ children }) {
           </div>
         }
       >
-        <main className="mx-auto w-full max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
+        <main className="mx-auto w-full max-w-7xl px-4 py-8 sm:px-6 lg:px-8 dark:bg-background">
           {children}
         </main>
       </Suspense>

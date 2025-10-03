@@ -430,8 +430,8 @@ export default function DataEntryPage() {
       </div>
 
       <div className="container mx-auto p-3 sm:p-4 max-w-3xl relative z-10">
-        <Card className="mb-4 sm:mb-6 border border-border/50 hover:border-primary/30 transition-all duration-300">
-          <CardHeader>
+        <Card className="mb-4 sm:mb-6 border border-border/50 hover:border-primary/30 transition-all duration-300 dark:border-border/60 dark:hover:border-primary/40 dark:bg-card/80">
+          <CardHeader className="card-spacing">
             <CardTitle className="text-xl sm:text-2xl font-bold text-center text-foreground">Lighting Product Data Entry</CardTitle>
             <p className="text-sm sm:text-base text-muted-foreground text-center">Add new lighting products to your catalog</p>
             <div className="text-center mt-3 sm:mt-4 space-y-2">
@@ -454,7 +454,7 @@ export default function DataEntryPage() {
           <CardContent className="p-4 sm:p-6">
             <form onSubmit={handleSubmit} className="space-y-4 sm:space-y-6">
               {/* Basic Information */}
-              <Card className="border border-border/50">
+              <Card className="border border-border/50 dark:border-border/60 dark:bg-card/60">
                 <CardHeader className="p-4 sm:p-6">
                   <CardTitle className="text-base sm:text-lg text-foreground">Basic Information</CardTitle>
                 </CardHeader>
@@ -463,7 +463,7 @@ export default function DataEntryPage() {
                     <div className="space-y-1.5 sm:space-y-2">
                       <label htmlFor="type" className="text-xs sm:text-sm font-medium text-foreground">Indoor/Outdoor</label>
                       <Select value={type} onValueChange={setType} required>
-                        <SelectTrigger className="bg-background border-border">
+                        <SelectTrigger className="bg-background border-border hover:border-primary/50 focus:border-primary dark:bg-background dark:border-border dark:hover:border-primary/50 dark:focus:border-primary">
                           <SelectValue placeholder="Select type" />
                         </SelectTrigger>
                         <SelectContent>
@@ -480,7 +480,7 @@ export default function DataEntryPage() {
                         value={productType}
                         onChange={(e) => setProductType(e.target.value)}
                         placeholder="e.g., Downlight, Track Light"
-                        className="bg-background border-border"
+                        className="bg-background border-border hover:border-primary/50 focus:border-primary dark:bg-background dark:border-border dark:hover:border-primary/50 dark:focus:border-primary"
                         required
                       />
                     </div>
