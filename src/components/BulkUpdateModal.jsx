@@ -321,7 +321,7 @@ export function BulkUpdateModal({ selectedProducts, action, isOpen, onClose, onC
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="relative max-w-full sm:max-w-2xl lg:max-w-4xl max-h-[90vh] overflow-y-auto glass-effect border-2 border-primary/20 shadow-2xl animate-modal-slide-up p-4 sm:p-6">
+      <DialogContent className="max-w-full sm:max-w-2xl lg:max-w-4xl max-h-[90vh] overflow-y-auto glass-effect border-2 border-primary/20 shadow-2xl animate-modal-slide-up p-4 sm:p-6">
         {loading && (
           <div className="absolute inset-0 z-20 flex items-center justify-center rounded-lg bg-background/80 backdrop-blur-sm">
             <Loader2 className="h-6 w-6 animate-spin text-primary" />

@@ -36,8 +36,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { format } from 'date-fns';
 import { formatEnquiryForExport, exportEnquiriesCustom } from '@/lib/utils/export';
 import { useToast } from '@/contexts/ToastContext';
-import { ProductLink } from '@/components/ui/product-link';
-import { addEnquiryNote } from '@/lib/database/enquiries';
+import { ProductDetailsModal } from '@/components/ProductDetailsModal';
 
 const STATUS_OPTIONS = [
   { value: 'new', label: 'New', color: 'warning' },
@@ -53,6 +52,7 @@ export function EnquiryDetailsModal({ isOpen, onClose, enquiry, onStatusUpdate, 
   const [newStatus, setNewStatus] = useState(enquiry?.status || 'new');
   const [notes, setNotes] = useState('');
   const [savingStatus, setSavingStatus] = useState(false);
+  const [productDetailsModal, setProductDetailsModal] = useState({ isOpen: false, productData: null, cartItem: null });
   const { toast } = useToast();
 
   // Move useEffect here, before any early returns
@@ -65,6 +65,19 @@ export function EnquiryDetailsModal({ isOpen, onClose, enquiry, onStatusUpdate, 
   }, [enquiry?.status, enquiry?.id]);
 
   if (!enquiry) return null;
+
+  const handleViewProduct = (cartItem) => {
+    const product = cartItem.product || cartItem || {};
+    setProductDetailsModal({
+      isOpen: true,
+      productData: product,
+      cartItem: cartItem
+    });
+  };
+
+  const closeProductDetailsModal = () => {
+    setProductDetailsModal({ isOpen: false, productData: null, cartItem: null });
+  };
 
   const handleStatusUpdate = async () => {
     if (!onStatusUpdate || savingStatus) return;
@@ -370,19 +383,17 @@ export function EnquiryDetailsModal({ isOpen, onClose, enquiry, onStatusUpdate, 
                 Qty: {quantity}
               </Badge>
               {hasProductLink ? (
-                <ProductLink
-                  table={table}
-                  productType={productType}
-                  productId={productId}
-                  modelNumber={modelNumber}
+                <Button
+                  variant="outline"
                   size="sm"
-                  className="text-xs"
+                  onClick={() => handleViewProduct(item)}
+                  className="text-xs h-9"
                 >
                   <span className="flex items-center gap-2">
                     <Eye className="h-4 w-4" />
                     View Product
                   </span>
-                </ProductLink>
+                </Button>
               ) : (
                 <Badge variant="secondary" className="text-xs">
                   Product link unavailable
@@ -700,6 +711,14 @@ export function EnquiryDetailsModal({ isOpen, onClose, enquiry, onStatusUpdate, 
             </div>
           </div>
         </div>
+
+        {/* Product Details Modal */}
+        <ProductDetailsModal
+          isOpen={productDetailsModal.isOpen}
+          onClose={closeProductDetailsModal}
+          productData={productDetailsModal.productData}
+          cartItem={productDetailsModal.cartItem}
+        />
       </DialogContent>
     </Dialog>
   );

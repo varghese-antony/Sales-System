@@ -661,20 +661,31 @@ export default function DataManagementPage() {
     wasCustomExportOpenRef.current = isCustomExportOpen;
   }, [isCustomExportOpen, productFieldOptions, selectedRows.length]);
 
-  const cleanSelectedRows = useCallback((rows) => {
-    if (!Array.isArray(rows)) return [];
-    return rows.filter(row => row && typeof row === 'object' && row.id);
-  }, []);
-
   const handleSearch = useCallback(() => {
     setSearchTerm(searchInput.trim());
   }, [searchInput]);
 
-  const handleSearchKeyPress = useCallback((e) => {
-    if (e.key === 'Enter') {
-      handleSearch();
-    }
-  }, [handleSearch]);
+  const clearAllFilters = useCallback(() => {
+    setTypeFilter('both');
+    setCategoryFilter('all');
+    setProductTypeFilter('all');
+    setVoltageFilter('all');
+    setPowerFilter('all');
+    setCctFilter('all');
+    setCriFilter('all');
+    setDimmingTypeFilter('all');
+    setLedTypeFilter('all');
+    setDriverBrandFilter('all');
+    setIpRatingFilter('all');
+    setIkRatingFilter('all');
+    setSearchTerm('');
+    setSearchInput('');
+  }, []);
+
+  const cleanSelectedRows = useCallback((rows) => {
+    if (!Array.isArray(rows)) return [];
+    return rows.filter(row => row && typeof row === 'object' && row.id);
+  }, []);
 
   const sanitizeOptions = useCallback((values) => {
     if (!Array.isArray(values)) return [];
@@ -835,6 +846,305 @@ export default function DataManagementPage() {
         return [];
     }
   }, [productTypes, voltages, powers, cctValues, criValues, dimmingTypeValues, ledTypes, driverBrands, ipRatings, ikRatings]);
+
+  const renderFilterTabs = (variant = 'desktop') => {
+    const isMobileVariant = variant === 'mobile';
+    const tabsListClass = isMobileVariant
+      ? 'grid w-full grid-cols-3 mb-4 mt-4'
+      : 'grid w-full grid-cols-3 mb-6';
+    const basicContentClass = isMobileVariant ? 'space-y-4 mt-0' : 'space-y-6 mt-0';
+    const technicalContentClass = isMobileVariant ? 'space-y-4 mt-0' : 'space-y-6 mt-0';
+    const featuresContentClass = isMobileVariant ? 'space-y-4 mt-0' : 'space-y-6 mt-0';
+    const tabTriggerClass = isMobileVariant ? 'text-xs font-medium' : 'text-sm font-medium';
+
+    return (
+      <Tabs defaultValue="basic" className="w-full">
+        <TabsList className={tabsListClass}>
+          <TabsTrigger value="basic" className={tabTriggerClass}>
+            Basic Filters
+          </TabsTrigger>
+          <TabsTrigger value="technical" className={tabTriggerClass}>
+            Technical Specs
+          </TabsTrigger>
+          <TabsTrigger value="features" className={tabTriggerClass}>
+            Features
+          </TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="basic" className={basicContentClass}>
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.3, delay: 0 }}
+            className="space-y-4"
+          >
+            <div className="flex items-center gap-2 mb-4">
+              <div className="h-8 w-2 bg-gradient-to-b from-primary via-primary/80 to-primary/60 rounded-full shadow-lg shadow-primary/20 animate-glow" />
+              <h3 className="text-lg font-semibold text-gradient">Product Type &amp; Category</h3>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pl-4">
+              <div className="space-y-3">
+                <label className="text-sm font-medium text-foreground">
+                  Product Type
+                </label>
+                <div className="flex gap-2">
+                  {[
+                    { value: 'both', label: 'Both' },
+                    { value: 'indoor', label: 'Indoor' },
+                    { value: 'outdoor', label: 'Outdoor' }
+                  ].map(type => (
+                    <Button
+                      key={type.value}
+                      onClick={() => setTypeFilter(type.value)}
+                      variant={typeFilter === type.value ? 'default' : 'outline'}
+                      size="sm"
+                      className={
+                        typeFilter === type.value
+                          ? 'flex-1 transition-all shadow-lg shadow-primary/20 hover:shadow-xl hover:shadow-primary/30 hover:-translate-y-0.5'
+                          : 'flex-1 transition-all hover:border-primary/50 hover:bg-primary/5 hover:shadow-md'
+                      }
+                    >
+                      {type.label}
+                    </Button>
+                  ))}
+                </div>
+              </div>
+              <div className="space-y-3">
+                <label className="text-sm font-medium text-foreground">
+                  Category
+                </label>
+                <Select value={categoryFilter} onValueChange={setCategoryFilter}>
+                  <SelectTrigger
+                    className={`h-9 transition-all hover:border-primary/50 hover:shadow-md focus-within:border-primary focus-within:shadow-lg focus-within:shadow-primary/20${
+                      categoryFilter !== 'all' ? ' border-primary/50 bg-primary/5 shadow-md' : ''
+                    }`}
+                  >
+                    <SelectValue placeholder="All Categories" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Categories</SelectItem>
+                    {categories.map((category, index) => (
+                      <SelectItem key={`category-${index}-${category}`} value={category}>
+                        {category}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-3">
+                <label className="text-sm font-medium text-foreground">
+                  Product Type
+                </label>
+                <Select value={productTypeFilter} onValueChange={setProductTypeFilter}>
+                  <SelectTrigger
+                    className={`h-9 transition-all hover:border-primary/50 hover:shadow-md focus-within:border-primary focus-within:shadow-lg focus-within:shadow-primary/20${
+                      productTypeFilter !== 'all' ? ' border-primary/50 bg-primary/5 shadow-md' : ''
+                    }`}
+                  >
+                    <SelectValue placeholder="All Product Types" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Product Types</SelectItem>
+                    {getDynamicOptions('producttype').map((type, index) => (
+                      <SelectItem key={`producttype-${index}-${type}`} value={type}>
+                        {type}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+          </motion.div>
+        </TabsContent>
+
+        <TabsContent value="technical" className={technicalContentClass}>
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.3, delay: 0 }}
+            className="space-y-4"
+          >
+            <div className="flex items-center gap-2 mb-4">
+              <div className="h-8 w-2 bg-gradient-to-b from-primary via-primary/80 to-primary/60 rounded-full shadow-lg shadow-primary/20 animate-glow" />
+              <h3 className="text-lg font-semibold text-gradient">Technical Specifications</h3>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pl-4">
+              <div className="space-y-2">
+                <label className="text-sm font-medium text-foreground">
+                  Voltage
+                </label>
+                <Select value={voltageFilter} onValueChange={setVoltageFilter}>
+                  <SelectTrigger
+                    className={`h-9 transition-all hover:border-primary/50 hover:shadow-md focus-within:border-primary focus-within:shadow-lg focus-within:shadow-primary/20${
+                      voltageFilter !== 'all' ? ' border-primary/50 bg-primary/5 shadow-md' : ''
+                    }`}
+                  >
+                    <SelectValue placeholder="All Voltages" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Voltages</SelectItem>
+                    {getDynamicOptions('Voltage').map((voltage, index) => (
+                      <SelectItem key={`voltage-${index}-${voltage}`} value={voltage}>
+                        {voltage}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <label className="text-sm font-medium text-foreground">
+                  Power (W)
+                </label>
+                <Select value={powerFilter} onValueChange={setPowerFilter}>
+                  <SelectTrigger
+                    className={`h-9 transition-all hover:border-primary/50 hover:shadow-md focus-within:border-primary focus-within:shadow-lg focus-within:shadow-primary/20${
+                      powerFilter !== 'all' ? ' border-primary/50 bg-primary/5 shadow-md' : ''
+                    }`}
+                  >
+                    <SelectValue placeholder="All Powers" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Powers</SelectItem>
+                    {getDynamicOptions('power_w').map((power, index) => (
+                      <SelectItem key={`power-${index}-${power}`} value={power}>
+                        {power}W
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <label className="text-sm font-medium text-foreground">
+                  CCT (K)
+                </label>
+                <Select value={cctFilter} onValueChange={setCctFilter}>
+                  <SelectTrigger
+                    className={`h-9 transition-all hover:border-primary/50 hover:shadow-md focus-within:border-primary focus-within:shadow-lg focus-within:shadow-primary/20${
+                      cctFilter !== 'all' ? ' border-primary/50 bg-primary/5 shadow-md' : ''
+                    }`}
+                  >
+                    <SelectValue placeholder="All CCT" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All CCT</SelectItem>
+                    {getDynamicOptions('CCT').map((cct, index) => (
+                      <SelectItem key={`cct-${index}-${cct}`} value={cct}>
+                        {cct}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <label className="text-sm font-medium text-foreground">
+                  CRI (Ra)
+                </label>
+                <Select value={criFilter} onValueChange={setCriFilter}>
+                  <SelectTrigger
+                    className={`h-9 transition-all hover:border-primary/50 hover:shadow-md focus-within:border-primary focus-within:shadow-lg focus-within:shadow-primary/20${
+                      criFilter !== 'all' ? ' border-primary/50 bg-primary/5 shadow-md' : ''
+                    }`}
+                  >
+                    <SelectValue placeholder="All CRI" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All CRI</SelectItem>
+                    {getDynamicOptions('cri_ra').map((cri, index) => (
+                      <SelectItem key={`cri-${index}-${cri}`} value={cri}>
+                        {cri}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+          </motion.div>
+        </TabsContent>
+
+        <TabsContent value="features" className={featuresContentClass}>
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.3, delay: 0 }}
+            className="space-y-4"
+          >
+            <div className="flex items-center gap-2 mb-4">
+              <div className="h-8 w-2 bg-gradient-to-b from-primary via-primary/80 to-primary/60 rounded-full shadow-lg shadow-primary/20 animate-glow" />
+              <h3 className="text-lg font-semibold text-gradient">Features &amp; Components</h3>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 pl-4">
+              <div className="space-y-2">
+                <label className="text-sm font-medium text-foreground">
+                  Dimming Type
+                </label>
+                <Select value={dimmingTypeFilter} onValueChange={setDimmingTypeFilter}>
+                  <SelectTrigger
+                    className={`h-9 transition-all hover:border-primary/50 hover:shadow-md focus-within:border-primary focus-within:shadow-lg focus-within:shadow-primary/20${
+                      dimmingTypeFilter !== 'all' ? ' border-primary/50 bg-primary/5 shadow-md' : ''
+                    }`}
+                  >
+                    <SelectValue placeholder="All Dimming Types" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Dimming Types</SelectItem>
+                    {getDynamicOptions('Dimming Type').map((option, index) => (
+                      <SelectItem key={`dimming-${index}-${option}`} value={option}>
+                        {option}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <label className="text-sm font-medium text-foreground">
+                  LED Type
+                </label>
+                <Select value={ledTypeFilter} onValueChange={setLedTypeFilter}>
+                  <SelectTrigger
+                    className={`h-9 transition-all hover:border-primary/50 hover:shadow-md focus-within:border-primary focus-within:shadow-lg focus-within:shadow-primary/20${
+                      ledTypeFilter !== 'all' ? ' border-primary/50 bg-primary/5 shadow-md' : ''
+                    }`}
+                  >
+                    <SelectValue placeholder="All LED Types" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All LED Types</SelectItem>
+                    {getDynamicOptions('ledType').map((ledType, index) => (
+                      <SelectItem key={`ledType-${index}-${ledType}`} value={ledType}>
+                        {ledType}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <label className="text-sm font-medium text-foreground">
+                  Driver Brand
+                </label>
+                <Select value={driverBrandFilter} onValueChange={setDriverBrandFilter}>
+                  <SelectTrigger
+                    className={`h-9 transition-all hover:border-primary/50 hover:shadow-md focus-within:border-primary focus-within:shadow-lg focus-within:shadow-primary/20${
+                      driverBrandFilter !== 'all' ? ' border-primary/50 bg-primary/5 shadow-md' : ''
+                    }`}
+                  >
+                    <SelectValue placeholder="All Driver Brands" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Driver Brands</SelectItem>
+                    {getDynamicOptions('Driver Brand').map((brand, index) => (
+                      <SelectItem key={`driver-${index}-${brand}`} value={brand}>
+                        {brand}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+          </motion.div>
+        </TabsContent>
+      </Tabs>
+    );
+  };
 
   const handleRefresh = async () => {
     cache.del(cacheKey);
@@ -1282,7 +1592,11 @@ export default function DataManagementPage() {
                     placeholder="Search products..."
                     value={searchInput}
                     onChange={(e) => setSearchInput(e.target.value)}
-                    onKeyPress={handleSearchKeyPress}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        handleSearch();
+                      }
+                    }}
                     className="pl-10 h-11 sm:h-8 text-sm"
                   />
                 </div>
@@ -1463,120 +1777,7 @@ export default function DataManagementPage() {
               </DrawerHeader>
 
               <div className="flex-1 overflow-y-auto px-4 pb-4">
-                <Tabs defaultValue="basic" className="w-full">
-                  <TabsList className="grid w-full grid-cols-3 mb-4 mt-4">
-                    <TabsTrigger value="basic" className="text-xs">Basic</TabsTrigger>
-                    <TabsTrigger value="technical" className="text-xs">Technical</TabsTrigger>
-                    <TabsTrigger value="features" className="text-xs">Features</TabsTrigger>
-                  </TabsList>
-
-                  <TabsContent value="basic" className="space-y-4 mt-0">
-                    <div className="space-y-3">
-                      <h3 className="text-sm font-medium">Product Type & Category</h3>
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                        <div className="space-y-2">
-                          <label className="text-xs font-medium">Product Type</label>
-                          <Select value={typeFilter} onValueChange={setTypeFilter}>
-                            <SelectTrigger className="h-9">
-                              <SelectValue placeholder="Select type" />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="both">All Types</SelectItem>
-                              <SelectItem value="indoor">Indoor Only</SelectItem>
-                              <SelectItem value="outdoor">Outdoor Only</SelectItem>
-                            </SelectContent>
-                          </Select>
-                        </div>
-                        <div className="space-y-2">
-                          <label className="text-xs font-medium">Category</label>
-                          <Select value={categoryFilter} onValueChange={setCategoryFilter}>
-                            <SelectTrigger className="h-9">
-                              <SelectValue placeholder="Select category" />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="all">All Categories</SelectItem>
-                              {Array.from(new Set(products.map(p => p.category).filter(Boolean))).map(category => (
-                                <SelectItem key={category} value={category}>{category}</SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                        </div>
-                      </div>
-                    </div>
-                  </TabsContent>
-
-                  <TabsContent value="technical" className="space-y-4 mt-0">
-                    <div className="space-y-3">
-                      <h3 className="text-sm font-medium">Technical Specifications</h3>
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                        <div className="space-y-2">
-                          <label className="text-xs font-medium">Voltage</label>
-                          <Select value={voltageFilter} onValueChange={setVoltageFilter}>
-                            <SelectTrigger className="h-9">
-                              <SelectValue placeholder="Select voltage" />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="all">All Voltages</SelectItem>
-                              {Array.from(new Set(products.map(p => p.voltage).filter(Boolean))).map(voltage => (
-                                <SelectItem key={voltage} value={voltage}>{voltage}</SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                        </div>
-                        <div className="space-y-2">
-                          <label className="text-xs font-medium">Power (W)</label>
-                          <Select value={powerFilter} onValueChange={setPowerFilter}>
-                            <SelectTrigger className="h-9">
-                              <SelectValue placeholder="Select power" />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="all">All Power</SelectItem>
-                              {Array.from(new Set(products.map(p => p.power_w).filter(Boolean))).map(power => (
-                                <SelectItem key={power} value={power}>{power}</SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                        </div>
-                      </div>
-                    </div>
-                  </TabsContent>
-
-                  <TabsContent value="features" className="space-y-4 mt-0">
-                    <div className="space-y-3">
-                      <h3 className="text-sm font-medium">Features & Ratings</h3>
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                        <div className="space-y-2">
-                          <label className="text-xs font-medium">IP Rating</label>
-                          <Select value={ipRatingFilter} onValueChange={setIpRatingFilter}>
-                            <SelectTrigger className="h-9">
-                              <SelectValue placeholder="Select IP rating" />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="all">All IP Ratings</SelectItem>
-                              {Array.from(new Set(products.map(p => p.ip_rating).filter(Boolean))).map(rating => (
-                                <SelectItem key={rating} value={rating}>{rating}</SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                        </div>
-                        <div className="space-y-2">
-                          <label className="text-xs font-medium">IK Rating</label>
-                          <Select value={ikRatingFilter} onValueChange={setIkRatingFilter}>
-                            <SelectTrigger className="h-9">
-                              <SelectValue placeholder="Select IK rating" />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="all">All IK Ratings</SelectItem>
-                              {Array.from(new Set(products.map(p => p.ik_rating).filter(Boolean))).map(rating => (
-                                <SelectItem key={rating} value={rating}>{rating}</SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                        </div>
-                      </div>
-                    </div>
-                  </TabsContent>
-                </Tabs>
+                {renderFilterTabs('mobile')}
               </div>
 
               <DrawerFooter className="px-4 py-3 border-t">
@@ -1625,296 +1826,13 @@ export default function DataManagementPage() {
             </DialogHeader>
 
             <div className="flex-1 overflow-y-auto py-6 px-6">
-              <Tabs defaultValue="basic" className="w-full">
-                <TabsList className="grid w-full grid-cols-3 mb-6">
-                  <TabsTrigger value="basic" className="text-sm font-medium">Basic Filters</TabsTrigger>
-                  <TabsTrigger value="technical" className="text-sm font-medium">Technical Specs</TabsTrigger>
-                  <TabsTrigger value="features" className="text-sm font-medium">Features</TabsTrigger>
-                </TabsList>
-
-                <TabsContent value="basic" className="space-y-6 mt-0">
-                  <motion.div
-                    initial={{ opacity: 0, y: 20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ duration: 0.3, delay: 0 }}
-                    className="space-y-4"
-                  >
-                    <div className="flex items-center gap-2 mb-4">
-                      <div className="h-8 w-2 bg-gradient-to-b from-primary via-primary/80 to-primary/60 rounded-full shadow-lg shadow-primary/20 animate-glow" />
-                      <h3 className="text-lg font-semibold text-gradient">Product Type & Category</h3>
-                    </div>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pl-4">
-                      {/* Type Toggle */}
-                      <div className="space-y-3">
-                        <label className="text-sm font-medium text-foreground">
-                          Product Type
-                        </label>
-                        <div className="flex gap-2">
-                          {[
-                            { value: 'both', label: 'Both' },
-                            { value: 'indoor', label: 'Indoor' },
-                            { value: 'outdoor', label: 'Outdoor' }
-                          ].map(type => (
-                            <Button
-                              key={type.value}
-                              onClick={() => setTypeFilter(type.value)}
-                              variant={typeFilter === type.value ? 'default' : 'outline'}
-                              size="sm"
-                              className={
-                                typeFilter === type.value
-                                  ? 'flex-1 transition-all shadow-lg shadow-primary/20 hover:shadow-xl hover:shadow-primary/30 hover:-translate-y-0.5'
-                                  : 'flex-1 transition-all hover:border-primary/50 hover:bg-primary/5 hover:shadow-md'
-                              }
-                            >
-                              {type.label}
-                            </Button>
-                          ))}
-                        </div>
-                      </div>
-                      {/* Category Filter */}
-                      <div className="space-y-3">
-                        <label className="text-sm font-medium text-foreground">
-                          Category
-                        </label>
-                        <Select value={categoryFilter} onValueChange={setCategoryFilter}>
-                          <SelectTrigger
-                            className={`h-9 transition-all hover:border-primary/50 hover:shadow-md focus-within:border-primary focus-within:shadow-lg focus-within:shadow-primary/20${
-                              categoryFilter !== 'all' ? ' border-primary/50 bg-primary/5 shadow-md' : ''
-                            }`}
-                          >
-                            <SelectValue placeholder="All Categories" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="all">All Categories</SelectItem>
-                            {categories.map((category, index) => (
-                              <SelectItem key={`category-${index}-${category}`} value={category}>{category}</SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      </div>
-                      {/* Product Type Filter */}
-                      <div className="space-y-3">
-                        <label className="text-sm font-medium text-foreground">
-                          Product Type
-                        </label>
-                        <Select value={productTypeFilter} onValueChange={setProductTypeFilter}>
-                          <SelectTrigger
-                            className={`h-9 transition-all hover:border-primary/50 hover:shadow-md focus-within:border-primary focus-within:shadow-lg focus-within:shadow-primary/20${
-                              productTypeFilter !== 'all' ? ' border-primary/50 bg-primary/5 shadow-md' : ''
-                            }`}
-                          >
-                            <SelectValue placeholder="All Product Types" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="all">All Product Types</SelectItem>
-                            {getDynamicOptions('producttype').map((type, index) => (
-                              <SelectItem key={`producttype-${index}-${type}`} value={type}>{type}</SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      </div>
-                    </div>
-                  </motion.div>
-                </TabsContent>
-
-                <TabsContent value="technical" className="space-y-6 mt-0">
-                  <motion.div
-                    initial={{ opacity: 0, y: 20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ duration: 0.3, delay: 0 }}
-                    className="space-y-4"
-                  >
-                    <div className="flex items-center gap-2 mb-4">
-                      <div className="h-8 w-2 bg-gradient-to-b from-primary via-primary/80 to-primary/60 rounded-full shadow-lg shadow-primary/20 animate-glow" />
-                      <h3 className="text-lg font-semibold text-gradient">Technical Specifications</h3>
-                    </div>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pl-4">
-                      {/* Voltage Filter */}
-                      <div className="space-y-2">
-                        <label className="text-sm font-medium text-foreground">
-                          Voltage
-                        </label>
-                        <Select value={voltageFilter} onValueChange={setVoltageFilter}>
-                          <SelectTrigger
-                            className={`h-9 transition-all hover:border-primary/50 hover:shadow-md focus-within:border-primary focus-within:shadow-lg focus-within:shadow-primary/20${
-                              voltageFilter !== 'all' ? ' border-primary/50 bg-primary/5 shadow-md' : ''
-                            }`}
-                          >
-                            <SelectValue placeholder="All Voltages" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="all">All Voltages</SelectItem>
-                            {getDynamicOptions('Voltage').map((voltage, index) => (
-                              <SelectItem key={`voltage-${index}-${voltage}`} value={voltage}>{voltage}</SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      </div>
-                      {/* Power Filter */}
-                      <div className="space-y-2">
-                        <label className="text-sm font-medium text-foreground">
-                          Power (W)
-                        </label>
-                        <Select value={powerFilter} onValueChange={setPowerFilter}>
-                          <SelectTrigger
-                            className={`h-9 transition-all hover:border-primary/50 hover:shadow-md focus-within:border-primary focus-within:shadow-lg focus-within:shadow-primary/20${
-                              powerFilter !== 'all' ? ' border-primary/50 bg-primary/5 shadow-md' : ''
-                            }`}
-                          >
-                            <SelectValue placeholder="All Powers" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="all">All Powers</SelectItem>
-                            {getDynamicOptions('power_w').map((power, index) => (
-                              <SelectItem key={`power-${index}-${power}`} value={power}>{power}W</SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      </div>
-                      {/* CCT Filter */}
-                      <div className="space-y-2">
-                        <label className="text-sm font-medium text-foreground">
-                          CCT (K)
-                        </label>
-                        <Select value={cctFilter} onValueChange={setCctFilter}>
-                          <SelectTrigger
-                            className={`h-9 transition-all hover:border-primary/50 hover:shadow-md focus-within:border-primary focus-within:shadow-lg focus-within:shadow-primary/20${
-                              cctFilter !== 'all' ? ' border-primary/50 bg-primary/5 shadow-md' : ''
-                            }`}
-                          >
-                            <SelectValue placeholder="All CCT" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="all">All CCT</SelectItem>
-                            {getDynamicOptions('CCT').map((cct, index) => (
-                              <SelectItem key={`cct-${index}-${cct}`} value={cct}>{cct}</SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      </div>
-                      {/* CRI Filter */}
-                      <div className="space-y-2">
-                        <label className="text-sm font-medium text-foreground">
-                          CRI (Ra)
-                        </label>
-                        <Select value={criFilter} onValueChange={setCriFilter}>
-                          <SelectTrigger
-                            className={`h-9 transition-all hover:border-primary/50 hover:shadow-md focus-within:border-primary focus-within:shadow-lg focus-within:shadow-primary/20${
-                              criFilter !== 'all' ? ' border-primary/50 bg-primary/5 shadow-md' : ''
-                            }`}
-                          >
-                            <SelectValue placeholder="All CRI" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="all">All CRI</SelectItem>
-                            {getDynamicOptions('cri_ra').map((cri, index) => (
-                              <SelectItem key={`cri-${index}-${cri}`} value={cri}>{cri}</SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      </div>
-                    </div>
-                  </motion.div>
-                </TabsContent>
-
-                <TabsContent value="features" className="space-y-6 mt-0">
-                  <motion.div
-                    initial={{ opacity: 0, y: 20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ duration: 0.3, delay: 0 }}
-                    className="space-y-4"
-                  >
-                    <div className="flex items-center gap-2 mb-4">
-                      <div className="h-8 w-2 bg-gradient-to-b from-primary via-primary/80 to-primary/60 rounded-full shadow-lg shadow-primary/20 animate-glow" />
-                      <h3 className="text-lg font-semibold text-gradient">Features & Components</h3>
-                    </div>
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 pl-4">
-                      {/* Dimmable Filter */}
-                      <div className="space-y-2">
-                        <label className="text-sm font-medium text-foreground">
-                          Dimming Type
-                        </label>
-                        <Select value={dimmingTypeFilter} onValueChange={setDimmingTypeFilter}>
-                          <SelectTrigger
-                            className={`h-9 transition-all hover:border-primary/50 hover:shadow-md focus-within:border-primary focus-within:shadow-lg focus-within:shadow-primary/20${
-                              dimmingTypeFilter !== 'all' ? ' border-primary/50 bg-primary/5 shadow-md' : ''
-                            }`}
-                          >
-                            <SelectValue placeholder="All Dimming Types" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="all">All Dimming Types</SelectItem>
-                            {getDynamicOptions('Dimming Type').map((option, index) => (
-                              <SelectItem key={`dimming-${index}-${option}`} value={option}>{option}</SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      </div>
-                      {/* LED Type Filter */}
-                      <div className="space-y-2">
-                        <label className="text-sm font-medium text-foreground">
-                          LED Type
-                        </label>
-                        <Select value={ledTypeFilter} onValueChange={setLedTypeFilter}>
-                          <SelectTrigger
-                            className={`h-9 transition-all hover:border-primary/50 hover:shadow-md focus-within:border-primary focus-within:shadow-lg focus-within:shadow-primary/20${
-                              ledTypeFilter !== 'all' ? ' border-primary/50 bg-primary/5 shadow-md' : ''
-                            }`}
-                          >
-                            <SelectValue placeholder="All LED Types" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="all">All LED Types</SelectItem>
-                            {getDynamicOptions('ledType').map((ledType, index) => (
-                              <SelectItem key={`ledType-${index}-${ledType}`} value={ledType}>{ledType}</SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      </div>
-                      {/* Driver Brand Filter */}
-                      <div className="space-y-2">
-                        <label className="text-sm font-medium text-foreground">
-                          Driver Brand
-                        </label>
-                        <Select value={driverBrandFilter} onValueChange={setDriverBrandFilter}>
-                          <SelectTrigger
-                            className={`h-9 transition-all hover:border-primary/50 hover:shadow-md focus-within:border-primary focus-within:shadow-lg focus-within:shadow-primary/20${
-                              driverBrandFilter !== 'all' ? ' border-primary/50 bg-primary/5 shadow-md' : ''
-                            }`}
-                          >
-                            <SelectValue placeholder="All Driver Brands" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="all">All Driver Brands</SelectItem>
-                            {getDynamicOptions('Driver Brand').map((brand, index) => (
-                              <SelectItem key={`driver-${index}-${brand}`} value={brand}>{brand}</SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      </div>
-                    </div>
-                  </motion.div>
-                </TabsContent>
-              </Tabs>
+              {renderFilterTabs('desktop')}
             </div>
 
             <DialogFooter className="pt-4 border-t gap-2">
               <Button
                 variant="outline"
-                onClick={() => {
-                  setTypeFilter('both');
-                  setCategoryFilter('all');
-                  setProductTypeFilter('all');
-                  setVoltageFilter('all');
-                  setPowerFilter('all');
-                  setCctFilter('all');
-                  setCriFilter('all');
-                  setDimmingTypeFilter('all');
-                  setLedTypeFilter('all');
-                  setDriverBrandFilter('all');
-                  setSearchTerm('');
-                  setSearchInput('');
-                }}
+                onClick={clearAllFilters}
                 className="flex-1 sm:flex-none transition-all hover:border-destructive/50 hover:text-destructive hover:shadow-md"
               >
                 Clear All Filters
