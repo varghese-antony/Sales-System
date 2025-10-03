@@ -238,54 +238,106 @@ export default function EnquiryManagementPage() {
     }));
   }, [stats]);
 
-  const columns = useMemo(() => ([
-    {
-      key: 'created_at',
-      label: 'Date',
-      sortable: true,
-      render: (value) => format(new Date(value), 'MMM dd, yyyy')
-    },
-    {
-      key: 'customer_name',
-      label: 'Customer',
-      sortable: true,
-      render: (value, row) => (
-        <div>
-          <div className="font-medium">{value}</div>
-          <div className="text-sm text-muted-foreground">{row.company}</div>
-        </div>
-      )
-    },
-    {
-      key: 'email',
-      label: 'Contact',
-      render: (value, row) => (
-        <div>
-          <div className="text-sm">{value}</div>
-          <div className="text-sm text-muted-foreground">{row.phone}</div>
-        </div>
-      )
-    },
-    {
-      key: 'cart_items',
-      label: 'Product Type',
-      render: (value) => {
-        if (!value || !Array.isArray(value)) return '-';
-        const productTypes = [...new Set(value.map(item => item?.productType || item?.["Product Type"]).filter(Boolean))];
-        return productTypes.join(', ') || '-';
+  const columns = useMemo(() => {
+    const formatProductSummary = (items = []) => {
+      if (!Array.isArray(items) || items.length === 0) return '-';
+
+      const summary = items.map((item) => {
+        const name =
+          item.model_number ||
+          item.modelNumber ||
+          item.producttype ||
+          item.productType ||
+          'Product';
+        const quantity = item.quantity ?? item.qty ?? 1;
+        return `${name} (qty: ${quantity})`;
+      });
+
+      const displayCount = 3;
+      const visible = summary.slice(0, displayCount);
+      const remaining = summary.length - visible.length;
+
+      return remaining > 0 ? `${visible.join(', ')} + ${remaining} more` : visible.join(', ');
+    };
+
+    const formatDelivery = (method, time) => {
+      if (!method && !time) return '-';
+      if (!method) return time;
+      if (!time) return method;
+      return `${method} (${time})`;
+    };
+
+    return [
+      {
+        key: 'created_at',
+        label: 'Date',
+        sortable: true,
+        render: (value) => format(new Date(value), 'MMM dd, yyyy')
+      },
+      {
+        key: 'customer_name',
+        label: 'Customer',
+        sortable: true,
+        render: (value, row) => (
+          <div>
+            <div className="font-medium">{value}</div>
+            <div className="text-sm text-muted-foreground">{row.company}</div>
+          </div>
+        )
+      },
+      {
+        key: 'email',
+        label: 'Contact',
+        render: (value, row) => (
+          <div>
+            <div className="text-sm">{value}</div>
+            <div className="text-sm text-muted-foreground">{row.phone}</div>
+          </div>
+        )
+      },
+      {
+        key: 'address',
+        label: 'Address',
+        render: (value) => {
+          if (!value) return '-';
+          const displayValue = value.length > 60 ? `${value.slice(0, 57)}...` : value;
+          return (
+            <div className="text-sm text-muted-foreground max-w-xs truncate" title={value}>
+              {displayValue}
+            </div>
+          );
+        }
+      },
+      {
+        key: 'cart_items',
+        label: 'Products',
+        render: (value) => formatProductSummary(value)
+      },
+      {
+        key: 'delivery_method',
+        label: 'Delivery',
+        render: (value, row) => {
+          const display = formatDelivery(value, row.delivery_time);
+          if (display === '-') return display;
+          return (
+            <Badge variant="secondary" className="max-w-xs truncate" title={display}>
+              {display}
+            </Badge>
+          );
+        }
+      },
+      {
+        key: 'status',
+        label: 'Status',
+        sortable: true,
+        render: (value) => (
+          <Badge variant={STATUS_COLORS[value] || 'default'} size="sm">
+            {STATUS_LABELS[value] || value}
+          </Badge>
+        )
       }
-    },
-    {
-      key: 'status',
-      label: 'Status',
-      sortable: true,
-      render: (value) => (
-        <Badge variant={STATUS_COLORS[value] || 'default'} size="sm">
-          {STATUS_LABELS[value] || value}
-        </Badge>
-      )
-    },
-  ]), []);
+    ];
+  }, []);
 
   const actions = useMemo(() => ([
     {

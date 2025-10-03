@@ -128,6 +128,86 @@ export async function getAllProfiles(options = {}) {
   }
 }
 
+// Admin version that accepts a custom supabase client (for server-side with service role)
+export async function getCustomersWithEnquiriesAdmin(supabaseClient, options = {}) {
+  try {
+    const {
+      limit = null,
+      offset = 0,
+      searchTerm = null,
+      hasDiscount = null,
+      sortBy = 'created_at',
+      sortOrder = 'desc'
+    } = options
+
+    let query = supabaseClient
+      .from('profiles')
+      .select('*', { count: 'exact' })
+      .eq('user_type', 'customer')
+
+    if (searchTerm) {
+      query = query.or(`full_name.ilike.%${searchTerm}%,email.ilike.%${searchTerm}%`)
+    }
+
+    if (hasDiscount === true) {
+      query = query.filter('discount_percentage', 'is.not', null)
+    } else if (hasDiscount === false) {
+      query = query.is('discount_percentage', null)
+    }
+
+    if (sortBy !== 'enquiry_count') {
+      query = query.order(sortBy, { ascending: sortOrder === 'asc' })
+    }
+
+    if (limit) {
+      query = query.range(offset, offset + limit - 1)
+    }
+
+    const { data: customers, error: customersError, count } = await query
+
+    if (customersError) {
+      console.error('Database error in getCustomersWithEnquiriesAdmin:', customersError)
+      throw customersError
+    }
+
+    const { data: enquiries, error: enquiriesError } = await supabaseClient
+      .from('enquiries')
+      .select('customerDetails')
+
+    if (enquiriesError) {
+      console.error('Error fetching enquiries:', enquiriesError)
+    }
+
+    const enquiryCounts = {}
+    if (enquiries) {
+      enquiries.forEach(enquiry => {
+        const email = enquiry.customerDetails?.email
+        if (email) {
+          enquiryCounts[email.toLowerCase()] = (enquiryCounts[email.toLowerCase()] || 0) + 1
+        }
+      })
+    }
+
+    let customersWithEnquiries = (customers || []).map(customer => ({
+      ...customer,
+      enquiry_count: enquiryCounts[customer.email.toLowerCase()] || 0
+    }))
+
+    if (sortBy === 'enquiry_count') {
+      customersWithEnquiries.sort((a, b) => {
+        return sortOrder === 'asc'
+          ? a.enquiry_count - b.enquiry_count
+          : b.enquiry_count - a.enquiry_count
+      })
+    }
+
+    return { data: customersWithEnquiries, count, error: null }
+  } catch (error) {
+    console.error('Error in getCustomersWithEnquiriesAdmin:', error)
+    return { data: null, count: 0, error: error.message }
+  }
+}
+
 // Update user type (admin function)
 export async function updateUserType(userId, userType) {
   try {

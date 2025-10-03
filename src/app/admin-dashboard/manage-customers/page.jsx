@@ -22,11 +22,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { DataTable } from '@/components/ui/data-table';
 import { LoadingSpinner } from '@/components/ui/loading';
 import { CustomerDetailsModal } from '@/components/CustomerDetailsModal';
-import {
-  getCustomersWithEnquiries,
-  getCustomerStats,
-  updateCustomerDiscount
-} from '@/lib/database/profiles';
+import { updateCustomerDiscount } from '@/lib/database/profiles';
 import { useToast } from '@/contexts/ToastContext';
 import { format } from 'date-fns';
 
@@ -49,23 +45,24 @@ export default function ManageCustomersPage() {
     try {
       setLoading(true);
 
-      const options = {
-        searchTerm: searchTerm || null,
-        hasDiscount: discountFilter === 'with-discount' ? true : discountFilter === 'no-discount' ? false : null,
-        sortBy,
-        sortOrder
-      };
+      const params = new URLSearchParams();
+      if (searchTerm) params.append('searchTerm', searchTerm);
+      if (discountFilter === 'with-discount') params.append('hasDiscount', 'true');
+      if (discountFilter === 'no-discount') params.append('hasDiscount', 'false');
+      params.append('sortBy', sortBy);
+      params.append('sortOrder', sortOrder);
 
-      const [customersResult, statsResult] = await Promise.all([
-        getCustomersWithEnquiries(options),
-        getCustomerStats()
-      ]);
+      const response = await fetch(`/api/admin/customers?${params.toString()}`);
 
-      if (customersResult.error) throw new Error(customersResult.error);
-      if (statsResult.error) throw new Error(statsResult.error);
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || 'Failed to fetch customers');
+      }
 
-      setCustomers(customersResult.data || []);
-      setStats(statsResult.data);
+      const result = await response.json();
+
+      setCustomers(result.customers || []);
+      setStats(result.stats);
     } catch (error) {
       console.error('Error loading customers:', error);
       toast({
@@ -115,10 +112,10 @@ export default function ManageCustomersPage() {
           : customer
       ));
 
-      // Refresh stats
-      const statsResult = await getCustomerStats();
-      if (!statsResult.error) {
-        setStats(statsResult.data);
+      const response = await fetch('/api/admin/customers');
+      if (response.ok) {
+        const result = await response.json();
+        setStats(result.stats);
       }
 
       toast({
@@ -155,10 +152,10 @@ export default function ManageCustomersPage() {
         : customer
     ));
 
-    // Refresh stats
-    const statsResult = await getCustomerStats();
-    if (!statsResult.error) {
-      setStats(statsResult.data);
+    const response = await fetch('/api/admin/customers');
+    if (response.ok) {
+      const result = await response.json();
+      setStats(result.stats);
     }
   };
 

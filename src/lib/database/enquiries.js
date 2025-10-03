@@ -1,6 +1,174 @@
 import { supabase } from '../supabase'
+import { getProductsByIds } from './products'
 
 const STATUS_VALUES = ['new', 'contacted', 'quoted', 'won', 'lost']
+
+const VALID_PRODUCT_TABLES = new Set(['indoor', 'outdoor'])
+
+const toLowerSafe = (value) =>
+  typeof value === 'string' ? value.toLowerCase() : value
+
+const inferProductTable = (item = {}) => {
+  const tableCandidates = [
+    item.table,
+    item.productTable,
+    item.sourceTable,
+    item.type,
+    item.productType,
+    item.category
+  ]
+
+  for (const candidate of tableCandidates) {
+    const normalized = toLowerSafe(candidate)
+    if (normalized && VALID_PRODUCT_TABLES.has(normalized)) {
+      return normalized
+    }
+  }
+
+  if (item.Indoor || item.indoor) return 'indoor'
+  if (item.Outdoor || item.outdoor) return 'outdoor'
+
+  return null
+}
+
+const getCartItemProductId = (item = {}) =>
+  item.productId ?? item.product_id ?? item.id ?? null
+
+const getCartItemQuantity = (item = {}) => {
+  const quantityValue = item.quantity ?? item.qty ?? item.count ?? 1
+  const quantityNumber = Number(quantityValue)
+  return Number.isFinite(quantityNumber) && quantityNumber > 0 ? quantityNumber : 1
+}
+
+const buildProductReferences = (enquiries = []) => {
+  const seen = new Set()
+  const references = []
+
+  enquiries.forEach((enquiry) => {
+    const cartItems = Array.isArray(enquiry.cartItems) ? enquiry.cartItems : []
+
+    cartItems.forEach((item) => {
+      const id = getCartItemProductId(item)
+      const table = inferProductTable(item)
+
+      if (!id || !table) return
+
+      const key = `${table}-${id}`
+      if (!seen.has(key)) {
+        seen.add(key)
+        references.push({ table, id })
+      }
+    })
+  })
+
+  return references
+}
+
+const buildProductLookup = async (enquiries = []) => {
+  const references = buildProductReferences(enquiries)
+
+  if (references.length === 0) {
+    return new Map()
+  }
+
+  try {
+    const products = await getProductsByIds(references)
+    return new Map(
+      (products || []).map((product) => [`${product.table}-${product.id}`, product])
+    )
+  } catch (error) {
+    console.error('Error building product lookup for enquiries:', error)
+    return new Map()
+  }
+}
+
+const enrichCartItem = (item = {}, productLookup = new Map()) => {
+  const productId = getCartItemProductId(item)
+  const table = inferProductTable(item)
+  const key = table && productId ? `${table}-${productId}` : null
+  const product = key ? productLookup.get(key) : null
+  const quantity = getCartItemQuantity(item)
+
+  const enriched = {
+    ...item,
+    id: productId ?? item.id ?? null,
+    table: table || item.table || null,
+    quantity
+  }
+
+  const modelNumber =
+    product?.model_number ||
+    product?.modelNumber ||
+    item.model_number ||
+    item.modelNumber ||
+    null
+
+  if (modelNumber) {
+    enriched.model_number = modelNumber
+    if (!enriched.modelNumber) {
+      enriched.modelNumber = modelNumber
+    }
+  }
+
+  const productType =
+    product?.producttype ||
+    item.producttype ||
+    item.productType ||
+    null
+
+  if (productType) {
+    enriched.producttype = productType
+    if (!enriched.productType) {
+      enriched.productType = productType
+    }
+  }
+
+  if (product) {
+    enriched.product = product
+  }
+
+  return enriched
+}
+
+const transformEnquiryRecord = (enquiry, productLookup = new Map()) => {
+  const customerDetails = enquiry.customer_details || enquiry.customerDetails || {}
+  const cartItems = Array.isArray(enquiry.cart_items) 
+    ? enquiry.cart_items 
+    : Array.isArray(enquiry.cartItems) 
+    ? enquiry.cartItems 
+    : []
+
+  const enrichedCartItems = cartItems.map((item) => enrichCartItem(item, productLookup))
+
+  return {
+    id: enquiry.id,
+    customer_name: customerDetails.name || '',
+    company: customerDetails.company || '',
+    email: customerDetails.email || '',
+    phone: customerDetails.phone || '',
+    message: customerDetails.message || '',
+    address: customerDetails.address || '',
+    delivery_method:
+      customerDetails.deliveryMethod || customerDetails.delivery_method || null,
+    delivery_time:
+      customerDetails.deliveryTime || customerDetails.delivery_time || null,
+    cart_items: enrichedCartItems,
+    status: enquiry.status || 'new',
+    created_at: enquiry.created_at,
+    updated_at: enquiry.updated_at || enquiry.created_at,
+    customer_details: customerDetails
+  }
+}
+
+const transformEnquiriesWithProducts = async (enquiries = []) => {
+  if (!Array.isArray(enquiries) || enquiries.length === 0) {
+    return []
+  }
+
+  const productLookup = await buildProductLookup(enquiries)
+
+  return enquiries.map((enquiry) => transformEnquiryRecord(enquiry, productLookup))
+}
 
 // Get all enquiries with optional filtering
 export async function getAllEnquiries(filters = {}) {
@@ -16,7 +184,7 @@ export async function getAllEnquiries(filters = {}) {
     }
 
     if (filters.searchTerm) {
-      query = query.or(`customerDetails->>name.ilike.%${filters.searchTerm}%,customerDetails->>email.ilike.%${filters.searchTerm}%,customerDetails->>company.ilike.%${filters.searchTerm}%,customerDetails->>message.ilike.%${filters.searchTerm}%`)
+      query = query.or(`customer_details->>name.ilike.%${filters.searchTerm}%,customer_details->>email.ilike.%${filters.searchTerm}%,customer_details->>company.ilike.%${filters.searchTerm}%,customer_details->>message.ilike.%${filters.searchTerm}%`)
     }
 
     if (filters.startDate) {
@@ -31,21 +199,7 @@ export async function getAllEnquiries(filters = {}) {
 
     if (error) throw error
 
-    // Transform data to expected format
-    const transformedData = (data || []).map(enquiry => ({
-      id: enquiry.id,
-      customer_name: enquiry.customerDetails?.name || '',
-      company: enquiry.customerDetails?.company || '',
-      email: enquiry.customerDetails?.email || '',
-      phone: enquiry.customerDetails?.phone || '',
-      message: enquiry.customerDetails?.message || '',
-      address: enquiry.customerDetails?.address || '',
-      cart_items: enquiry.cartItems || [],
-      delivery_method: null, // Not in current schema
-      status: enquiry.status || 'new',
-      created_at: enquiry.created_at,
-      updated_at: enquiry.created_at
-    }))
+    const transformedData = await transformEnquiriesWithProducts(data || [])
 
     return { data: transformedData, error: null }
   } catch (error) {
@@ -65,23 +219,9 @@ export async function getEnquiryById(id) {
 
     if (error) throw error
 
-    // Transform data to expected format
-    const transformedData = {
-      id: data.id,
-      customer_name: data.customerDetails?.name || '',
-      company: data.customerDetails?.company || '',
-      email: data.customerDetails?.email || '',
-      phone: data.customerDetails?.phone || '',
-      message: data.customerDetails?.message || '',
-      address: data.customerDetails?.address || '',
-      cart_items: data.cartItems || [],
-      delivery_method: null,
-      status: data.status || 'new',
-      created_at: data.created_at,
-      updated_at: data.created_at
-    }
+    const [transformed] = await transformEnquiriesWithProducts([data])
 
-    return { data: transformedData, error: null }
+    return { data: transformed || null, error: null }
   } catch (error) {
     console.error('Error fetching enquiry by ID:', error)
     return { data: null, error: error.message }
@@ -102,23 +242,9 @@ export async function updateEnquiryStatus(id, status) {
 
     if (error) throw error
 
-    // Return the updated enquiry data in expected format
-    const transformedData = {
-      id: data[0].id,
-      customer_name: data[0].customerDetails?.name || '',
-      company: data[0].customerDetails?.company || '',
-      email: data[0].customerDetails?.email || '',
-      phone: data[0].customerDetails?.phone || '',
-      message: data[0].customerDetails?.message || '',
-      address: data[0].customerDetails?.address || '',
-      cart_items: data[0].cartItems || [],
-      delivery_method: null,
-      status: data[0].status,
-      created_at: data[0].created_at,
-      updated_at: data[0].updated_at
-    }
+    const [transformed] = await transformEnquiriesWithProducts(data || [])
 
-    return { data: transformedData, error: null }
+    return { data: transformed || null, error: null }
   } catch (error) {
     console.error('Error updating enquiry status:', error)
     return { data: null, error: error.message }
@@ -198,6 +324,22 @@ export async function getEnquiryStats({ startDate, endDate } = {}) {
       return filteredQuery
     }
 
+    const groupEnquiriesByDate = (enquiries) => {
+      if (!Array.isArray(enquiries) || enquiries.length === 0) return []
+
+      const countsByDate = {}
+
+      enquiries.forEach((enquiry) => {
+        if (!enquiry?.created_at) return
+        const date = new Date(enquiry.created_at).toISOString().split('T')[0]
+        countsByDate[date] = (countsByDate[date] || 0) + 1
+      })
+
+      return Object.entries(countsByDate)
+        .map(([date, count]) => ({ date, count }))
+        .sort((a, b) => a.date.localeCompare(b.date))
+    }
+
     // Handle case where enquiries table doesn't exist yet
     let totalEnquiries = 0
     let statusCounts = { new: 0, contacted: 0, quoted: 0, won: 0, lost: 0 }
@@ -222,15 +364,17 @@ export async function getEnquiryStats({ startDate, endDate } = {}) {
         return [status, count || 0]
       })
 
-      const trendsPromise = supabase.rpc('get_enquiry_trends', {
-        start_date: startDate || null,
-        end_date: endDate || null
-      })
+      const trendsQueryPromise = applyDateFilters(
+        supabase
+          .from('enquiries')
+          .select('created_at')
+          .order('created_at', { ascending: true })
+      )
 
-      const [{ count: totalCount, error: totalError }, statusEntries, { data: trendsResult, error: trendsError }] = await Promise.all([
+      const [{ count: totalCount, error: totalError }, statusEntries, { data: trendsQueryData, error: trendsError }] = await Promise.all([
         totalPromise,
         Promise.all(statusPromises),
-        trendsPromise
+        trendsQueryPromise
       ])
 
       if (totalError) throw totalError
@@ -243,10 +387,7 @@ export async function getEnquiryStats({ startDate, endDate } = {}) {
         return acc
       }, {})
 
-      trendsData = (trendsResult || []).map(item => ({
-        date: item.date,
-        count: item.count
-      }))
+      trendsData = groupEnquiriesByDate(trendsQueryData || [])
 
     } catch (error) {
       console.log('Enquiries table may not exist yet:', error.message)
@@ -319,19 +460,25 @@ export async function getEnquiriesByDateRange(startDate, endDate) {
 // Create new enquiry (for future webhook integration)
 export async function createEnquiry(enquiryData) {
   try {
+    const { customerDetails, cartItems, ...otherData } = enquiryData
+    
     const { data, error } = await supabase
       .from('enquiries')
       .insert([{
-        ...enquiryData,
+        customer_details: customerDetails || {},
+        cart_items: cartItems || [],
         status: 'new',
         created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString()
+        updated_at: new Date().toISOString(),
+        ...otherData
       }])
       .select()
 
     if (error) throw error
 
-    return { data, error: null }
+    const [transformed] = await transformEnquiriesWithProducts(data || [])
+
+    return { data: transformed || null, error: null }
   } catch (error) {
     console.error('Error creating enquiry:', error)
     return { data: null, error: error.message }
@@ -350,7 +497,7 @@ export async function getEnquiriesByEmail(email, options = {}) {
     let query = supabase
       .from('enquiries')
       .select('*')
-      .ilike('customerDetails->>email', email)
+      .ilike('customer_details->>email', email)
       .order('created_at', { ascending: false })
 
     // Apply status filter if provided
@@ -367,21 +514,7 @@ export async function getEnquiriesByEmail(email, options = {}) {
 
     if (error) throw error
 
-    // Transform data to expected format
-    const transformedData = (data || []).map(enquiry => ({
-      id: enquiry.id,
-      customer_name: enquiry.customerDetails?.name || '',
-      company: enquiry.customerDetails?.company || '',
-      email: enquiry.customerDetails?.email || '',
-      phone: enquiry.customerDetails?.phone || '',
-      message: enquiry.customerDetails?.message || '',
-      address: enquiry.customerDetails?.address || '',
-      cart_items: enquiry.cartItems || [],
-      delivery_method: null,
-      status: enquiry.status || 'new',
-      created_at: enquiry.created_at,
-      updated_at: enquiry.created_at
-    }))
+    const transformedData = await transformEnquiriesWithProducts(data || [])
 
     return { data: transformedData, error: null }
   } catch (error) {

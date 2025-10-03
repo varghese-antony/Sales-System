@@ -163,10 +163,6 @@ function LoginPageContent() {
             <p className="text-muted-foreground">Sign in to your account</p>
           </CardHeader>
           <CardContent>
-            {/* Helper text about admin access */}
-            <div className="mb-4 text-xs text-muted-foreground text-center p-3 bg-muted/30 rounded-lg">
-              Admin access is granted by the tech team. Contact support if you need admin privileges.
-            </div>
             {(authError || formError) && (
               <Alert variant="destructive" className="mb-4">
                 <AlertTitle>Authentication Error</AlertTitle>

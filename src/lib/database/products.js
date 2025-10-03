@@ -5,6 +5,39 @@ function formatColumnName(column) {
   return /^[a-z0-9_]+$/.test(column) ? column : `"${column.replace(/"/g, '""')}"`
 }
 
+export async function getProductById(table, id) {
+  try {
+    const { data, error } = await supabase
+      .from(table)
+      .select('*')
+      .eq('id', id)
+      .single()
+
+    if (error) throw error
+
+    return { data: data ? { ...data, table } : null, error: null }
+  } catch (error) {
+    console.error('Error fetching product by id:', error)
+    return { data: null, error: error.message }
+  }
+}
+
+export async function getProductsByIds(references = []) {
+  if (!Array.isArray(references) || references.length === 0) {
+    return []
+  }
+
+  const results = await Promise.all(
+    references.map(async ({ table, id }) => {
+      if (!table || !id) return null
+      const { data } = await getProductById(table, id)
+      return data ?? null
+    })
+  )
+
+  return results.filter(Boolean)
+}
+
 // Field mapping for frontend to database column translation
 export const fieldMapping = {
   productType: 'producttype',

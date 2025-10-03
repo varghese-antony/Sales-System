@@ -2,7 +2,7 @@
 
 import { useState } from "react"
 import { motion, AnimatePresence } from "framer-motion"
-import { Lightbulb, Sun, Home, X, ChevronRight, LayoutDashboard, User, LogOut, UserCircle, LogIn } from "lucide-react"
+import { Lightbulb, Sun, X, ChevronRight, User, LogOut, UserCircle, LogIn } from "lucide-react"
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { ThemeToggle } from "@/components/ThemeToggle"
@@ -91,32 +91,6 @@ export function MobileMenu({ isOpen, onClose, indoorCategories = [], outdoorCate
                   animate="open"
                   className="space-y-4"
                 >
-                  {/* Home */}
-                  <motion.div variants={itemVariants}>
-                    <Link
-                      href="/"
-                      onClick={onClose}
-                      className="flex items-center space-x-3 p-3 rounded-xl hover:bg-accent transition-colors duration-200"
-                    >
-                      <Home className="w-5 h-5 text-primary" />
-                      <span className="font-medium">Home</span>
-                    </Link>
-                  </motion.div>
-
-                  {/* Dashboard */}
-                  {!loading && isAdmin && (
-                    <motion.div variants={itemVariants}>
-                      <Link
-                        href="/admin-dashboard"
-                        onClick={onClose}
-                        className="flex items-center space-x-3 p-3 rounded-xl hover:bg-accent transition-colors duration-200"
-                      >
-                        <LayoutDashboard className="w-5 h-5 text-primary" />
-                        <span className="font-medium">Dashboard</span>
-                      </Link>
-                    </motion.div>
-                  )}
-
                   {/* Indoor Section */}
                   <motion.div variants={itemVariants}>
                     <button

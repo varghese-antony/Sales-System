@@ -54,22 +54,45 @@ export function EnquiryForm({ isOpen, onClose, product, cartItems, onSuccess, /*
         customerDetails
       }
 
-      const response = await fetch("https://n8n.werposolutions.com/webhook/inquiry", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(payload)
-      })
+      // Send to both n8n webhook and local Supabase API
+      const [n8nResponse, localResponse] = await Promise.allSettled([
+        fetch("https://n8n.werposolutions.com/webhook/inquiry", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify(payload)
+        }),
+        fetch("/api/enquiries", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify(payload)
+        })
+      ])
 
-      if (response.ok) {
+      // Check if at least one succeeded
+      const n8nSuccess = n8nResponse.status === 'fulfilled' && n8nResponse.value.ok
+      const localSuccess = localResponse.status === 'fulfilled' && localResponse.value.ok
+
+      if (n8nSuccess || localSuccess) {
         setSubmitStatus("success")
         // Close the dialog first
         onClose()
         // Show success animation (cart will be cleared when animation completes)
         setShowSuccessAnimation(true)
+        
+        // Log any failures for debugging
+        if (!n8nSuccess) {
+          console.warn('N8N webhook failed:', n8nResponse.reason || 'Unknown error')
+        }
+        if (!localSuccess) {
+          console.warn('Local API failed:', localResponse.reason || 'Unknown error')
+        }
       } else {
         setSubmitStatus("error")
+        console.error('Both n8n and local API failed')
       }
     } catch (error) {
       console.error("Error submitting enquiry:", error)

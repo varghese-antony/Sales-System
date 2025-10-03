@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   X,
   User,
@@ -14,7 +14,8 @@ import {
   Edit,
   Trash2,
   Download,
-  Copy
+  Copy,
+  Eye
 } from 'lucide-react';
 import {
   Dialog,
@@ -35,6 +36,8 @@ import { Textarea } from '@/components/ui/textarea';
 import { format } from 'date-fns';
 import { formatEnquiryForExport, exportEnquiriesCustom } from '@/lib/utils/export';
 import { useToast } from '@/contexts/ToastContext';
+import { ProductLink } from '@/components/ui/product-link';
+import { addEnquiryNote } from '@/lib/database/enquiries';
 
 const STATUS_OPTIONS = [
   { value: 'new', label: 'New', color: 'warning' },
@@ -49,9 +52,6 @@ export function EnquiryDetailsModal({ isOpen, onClose, enquiry, onStatusUpdate, 
   const [editingStatus, setEditingStatus] = useState(false);
   const [newStatus, setNewStatus] = useState(enquiry?.status || 'new');
   const [notes, setNotes] = useState('');
-  const [timeline, setTimeline] = useState([]);
-  const [timelineLoading, setTimelineLoading] = useState(false);
-  const [timelineError, setTimelineError] = useState(null);
   const [savingStatus, setSavingStatus] = useState(false);
   const { toast } = useToast();
 
@@ -64,36 +64,7 @@ export function EnquiryDetailsModal({ isOpen, onClose, enquiry, onStatusUpdate, 
     }
   }, [enquiry?.status, enquiry?.id]);
 
-  // Early return after all hooks are called
   if (!enquiry) return null;
-
-  const loadTimeline = useCallback(async () => {
-    if (!enquiry?.id) return;
-
-    setTimelineLoading(true);
-    setTimelineError(null);
-    try {
-      const { data, error } = await getEnquiryTimeline(enquiry.id);
-      if (error) throw new Error(error);
-      setTimeline(data || []);
-    } catch (error) {
-      console.error('Error loading enquiry timeline:', error);
-      setTimelineError(error.message || 'Unable to load timeline');
-      toast({
-        title: 'Timeline unavailable',
-        description: error.message || 'Could not load the timeline for this enquiry.',
-        variant: 'destructive'
-      });
-    } finally {
-      setTimelineLoading(false);
-    }
-  }, [enquiry?.id, toast]);
-
-  useEffect(() => {
-    if (isOpen && enquiry?.id) {
-      loadTimeline();
-    }
-  }, [isOpen, enquiry?.id, loadTimeline]);
 
   const handleStatusUpdate = async () => {
     if (!onStatusUpdate || savingStatus) return;
@@ -118,7 +89,6 @@ export function EnquiryDetailsModal({ isOpen, onClose, enquiry, onStatusUpdate, 
 
       setEditingStatus(false);
       setNotes('');
-      await loadTimeline();
     } catch (error) {
       console.error('Failed to update status:', error);
       toast({
@@ -182,28 +152,275 @@ export function EnquiryDetailsModal({ isOpen, onClose, enquiry, onStatusUpdate, 
   };
 
   const formatCartItems = (cartItems) => {
-    if (!cartItems || !Array.isArray(cartItems)) return [];
+    if (!Array.isArray(cartItems) || cartItems.length === 0) return [];
 
-    return cartItems.map((item, index) => (
-      <div key={index} className="flex items-start space-x-3 p-3 bg-muted/30 rounded-lg">
-        <Package className="h-5 w-5 text-muted-foreground mt-0.5" />
-        <div className="flex-1">
-          <div className="font-medium">{item.productType || 'Product'}</div>
-          <div className="text-sm text-muted-foreground">
-            Quantity: {item.quantity || 1}
+    const SPEC_FIELD_CONFIG = [
+      { label: 'Size', keys: ['Size', 'size', 'sizes'] },
+      { label: 'Power (W)', keys: ['Power (W)', 'power_w', 'power', 'powerW'] },
+      { label: 'Voltage', keys: ['Voltage', 'voltage'] },
+      { label: 'CCT', keys: ['CCT', 'cct'] },
+      { label: 'CRI (Ra)', keys: ['CRI (Ra)', 'cri_ra', 'cri', 'criRa'] },
+      { label: 'Lumen', keys: ['Lumen', 'lumen'] },
+      { label: 'Beam Angle', keys: ['Beam Angle', 'beam_angle', 'beamAngle'] },
+      { label: 'Power Factor', keys: ['Power Factor', 'power_factor', 'powerFactor'] },
+      { label: 'Material Finish', keys: ['Material Finish', 'material_finish', 'materialFinish'] },
+      { label: 'Mounting', keys: ['Mounting', 'mounting'] },
+      { label: 'Driver Brand', keys: ['Driver Brand', 'driver_brand', 'driverBrand'] },
+      { label: 'LED Type', keys: ['LED Type', 'led_type', 'ledType'] },
+      { label: 'Dimming Type', keys: ['Dimming Type', 'dimming_type', 'dimmingType'] },
+      { label: 'Sensor / Controls', keys: ['Sensor / Controls', 'sensor', 'sensor_controls', 'sensor_microwave_bluetooth', 'sensorMicrowaveBluetooth'] },
+      { label: 'Emergency Backup Battery', keys: ['Emergency Backup Battery', 'emergency_backup_battery', 'emergencyBackupBattery'] },
+      { label: 'Plug-in Sensor', keys: ['Plug-in Sensor', 'plugin_sensor', 'pluginSensor'] },
+      { label: 'Adjustment Dial', keys: ['Adjustment Dial', 'adjustment_dial', 'adjustmentDial'] },
+      { label: 'Certifications', keys: ['Certifications', 'certifications'] },
+      { label: 'IP Rating', keys: ['IP Rating', 'ip_rating', 'ipRating'] },
+      { label: 'IK Rating', keys: ['IK Rating', 'ik_rating', 'ikRating'] },
+      { label: 'Warranty', keys: ['Warranty', 'warranty'] },
+      { label: 'Lead Time', keys: ['Lead Time', 'lead_time', 'leadTime'] }
+    ];
+
+    const normalizeValue = (value) => {
+      if (Array.isArray(value)) {
+        return value.filter(Boolean).join(', ');
+      }
+
+      if (value && typeof value === 'object') {
+        const values = Object.values(value).filter(Boolean);
+        return values.join(', ');
+      }
+
+      if (typeof value === 'boolean') {
+        return value ? 'Yes' : 'No';
+      }
+
+      if (typeof value === 'number') {
+        return Number.isFinite(value) ? value.toString() : '';
+      }
+
+      if (typeof value === 'string') {
+        return value.trim();
+      }
+
+      return value ?? '';
+    };
+
+    const formatLabel = (label) => {
+      if (!label) return '';
+      return label
+        .toString()
+        .replace(/[_-]/g, ' ')
+        .replace(/\s+/g, ' ')
+        .trim()
+        .replace(/\b\w/g, (char) => char.toUpperCase());
+    };
+
+    const findValue = (sources, keys = []) => {
+      for (const key of keys) {
+        for (const source of sources) {
+          if (!source) continue;
+
+          if (source[key] !== undefined && source[key] !== null && source[key] !== '') {
+            const formatted = normalizeValue(source[key]);
+            if (formatted) return formatted;
+          }
+
+          if (typeof key === 'string') {
+            const lowerKey = key.toLowerCase();
+            if (lowerKey && source[lowerKey] !== undefined && source[lowerKey] !== null && source[lowerKey] !== '') {
+              const formatted = normalizeValue(source[lowerKey]);
+              if (formatted) return formatted;
+            }
+          }
+        }
+      }
+
+      return null;
+    };
+
+    return cartItems.map((item = {}, index) => {
+      const product = item.product || item || {};
+      const sources = [
+        item.specifications,
+        product.specifications,
+        item,
+        product
+      ];
+
+      const productType =
+        item.producttype ||
+        item.productType ||
+        product.producttype ||
+        product.productType ||
+        'Product';
+
+      const productName =
+        product.name ||
+        product.ProductName ||
+        item.name ||
+        item.product_name ||
+        null;
+
+      const modelNumber =
+        item.model_number ||
+        item.modelNumber ||
+        product.model_number ||
+        product.modelNumber ||
+        null;
+
+      const quantity = Number(item.quantity ?? item.qty ?? 1) || 1;
+
+      const tableRaw =
+        item.table ||
+        product.table ||
+        (product.Indoor ? 'indoor' : null) ||
+        (product.Outdoor ? 'outdoor' : null);
+      const table = typeof tableRaw === 'string' ? tableRaw.toLowerCase() : tableRaw;
+
+      const productId =
+        item.productId ??
+        item.product_id ??
+        item.id ??
+        product.id ??
+        product.ID ??
+        null;
+
+      const specEntries = [];
+      const usedLabels = new Set();
+
+      SPEC_FIELD_CONFIG.forEach(({ label, keys }) => {
+        const value = findValue(sources, keys);
+        if (value) {
+          usedLabels.add(label);
+          specEntries.push({ label, value });
+        }
+      });
+
+      if (item.selectedOptions && typeof item.selectedOptions === 'object') {
+        Object.entries(item.selectedOptions).forEach(([rawLabel, rawValue]) => {
+          if (!rawValue) return;
+          const label = formatLabel(rawLabel);
+          if (usedLabels.has(label)) return;
+          const value = normalizeValue(rawValue);
+          if (!value) return;
+          usedLabels.add(label);
+          specEntries.push({ label, value });
+        });
+      }
+
+      if (item.specifications && typeof item.specifications === 'object') {
+        Object.entries(item.specifications).forEach(([rawLabel, rawValue]) => {
+          if (!rawValue) return;
+          const label = formatLabel(rawLabel);
+          if (usedLabels.has(label)) return;
+          const value = normalizeValue(rawValue);
+          if (!value) return;
+          usedLabels.add(label);
+          specEntries.push({ label, value });
+        });
+      }
+
+      if (product.specifications && typeof product.specifications === 'object') {
+        Object.entries(product.specifications).forEach(([rawLabel, rawValue]) => {
+          if (!rawValue) return;
+          const label = formatLabel(rawLabel);
+          if (usedLabels.has(label)) return;
+          const value = normalizeValue(rawValue);
+          if (!value) return;
+          usedLabels.add(label);
+          specEntries.push({ label, value });
+        });
+      }
+
+      const hasProductLink = Boolean(table && productType && productId);
+
+      return (
+        <div
+          key={`${productId || index}-${table || 'unknown'}`}
+          className="rounded-lg border border-border/60 bg-muted/20 p-4 space-y-4"
+        >
+          <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+            <div className="flex items-start gap-3">
+              <div className="mt-0.5">
+                <Package className="h-5 w-5 text-muted-foreground" />
+              </div>
+              <div className="space-y-1">
+                <div className="flex flex-wrap items-center gap-2">
+                  <p className="text-base font-semibold text-foreground">
+                    {productName || productType}
+                  </p>
+                  {modelNumber && (
+                    <Badge variant="secondary" className="text-xs font-mono">
+                      {modelNumber}
+                    </Badge>
+                  )}
+                </div>
+                <div className="flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
+                  <span>{productType}</span>
+                  {table && (
+                    <Badge variant="outline" className="text-xs uppercase tracking-wide">
+                      {formatLabel(table)}
+                    </Badge>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            <div className="flex flex-wrap items-center gap-2">
+              <Badge variant="outline" className="text-xs">
+                Qty: {quantity}
+              </Badge>
+              {hasProductLink ? (
+                <ProductLink
+                  table={table}
+                  productType={productType}
+                  productId={productId}
+                  modelNumber={modelNumber}
+                  size="sm"
+                  className="text-xs"
+                >
+                  <span className="flex items-center gap-2">
+                    <Eye className="h-4 w-4" />
+                    View Product
+                  </span>
+                </ProductLink>
+              ) : (
+                <Badge variant="secondary" className="text-xs">
+                  Product link unavailable
+                </Badge>
+              )}
+            </div>
           </div>
-          {item.specifications && Object.keys(item.specifications).length > 0 && (
-            <div className="text-sm text-muted-foreground mt-1">
-              {Object.entries(item.specifications).map(([key, value]) => (
-                <div key={key} className="inline-block mr-3">
-                  <span className="font-medium">{key}:</span> {value}
+
+          {product.description && (
+            <p className="text-sm text-muted-foreground">
+              {product.description}
+            </p>
+          )}
+
+          {specEntries.length > 0 && (
+            <div className="grid gap-2 sm:grid-cols-2">
+              {specEntries.map(({ label, value }) => (
+                <div
+                  key={`${label}-${value}`}
+                  className="rounded-md border border-border/40 bg-background px-3 py-2"
+                >
+                  <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                    {label}
+                  </p>
+                  <p className="text-sm text-foreground">{value}</p>
                 </div>
               ))}
             </div>
           )}
+
+          {!hasProductLink && (
+            <p className="text-xs text-destructive">
+              Product reference missing. This item may have been deleted.
+            </p>
+          )}
         </div>
-      </div>
-    ));
+      );
+    });
   };
 
   const currentStatus = STATUS_OPTIONS.find(s => s.value === enquiry.status);
@@ -465,53 +682,11 @@ export function EnquiryDetailsModal({ isOpen, onClose, enquiry, onStatusUpdate, 
             </CardContent>
           </Card>
 
-          {/* Timeline */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-lg flex items-center gap-2">
-                <Clock className="h-5 w-5" />
-                Activity Timeline
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              {timelineLoading ? (
-                <p className="text-sm text-muted-foreground">Loading timeline...</p>
-              ) : timelineError ? (
-                <p className="text-sm text-destructive">{timelineError}</p>
-              ) : timeline.length === 0 ? (
-                <p className="text-sm text-muted-foreground">No updates recorded yet.</p>
-              ) : (
-                <div className="space-y-3">
-                  {timeline.map((entry) => {
-                    const statusMeta = STATUS_OPTIONS.find(option => option.value === entry.status);
-                    return (
-                      <div key={entry.id} className="flex items-start space-x-3 rounded-lg border p-3">
-                        <Badge variant={statusMeta?.color || 'default'}>
-                          {statusMeta?.label || entry.status}
-                        </Badge>
-                        <div className="flex-1 space-y-1">
-                          <div className="text-xs text-muted-foreground">
-                            {format(new Date(entry.created_at), 'PPP p')}
-                          </div>
-                          {entry.note && (
-                            <div className="text-sm text-foreground whitespace-pre-wrap">
-                              {entry.note}
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
-            </CardContent>
-          </Card>
 
           {/* Action Buttons */}
           <div className="flex justify-between items-center pt-4 border-t">
             <Button variant="outline" onClick={handleDelete} className="text-destructive hover:text-destructive">
               <Trash2 className="h-4 w-4 mr-2" />
-              Delete Enquiry
             </Button>
 
             <div className="flex space-x-2">

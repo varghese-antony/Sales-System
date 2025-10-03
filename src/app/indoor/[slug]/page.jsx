@@ -26,6 +26,9 @@ export default function IndoorProductPage({ params }) {
 
   const productType = decodeURIComponent(slug).replace(/%20/g, ' ')
 
+  const addIndoorTableField = (items) =>
+    Array.isArray(items) ? items.map((item) => ({ ...item, table: 'indoor' })) : []
+
   const desiredKeys = [
     'Size', 'power_w', 'Voltage', 'CCT', 'cri_ra', 'Lumen','efficacy_lmw',
     'Dimming Type', 'Material Finish', 'sensor_microwave_bluetooth', 'plugin_sensor',
@@ -99,8 +102,9 @@ export default function IndoorProductPage({ params }) {
     setError(null)
     try {
       const data = await fetchData('indoor', productType)
-      setProducts(data)
-      if (data.length === 0) {
+      const productsWithTable = addIndoorTableField(data)
+      setProducts(productsWithTable)
+      if (productsWithTable.length === 0) {
         setError('No products found for this category.')
       }
     } catch (error) {
@@ -143,13 +147,14 @@ export default function IndoorProductPage({ params }) {
     
     try {
       const filtered = await fetchData('indoor', productType, buildSupabaseFilters(newFilters))
-      if (filtered.length === 1) {
-        setFinalProduct(filtered[0])
-      } else if (filtered.length === 0) {
+      const filteredWithTable = addIndoorTableField(filtered)
+      if (filteredWithTable.length === 1) {
+        setFinalProduct(filteredWithTable[0])
+      } else if (filteredWithTable.length === 0) {
         setError('No products match your current selection. Please try different options.')
         setProducts([])
       } else {
-        setProducts(filtered)
+        setProducts(filteredWithTable)
         setCurrentStep(prev => prev + 1)
       }
     } catch (error) {
@@ -163,8 +168,6 @@ export default function IndoorProductPage({ params }) {
   const resetSelection = () => {
     setSelectedFilters({})
     setCurrentStep(0)
-    setFinalProduct(null)
-    setError(null)
     fetchInitialProducts()
   }
 
@@ -173,12 +176,12 @@ export default function IndoorProductPage({ params }) {
       setFinalProduct(null)
       return
     }
-    
+
     if (currentStep > 0) {
       const newStep = currentStep - 1
       const newFilters = { ...selectedFilters }
       const currentKey = desiredKeys[currentStep]
-      
+
       // Convert database column name back to frontend name for removal
       const reverseColumnMapping = {
         'Size': 'Size',
@@ -200,21 +203,21 @@ export default function IndoorProductPage({ params }) {
         'adjustment_dial': 'Adjustment Dial',
         'Certifications': 'Certifications'
       }
-      
+
       const frontendKey = reverseColumnMapping[currentKey] || currentKey
       delete newFilters[frontendKey]
-      
+
       setSelectedFilters(newFilters)
       setCurrentStep(newStep)
       setError(null)
-      
+
       // Refetch with previous filters
       if (Object.keys(newFilters).length === 0) {
         fetchInitialProducts()
       } else {
         try {
           const filtered = await fetchData('indoor', productType, buildSupabaseFilters(newFilters))
-          setProducts(filtered)
+          setProducts(addIndoorTableField(filtered))
         } catch (error) {
           console.error('Error:', error)
         }

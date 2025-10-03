@@ -12,9 +12,9 @@ export function CartButton() {
 
   return (
     <Link href="/cart">
-      <Button variant="outline" className="relative mr-2">
-        <ShoppingCart className="w-4 h-4 mr-2" />
-        Cart
+      <Button variant="outline" className="relative mr-2 h-10 w-10 flex items-center justify-center">
+        <ShoppingCart className="w-4 h-4" />
+        <span className="sr-only">Open cart</span>
         {itemCount > 0 && (
           <Badge
             variant="destructive"

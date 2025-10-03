@@ -134,7 +134,7 @@ export default function RegisterPage() {
 
       if (result.success) {
         setLoadingMessage('Setting up profile...')
-        setSuccessMessage('Account created successfully! You are now logged in as a Customer.')
+        setSuccessMessage('Account created successfully! You are now logged in.')
         
         // Show success message briefly before redirecting
         setTimeout(() => {
@@ -186,17 +186,6 @@ export default function RegisterPage() {
             <p className="text-muted-foreground">Join our lighting catalogue</p>
           </CardHeader>
           <CardContent>
-            {/* Account Type Information */}
-            <Alert className="mb-4 border-blue-200 dark:border-blue-800 bg-blue-50/50 dark:bg-blue-900/20">
-              <AlertTitle className="text-blue-900 dark:text-blue-100 text-sm font-semibold">
-                Account Information
-              </AlertTitle>
-              <AlertDescription className="text-blue-800 dark:text-blue-200 text-xs mt-1">
-                <p className="mb-1">• New accounts are created as <strong>Customer accounts</strong> by default</p>
-                <p>• Admin access is granted by the tech team. Contact support if you need admin privileges.</p>
-              </AlertDescription>
-            </Alert>
-            
             {successMessage && (
               <Alert className="mb-4 border-green-200 dark:border-green-800 bg-green-50/50 dark:bg-green-900/20">
                 <AlertTitle className="text-green-900 dark:text-green-100">Success!</AlertTitle>

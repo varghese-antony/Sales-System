@@ -88,12 +88,9 @@ CREATE POLICY "Admins can update all profiles" ON public.profiles
 -- Create enquiries table
 CREATE TABLE IF NOT EXISTS public.enquiries (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  customer_name TEXT NOT NULL,
-  company TEXT,
-  email TEXT,
-  phone TEXT,
-  message TEXT,
-  status TEXT DEFAULT 'pending',
+  customer_details JSONB NOT NULL,
+  cart_items JSONB DEFAULT '[]'::jsonb,
+  status TEXT DEFAULT 'new' CHECK (status IN ('new', 'contacted', 'quoted', 'won', 'lost')),
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
   updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
@@ -154,12 +151,12 @@ CREATE OR REPLACE FUNCTION public.get_enquiry_trends(
   start_date TIMESTAMP WITH TIME ZONE DEFAULT NULL,
   end_date TIMESTAMP WITH TIME ZONE DEFAULT NULL
 )
+RETURNS TABLE (
   date DATE,
   count BIGINT
 )
 LANGUAGE sql
 AS $$
-  SET search_path = public, auth;
   SELECT
     date_trunc('day', created_at)::date AS date,
     COUNT(*)::bigint AS count

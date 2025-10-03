@@ -75,14 +75,86 @@ export function formatEnquiryForExport(enquiry) {
 
 // Format cart items for export (flatten JSON structure)
 function formatCartItemsForExport(cartItems) {
-  if (!cartItems || !Array.isArray(cartItems)) return ''
+  if (!Array.isArray(cartItems) || cartItems.length === 0) return ''
 
-  return cartItems.map(item => {
-    const specs = Object.entries(item.specifications || {})
-      .map(([key, value]) => `${key}: ${value}`)
-      .join('; ')
-    return `${item.productType || ''} (${item.quantity || 1}) - ${specs}`
-  }).join(' | ')
+  const SPEC_FIELDS = [
+    { key: 'Size', label: 'Size' },
+    { key: 'power_w', label: 'Power (W)' },
+    { key: 'Voltage', label: 'Voltage' },
+    { key: 'CCT', label: 'CCT' },
+    { key: 'cri_ra', label: 'CRI (Ra)' },
+    { key: 'Lumen', label: 'Lumen' },
+    { key: 'Mounting', label: 'Mounting' },
+    { key: 'Material Finish', label: 'Finish' }
+  ]
+
+  const formatSpecValue = (item, product, field) => {
+    const { key, label } = field
+    return (
+      item?.specifications?.[label] ??
+      item?.specifications?.[key] ??
+      product?.[key] ??
+      product?.[label] ??
+      item?.[key] ??
+      item?.[label] ??
+      null
+    )
+  }
+
+  return cartItems
+    .map((item) => {
+      const product = item.product || {}
+      const modelNumber =
+        item.model_number ||
+        item.modelNumber ||
+        product.model_number ||
+        product.modelNumber ||
+        ''
+
+      const productType =
+        item.producttype ||
+        item.productType ||
+        product.producttype ||
+        product.productType ||
+        ''
+
+      const quantity = Number(item.quantity ?? item.qty ?? 1) || 1
+
+      const specEntries = []
+      const usedLabels = new Set()
+
+      SPEC_FIELDS.forEach((field) => {
+        const value = formatSpecValue(item, product, field)
+        if (value && !usedLabels.has(field.label)) {
+          usedLabels.add(field.label)
+          specEntries.push(`${field.label}: ${value}`)
+        }
+      })
+
+      // Include any additional specifications provided on the cart item
+      if (item.specifications && typeof item.specifications === 'object') {
+        Object.entries(item.specifications).forEach(([key, value]) => {
+          if (!value) return
+          const normalizedKey = key.trim()
+          if (!usedLabels.has(normalizedKey)) {
+            usedLabels.add(normalizedKey)
+            specEntries.push(`${normalizedKey}: ${value}`)
+          }
+        })
+      }
+
+      const summaryParts = []
+      if (modelNumber) summaryParts.push(`Model: ${modelNumber}`)
+      if (productType) summaryParts.push(`Type: ${productType}`)
+      summaryParts.push(`Qty: ${quantity}`)
+
+      if (specEntries.length > 0) {
+        summaryParts.push(specEntries.join(', '))
+      }
+
+      return summaryParts.join(' - ')
+    })
+    .join(' | ')
 }
 
 // Format date for export

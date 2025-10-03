@@ -27,6 +27,9 @@ export default function OutdoorProductPage({ params }) {
 
   const productType = decodeURIComponent(slug).replace(/%20/g, ' ')
 
+  const addOutdoorTableField = (items) =>
+    Array.isArray(items) ? items.map((item) => ({ ...item, table: 'outdoor' })) : []
+
   const desiredKeys = [
     'Size', 'power_w', 'Voltage', 'CCT', 'cri_ra', 'Lumen','efficacy_lmw',
     'Dimming Type', 'Material Finish', 'sensor_microwave_bluetooth', 'plugin_sensor',
@@ -100,8 +103,9 @@ export default function OutdoorProductPage({ params }) {
     setError(null)
     try {
       const data = await fetchData('outdoor', productType)
-      setProducts(data)
-      if (data.length === 0) {
+      const productsWithTable = addOutdoorTableField(data)
+      setProducts(productsWithTable)
+      if (productsWithTable.length === 0) {
         setError('No products found for this category.')
       }
     } catch (error) {
@@ -144,13 +148,14 @@ export default function OutdoorProductPage({ params }) {
     
     try {
       const filtered = await fetchData('outdoor', productType, buildSupabaseFilters(newFilters))
-      if (filtered.length === 1) {
-        setFinalProduct(filtered[0])
-      } else if (filtered.length === 0) {
+      const filteredWithTable = addOutdoorTableField(filtered)
+      if (filteredWithTable.length === 1) {
+        setFinalProduct(filteredWithTable[0])
+      } else if (filteredWithTable.length === 0) {
         setError('No products match your current selection. Please try different options.')
         setProducts([])
       } else {
-        setProducts(filtered)
+        setProducts(filteredWithTable)
         setCurrentStep(prev => prev + 1)
       }
     } catch (error) {
@@ -215,7 +220,7 @@ export default function OutdoorProductPage({ params }) {
       } else {
         try {
           const filtered = await fetchData('outdoor', productType, buildSupabaseFilters(newFilters))
-          setProducts(filtered)
+          setProducts(addOutdoorTableField(filtered))
         } catch (error) {
           console.error('Error:', error)
         }
