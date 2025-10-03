@@ -37,6 +37,16 @@ export function ProductDetails({ product, onBack }) {
     return mapped
   }, [product, reverseFieldMapping])
 
+  const optimizedImageUrl = useMemo(() => {
+    const imageFields = ['image', 'image_url', 'thumbnail', 'Photo'];
+    for (const field of imageFields) {
+      if (product[field]) {
+        return getOptimizedImageUrl(product[field]);
+      }
+    }
+    return null;
+  }, [product]);
+
   // Handle ESC key to close modal
   useEffect(() => {
     const handleEsc = (event) => {
