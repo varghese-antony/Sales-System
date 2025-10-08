@@ -103,12 +103,13 @@ export async function middleware(request: NextRequest) {
     // Additional protection for super-admin-only routes
     if (request.nextUrl.pathname === '/admin-dashboard/manage-customers'
       || request.nextUrl.pathname.startsWith('/admin-dashboard/manage-customers/')) {
+      console.log('Manage-customers access check - User role:', userRole, 'Path:', request.nextUrl.pathname);
       if (userRole !== 'super_admin') {
-        const unauthorizedUrl = new URL('/unauthorized', request.url)
-        unauthorizedUrl.searchParams.set('attempted', request.nextUrl.pathname)
-        unauthorizedUrl.searchParams.set('reason', 'super-admin-required')
-        return NextResponse.redirect(unauthorizedUrl)
+        console.log('Redirecting non-super-admin from manage-customers to homepage');
+        // Redirect regular admins to homepage instead of unauthorized page
+        return NextResponse.redirect(new URL('/', request.url))
       }
+      console.log('Super admin access granted to manage-customers');
     }
 
     // Add performance timing header

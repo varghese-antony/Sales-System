@@ -25,6 +25,8 @@ import { CustomerDetailsModal } from '@/components/CustomerDetailsModal';
 import { updateCustomerDiscount } from '@/lib/database/profiles';
 import { useToast } from '@/contexts/ToastContext';
 import { format } from 'date-fns';
+import { useAuth } from '@/contexts/AuthContext';
+import { useRouter } from 'next/navigation';
 
 export default function ManageCustomersPage() {
   const [customers, setCustomers] = useState([]);
@@ -40,6 +42,41 @@ export default function ManageCustomersPage() {
   const [editingDiscountId, setEditingDiscountId] = useState(null);
   const [tempDiscount, setTempDiscount] = useState('');
   const { toast } = useToast();
+  const { user, profile, isSuperAdmin, loading: authLoading } = useAuth();
+  const router = useRouter();
+
+  // Simple early check - redirect immediately if not super admin
+  if (profile?.user_type !== 'super_admin') {
+    console.log('Early redirect - User role:', profile?.user_type);
+    router.replace('/');
+    return null;
+  }
+
+  // Check if user is super admin - simple and direct
+  useEffect(() => {
+    if (!authLoading && (!user || profile?.user_type !== 'super_admin')) {
+      console.log('Access denied - User role:', profile?.user_type);
+      router.replace('/');
+      return;
+    }
+  }, [user, profile?.user_type, authLoading, router]);
+
+  // Show loading while checking authentication
+  if (authLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-purple-50/50 via-indigo-50/30 to-blue-50/50 dark:from-purple-950/20 dark:via-indigo-950/10 dark:to-blue-950/20">
+        <div className="text-center space-y-4 flex items-center justify-center flex-col">
+          <LoadingSpinner size="lg" />
+          <p className="text-sm sm:text-base text-muted-foreground">Verifying access permissions...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Don't render anything if user is not super admin
+  if (!user || profile?.user_type !== 'super_admin') {
+    return null;
+  }
 
   const loadData = useCallback(async () => {
     try {
