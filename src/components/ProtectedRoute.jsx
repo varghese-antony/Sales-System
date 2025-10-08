@@ -12,14 +12,18 @@ import { ShieldAlert, Home, Mail } from 'lucide-react'
 function ProtectedRouteContent({
   children,
   requireAdmin = false,
+  requireSuperAdmin = false,
   redirectTo = '/login',
   showInlineError = true
 }) {
-  const { user, profile, isAdmin, loading } = useAuth()
+  const { user, profile, isAdmin, isSuperAdmin, userRole, loading } = useAuth()
   const router = useRouter()
   const pathname = usePathname()
   const searchParams = useSearchParams()
   const [redirecting, setRedirecting] = useState(false)
+
+  const needsSuperAdmin = requireSuperAdmin && !isSuperAdmin
+  const needsAdmin = !needsSuperAdmin && requireAdmin && !isAdmin
 
   const currentPath = useMemo(() => {
     if (!pathname) return '/'
@@ -43,18 +47,31 @@ function ProtectedRouteContent({
       return
     }
 
-    if (requireAdmin && !isAdmin) {
+    if (needsSuperAdmin || needsAdmin) {
       // User authenticated but not admin
       if (!showInlineError) {
         // Redirect to unauthorized page
         setRedirecting(true)
         setTimeout(() => {
-          router.push(`/unauthorized?attempted=${encodeURIComponent(currentPath)}`)
+          const reason = needsSuperAdmin ? 'super-admin-required' : 'admin-required'
+          router.push(`/unauthorized?attempted=${encodeURIComponent(currentPath)}&reason=${reason}`)
         }, 500)
       }
       return
     }
-  }, [user, profile, isAdmin, loading, requireAdmin, redirectTo, router, currentPath, showInlineError])
+  }, [
+    user,
+    profile,
+    isAdmin,
+    isSuperAdmin,
+    loading,
+    needsAdmin,
+    needsSuperAdmin,
+    redirectTo,
+    router,
+    currentPath,
+    showInlineError
+  ])
 
   // Show loading spinner while determining auth state
   if (loading) {
@@ -63,7 +80,11 @@ function ProtectedRouteContent({
         <div className="text-center space-y-4">
           <LoadingSpinner size="lg" />
           <p className="text-gray-600 dark:text-gray-300 font-medium">
-            {requireAdmin ? 'Verifying admin access...' : 'Checking authentication...'}
+            {needsSuperAdmin
+              ? 'Verifying super admin access...'
+              : requireAdmin
+                ? 'Verifying admin access...'
+                : 'Checking authentication...'}
           </p>
         </div>
       </div>
@@ -88,7 +109,7 @@ function ProtectedRouteContent({
   }
 
   // If admin is required but user is not admin
-  if (requireAdmin && !isAdmin) {
+  if (needsSuperAdmin || needsAdmin) {
     // Show inline error if enabled
     if (showInlineError) {
       return (
@@ -100,22 +121,30 @@ function ProtectedRouteContent({
                   <ShieldAlert className="w-16 h-16 text-red-600 dark:text-red-400" />
                 </div>
               </div>
-              <h1 className="text-3xl font-bold text-foreground">Access Denied</h1>
+              <h1 className="text-3xl font-bold text-foreground">
+                {needsSuperAdmin ? 'Super Admin Access Required' : 'Access Denied'}
+              </h1>
               <p className="text-lg text-muted-foreground">
-                You don't have permission to access this page
+                {needsSuperAdmin
+                  ? 'You need Super Administrator privileges to access this page. Regular Admin access is not sufficient.'
+                  : "You don't have permission to access this page"}
               </p>
             </div>
 
             <Alert variant="destructive" className="border-red-200 dark:border-red-800">
               <ShieldAlert className="h-5 w-5" />
-              <AlertTitle className="font-semibold">Admin Access Required</AlertTitle>
+              <AlertTitle className="font-semibold">
+                {needsSuperAdmin ? 'Super Admin Access Required' : 'Admin Access Required'}
+              </AlertTitle>
               <AlertDescription className="mt-2">
                 <p className="mb-2">
-                  You are not an Admin. Please contact the tech team if you think this is a mistake!
+                  {needsSuperAdmin
+                    ? 'This area is restricted to Super Administrators. Please reach out to a Super Admin if you need access.'
+                    : 'You are not an Admin. Please contact the tech team if you think this is a mistake!'}
                 </p>
                 {profile && (
                   <p className="text-sm mt-2">
-                    Your account type: <span className="font-semibold">{profile.user_type === 'customer' ? 'Customer' : profile.user_type}</span>
+                    Your account type: <span className="font-semibold">{userRole === 'customer' ? 'Customer' : userRole === 'super_admin' ? 'Super Administrator' : userRole === 'admin' ? 'Administrator' : 'Unknown'}</span>
                   </p>
                 )}
               </AlertDescription>
@@ -123,11 +152,12 @@ function ProtectedRouteContent({
 
             <div className="bg-amber-50/50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg p-4">
               <h3 className="font-semibold text-sm text-amber-900 dark:text-amber-100 mb-2">
-                Need Admin Access?
+                {needsSuperAdmin ? 'Need Super Admin Access?' : 'Need Admin Access?'}
               </h3>
               <p className="text-sm text-amber-800 dark:text-amber-200">
-                Admin privileges are granted by the technical team. If you believe you should have admin access, 
-                please contact support with your account details.
+                {needsSuperAdmin
+                  ? 'Super Admin privileges are tightly controlled. Contact a Super Admin or the technical team with your request.'
+                  : 'Admin privileges are granted by the technical team. If you believe you should have admin access, please contact support with your account details.'}
               </p>
             </div>
 

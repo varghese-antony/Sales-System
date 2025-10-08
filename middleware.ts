@@ -48,8 +48,9 @@ export async function middleware(request: NextRequest) {
     }
 
     // Check cache first
-    const cacheKey = session.user.id
-    const cached = profileCache.get(cacheKey)
+    const baseCacheKey = session.user.id
+    let cacheKey = baseCacheKey
+    let cached = profileCache.get(cacheKey)
     let profile
 
     if (cached && (Date.now() - cached.timestamp) < CACHE_TTL) {
@@ -64,11 +65,19 @@ export async function middleware(request: NextRequest) {
 
       profile = profileData
 
-      // Cache the profile
-      profileCache.set(cacheKey, {
-        data: profile,
-        timestamp: Date.now()
-      })
+      cacheKey = `${baseCacheKey}-${profile?.user_type ?? 'unknown'}`
+      cached = profileCache.get(cacheKey)
+      if (cached && (Date.now() - cached.timestamp) < CACHE_TTL) {
+        profile = cached.data
+      } else {
+        profileCache.set(cacheKey, {
+          data: profile,
+          timestamp: Date.now()
+        })
+      }
+
+      // Ensure older cache entries without role suffix are cleaned
+      profileCache.delete(baseCacheKey)
 
       // Clean up old cache entries periodically
       if (profileCache.size > 100) {
@@ -81,17 +90,32 @@ export async function middleware(request: NextRequest) {
       }
     }
 
-    // If not admin, redirect to unauthorized page with attempted URL
-    if (!profile || profile.user_type !== 'admin') {
+    const userRole = profile?.user_type
+
+    // If not admin tier, redirect to unauthorized page with attempted URL
+    if (!profile || !['admin', 'super_admin'].includes(userRole)) {
       const unauthorizedUrl = new URL('/unauthorized', request.url)
       unauthorizedUrl.searchParams.set('attempted', request.nextUrl.pathname)
+      unauthorizedUrl.searchParams.set('reason', 'admin-required')
       return NextResponse.redirect(unauthorizedUrl)
+    }
+
+    // Additional protection for super-admin-only routes
+    if (request.nextUrl.pathname === '/admin-dashboard/manage-customers'
+      || request.nextUrl.pathname.startsWith('/admin-dashboard/manage-customers/')) {
+      if (userRole !== 'super_admin') {
+        const unauthorizedUrl = new URL('/unauthorized', request.url)
+        unauthorizedUrl.searchParams.set('attempted', request.nextUrl.pathname)
+        unauthorizedUrl.searchParams.set('reason', 'super-admin-required')
+        return NextResponse.redirect(unauthorizedUrl)
+      }
     }
 
     // Add performance timing header
     const duration = Date.now() - startTime
     response.headers.set('X-Response-Time', `${duration}ms`)
     response.headers.set('X-Auth-Status', 'authorized')
+    response.headers.set('X-User-Role', userRole ?? 'unknown')
 
     return response
   } catch (error) {

@@ -41,8 +41,8 @@ export async function updateProfile(userId, updateData) {
     }
 
     // Validate user_type if provided
-    if (updateData.user_type && !['customer', 'admin'].includes(updateData.user_type)) {
-      return { data: null, error: 'Invalid user_type. Must be "customer" or "admin"' }
+    if (updateData.user_type && !['customer', 'admin', 'super_admin'].includes(updateData.user_type)) {
+      return { data: null, error: 'Invalid user_type. Must be "customer", "admin", or "super_admin"' }
     }
 
     const { data, error } = await supabase
@@ -72,8 +72,8 @@ export async function createProfile(profileData) {
     }
 
     // Validate user_type if provided
-    if (profileData.user_type && !['customer', 'admin'].includes(profileData.user_type)) {
-      return { data: null, error: 'Invalid user_type. Must be "customer" or "admin"' }
+    if (profileData.user_type && !['customer', 'admin', 'super_admin'].includes(profileData.user_type)) {
+      return { data: null, error: 'Invalid user_type. Must be "customer", "admin", or "super_admin"' }
     }
 
     const { data, error } = await supabase
@@ -215,8 +215,8 @@ export async function updateUserType(userId, userType) {
       return { data: null, error: 'User ID is required' }
     }
 
-    if (!['customer', 'admin'].includes(userType)) {
-      return { data: null, error: 'Invalid user_type. Must be "customer" or "admin"' }
+    if (!['customer', 'admin', 'super_admin'].includes(userType)) {
+      return { data: null, error: 'Invalid user_type. Must be "customer", "admin", or "super_admin"' }
     }
 
     const { data, error } = await supabase

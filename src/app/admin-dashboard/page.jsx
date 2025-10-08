@@ -24,6 +24,7 @@ import {
 } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
+import { useAuth } from "@/contexts/AuthContext"
 
 const cardVariants = {
   initial: { opacity: 0, y: 16 },
@@ -34,6 +35,7 @@ export default function AdminDashboardPage() {
   const [stats, setStats] = useState(null)
   const [activities, setActivities] = useState([])
   const [loading, setLoading] = useState(true)
+  const { isSuperAdmin } = useAuth()
 
   useEffect(() => {
     const fetchData = async () => {
@@ -147,9 +149,12 @@ export default function AdminDashboardPage() {
       description: "View and manage customer accounts and discounts",
       href: "/admin-dashboard/manage-customers",
       icon: Users,
-      accent: "from-rose-500/20 via-pink-500/10 to-fuchsia-500/20"
+      accent: "from-rose-500/20 via-pink-500/10 to-fuchsia-500/20",
+      superAdminOnly: true
     }
   ]
+
+  const filteredNavigationCards = navigationCards.filter(card => !card.superAdminOnly || isSuperAdmin)
 
   const recentActivity = activities.length > 0 ? activities.map(activity => ({
     title: activity.title,
@@ -271,7 +276,7 @@ export default function AdminDashboardPage() {
           </div>
 
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {navigationCards.map((card, index) => (
+            {filteredNavigationCards.map((card, index) => (
               <motion.div
                 key={card.title}
                 variants={cardVariants}

@@ -6,6 +6,9 @@ EXCEPTION
 END;
 $$;
 
+-- Extend user_type enum with super_admin for elevated access control
+ALTER TYPE public.user_type ADD VALUE IF NOT EXISTS 'super_admin';
+
 -- Create profiles table
 CREATE TABLE IF NOT EXISTS public.profiles (
   id UUID REFERENCES auth.users(id) ON DELETE CASCADE PRIMARY KEY,
@@ -85,6 +88,25 @@ CREATE POLICY "Admins can update all profiles" ON public.profiles
     )
   );
 
+-- Super admins can manage all profiles without restriction
+DROP POLICY IF EXISTS "Super admins can view all profiles" ON public.profiles;
+CREATE POLICY "Super admins can view all profiles" ON public.profiles
+  FOR SELECT USING (
+    EXISTS (
+      SELECT 1 FROM public.profiles
+      WHERE id = auth.uid() AND user_type = 'super_admin'
+    )
+  );
+
+DROP POLICY IF EXISTS "Super admins can update all profiles" ON public.profiles;
+CREATE POLICY "Super admins can update all profiles" ON public.profiles
+  FOR UPDATE USING (
+    EXISTS (
+      SELECT 1 FROM public.profiles
+      WHERE id = auth.uid() AND user_type = 'super_admin'
+    )
+  );
+
 -- Create enquiries table
 CREATE TABLE IF NOT EXISTS public.enquiries (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -104,7 +126,7 @@ CREATE TRIGGER update_enquiries_updated_at
   BEFORE UPDATE ON public.enquiries
   FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();
 
--- RLS Policies for enquiries
+-- RLS policies for enquiries (admins retain existing access)
 DROP POLICY IF EXISTS "Admins can view all enquiries" ON public.enquiries;
 CREATE POLICY "Admins can view all enquiries" ON public.enquiries
   FOR SELECT USING (
@@ -120,6 +142,25 @@ CREATE POLICY "Admins can update all enquiries" ON public.enquiries
     EXISTS (
       SELECT 1 FROM public.profiles
       WHERE id = auth.uid() AND user_type = 'admin'
+    )
+  );
+
+-- Super admins have full enquiry visibility and management
+DROP POLICY IF EXISTS "Super admins can view all enquiries" ON public.enquiries;
+CREATE POLICY "Super admins can view all enquiries" ON public.enquiries
+  FOR SELECT USING (
+    EXISTS (
+      SELECT 1 FROM public.profiles
+      WHERE id = auth.uid() AND user_type = 'super_admin'
+    )
+  );
+
+DROP POLICY IF EXISTS "Super admins can update all enquiries" ON public.enquiries;
+CREATE POLICY "Super admins can update all enquiries" ON public.enquiries
+  FOR UPDATE USING (
+    EXISTS (
+      SELECT 1 FROM public.profiles
+      WHERE id = auth.uid() AND user_type = 'super_admin'
     )
   );
 

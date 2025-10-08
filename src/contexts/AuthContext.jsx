@@ -3,6 +3,7 @@
 import { createContext, useContext, useReducer, useEffect, useCallback, useMemo } from 'react'
 import { supabase } from '../lib/supabase'
 import { getProfile, createProfile } from '../lib/database/profiles'
+import { isAdmin as hasAdminPrivileges, isSuperAdmin as hasSuperAdminPrivileges } from '../lib/utils/role-helpers'
 
 // Simple in-memory cache with TTL for profiles and sessions
 const profileCache = new Map()
@@ -87,8 +88,10 @@ export function AuthProvider({ children }) {
     signingOut: false
   })
 
-  // Memoized computed property for admin status
-  const isAdmin = useMemo(() => state.profile?.user_type === 'admin', [state.profile])
+  // Memoized computed properties for role checks
+  const userRole = useMemo(() => state.profile?.user_type ?? null, [state.profile])
+  const isAdmin = useMemo(() => hasAdminPrivileges(userRole), [userRole])
+  const isSuperAdmin = useMemo(() => hasSuperAdminPrivileges(userRole), [userRole])
 
   // Initialize auth state and set up listeners
   useEffect(() => {
@@ -385,6 +388,8 @@ export function AuthProvider({ children }) {
     user: state.user,
     profile: state.profile,
     isAdmin,
+    isSuperAdmin,
+    userRole,
     loading: state.loading,
     error: state.error,
     sessionRestored: state.sessionRestored,
@@ -401,7 +406,9 @@ export function AuthProvider({ children }) {
   }), [
     state.user, 
     state.profile, 
-    isAdmin, 
+    isAdmin,
+    isSuperAdmin,
+    userRole,
     state.loading, 
     state.error,
     state.sessionRestored,
