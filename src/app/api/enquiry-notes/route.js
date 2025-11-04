@@ -1,4 +1,4 @@
-import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs';
+import { createServerComponentClient } from '@supabase/ssr';
 import { cookies } from 'next/headers';
 import { NextResponse } from 'next/server';
 
@@ -14,7 +14,8 @@ export async function GET(request) {
   }
 
   try {
-    const supabase = createRouteHandlerClient({ cookies });
+    const cookieStore = cookies();
+    const supabase = createServerComponentClient({ cookies: () => cookieStore });
     
     const { data: { session } } = await supabase.auth.getSession();
     if (!session) {
@@ -60,7 +61,8 @@ export async function POST(request) {
       );
     }
 
-    const supabase = createRouteHandlerClient({ cookies });
+    const cookieStore = cookies();
+    const supabase = createServerComponentClient({ cookies: () => cookieStore });
     
     const { data: { session } } = await supabase.auth.getSession();
     if (!session) {
