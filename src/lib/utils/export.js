@@ -77,25 +77,29 @@ export function formatEnquiryForExport(enquiry) {
 function formatCartItemsForExport(cartItems) {
   if (!Array.isArray(cartItems) || cartItems.length === 0) return ''
 
+  // Updated to use v2 field names (snake_case)
   const SPEC_FIELDS = [
-    { key: 'Size', label: 'Size' },
+    { key: 'size', label: 'Size', legacyKey: 'Size' },
     { key: 'power_w', label: 'Power (W)' },
-    { key: 'Voltage', label: 'Voltage' },
-    { key: 'CCT', label: 'CCT' },
+    { key: 'voltage', label: 'Voltage', legacyKey: 'Voltage' },
+    { key: 'cct', label: 'CCT', legacyKey: 'CCT' },
     { key: 'cri_ra', label: 'CRI (Ra)' },
-    { key: 'Lumen', label: 'Lumen' },
-    { key: 'Mounting', label: 'Mounting' },
-    { key: 'Material Finish', label: 'Finish' }
+    { key: 'lumen', label: 'Lumen', legacyKey: 'Lumen' },
+    { key: 'mounting', label: 'Mounting', legacyKey: 'Mounting' },
+    { key: 'material_finish', label: 'Finish', legacyKey: 'Material Finish' }
   ]
 
   const formatSpecValue = (item, product, field) => {
-    const { key, label } = field
+    const { key, label, legacyKey } = field
     return (
       item?.specifications?.[label] ??
       item?.specifications?.[key] ??
+      item?.specifications?.[legacyKey] ??
       product?.[key] ??
+      product?.[legacyKey] ??
       product?.[label] ??
       item?.[key] ??
+      item?.[legacyKey] ??
       item?.[label] ??
       null
     )
@@ -104,6 +108,8 @@ function formatCartItemsForExport(cartItems) {
   return cartItems
     .map((item) => {
       const product = item.product || {}
+      
+      // Handle both v2 (model_number) and legacy (modelNumber) field names
       const modelNumber =
         item.model_number ||
         item.modelNumber ||
@@ -295,9 +301,9 @@ export function formatProductForExport(product) {
     'Type': product.type === 'indoor' ? 'Indoor' : 'Outdoor'
   }
 
-  const categoryColumn = product.type === 'indoor' ? 'Indoor' : 'Outdoor'
-  const mappedCategory = get(product, 'category')
-  formatted['Category'] = mappedCategory || product[categoryColumn] || ''
+  // V2 tables use 'sub_category' column
+  const mappedCategory = get(product, 'category') || product.sub_category || ''
+  formatted['Category'] = mappedCategory
 
   PRODUCT_EXPORT_FIELD_CONFIG.forEach(({ label, key, formatType }) => {
     const rawValue = get(product, key)

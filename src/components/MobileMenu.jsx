@@ -128,11 +128,11 @@ export function MobileMenu({ isOpen, onClose, indoorCategories = [], outdoorCate
                             {indoorCategories.slice(0, 5).map((category, index) => (
                               <Link
                                 key={index}
-                                href={`/indoor#${category['Indoor']?.toLowerCase().replace(/\s+/g, '-')}`}
+                                href={`/indoor#${category.sub_category?.toLowerCase().replace(/\s+/g, '-')}`}
                                 onClick={onClose}
                                 className="block p-2 text-sm text-muted-foreground hover:text-foreground transition-colors duration-200"
                               >
-                                {category['Indoor']}
+                                {category.sub_category}
                               </Link>
                             ))}
                           </div>
@@ -178,11 +178,11 @@ export function MobileMenu({ isOpen, onClose, indoorCategories = [], outdoorCate
                             {outdoorCategories.slice(0, 5).map((category, index) => (
                               <Link
                                 key={index}
-                                href={`/outdoor#${category['Outdoor']?.toLowerCase().replace(/\s+/g, '-')}`}
+                                href={`/outdoor#${category.sub_category?.toLowerCase().replace(/\s+/g, '-')}`}
                                 onClick={onClose}
                                 className="block p-2 text-sm text-muted-foreground hover:text-foreground transition-colors duration-200"
                               >
-                                {category['Outdoor']}
+                                {category.sub_category}
                               </Link>
                             ))}
                           </div>

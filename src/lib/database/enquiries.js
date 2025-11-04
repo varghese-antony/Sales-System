@@ -1,5 +1,5 @@
 import { supabase } from '../supabase'
-import { getProductsByIds } from './products'
+import { getProductsByIdsV2 } from './products-v2'
 
 const STATUS_VALUES = ['new', 'contacted', 'quoted', 'won', 'lost']
 
@@ -72,9 +72,14 @@ const buildProductLookup = async (enquiries = []) => {
   }
 
   try {
-    const products = await getProductsByIds(references)
+    // Convert table references to type references for v2
+    const v2References = references.map(({ table, id }) => ({
+      type: table,
+      id
+    }))
+    const products = await getProductsByIdsV2(v2References)
     return new Map(
-      (products || []).map((product) => [`${product.table}-${product.id}`, product])
+      (products || []).map((product) => [`${product.type}-${product.id}`, product])
     )
   } catch (error) {
     console.error('Error building product lookup for enquiries:', error)
@@ -96,6 +101,7 @@ const enrichCartItem = (item = {}, productLookup = new Map()) => {
     quantity
   }
 
+  // Handle v2 field names (product_name, model_number from v2 tables)
   const modelNumber =
     product?.model_number ||
     product?.modelNumber ||
@@ -107,6 +113,21 @@ const enrichCartItem = (item = {}, productLookup = new Map()) => {
     enriched.model_number = modelNumber
     if (!enriched.modelNumber) {
       enriched.modelNumber = modelNumber
+    }
+  }
+
+  // Handle v2 product_name field
+  const productName =
+    product?.product_name ||
+    product?.name ||
+    item.product_name ||
+    item.name ||
+    null
+
+  if (productName) {
+    enriched.product_name = productName
+    if (!enriched.name) {
+      enriched.name = productName
     }
   }
 
@@ -295,18 +316,219 @@ export async function getEnquiryTimeline(enquiryId) {
 
 // Delete enquiry
 export async function deleteEnquiry(id) {
+  console.group('deleteEnquiry - Debug Info');
   try {
-    const { error } = await supabase
+    console.log('Input ID:', { id, type: typeof id });
+    
+    if (id === undefined || id === null || id === '') {
+      const error = new Error('No enquiry ID provided');
+      console.error('Validation Error:', error);
+      throw error;
+    }
+
+    // Handle different ID formats
+    let enquiryId;
+    const idStr = String(id).trim();
+    console.log('Processed ID string:', { idStr });
+    
+    // Check if it's a numeric ID
+    if (/^\d+$/.test(idStr)) {
+      console.log('Numeric ID detected, using as integer');
+      enquiryId = parseInt(idStr, 10);
+    } 
+    // Check if it's a UUID
+    else {
+      const uuidRegex = /[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}/i;
+      const extractedUuid = idStr.match(uuidRegex)?.[0];
+      
+      if (extractedUuid) {
+        console.log('UUID extracted from string:', extractedUuid);
+        enquiryId = extractedUuid;
+      } else if (uuidRegex.test(idStr)) {
+        console.log('Valid UUID format detected');
+        enquiryId = idStr;
+      } else {
+        const error = new Error(`Unrecognized ID format: ${idStr}`);
+        console.error('ID Format Error:', error);
+        throw error;
+      }
+    }
+    
+    console.log('Final enquiry ID to delete:', { enquiryId, type: typeof enquiryId });
+
+    // First, check RLS policies
+    console.log('Checking RLS policies...');
+    const { data: rlsPolicies, error: rlsError } = await supabase.rpc('get_rls_policies', { table_name: 'enquiries' });
+    
+    if (rlsError) {
+      console.warn('Could not fetch RLS policies. This is normal if the function does not exist.');
+      // Continue with the operation
+    } else {
+      console.log('Current RLS policies for enquiries:', rlsPolicies);
+    }
+
+    // Check if the current user has delete permissions
+    console.log('Checking user permissions...');
+    const { data: userPerms } = await supabase.rpc('current_user_permissions');
+    console.log('Current user permissions:', userPerms);
+
+    // First, verify the enquiry exists with more details
+    console.log('Checking if enquiry exists...');
+    const { data: existingEnquiry, error: fetchError } = await supabase
+      .from('enquiries')
+      .select('*')
+      .eq('id', enquiryId)
+      .maybeSingle();
+
+    console.log('Enquiry lookup result:', { 
+      id: existingEnquiry?.id,
+      created_at: existingEnquiry?.created_at,
+      status: existingEnquiry?.status,
+      fetchError 
+    });
+
+    if (fetchError) {
+      console.error('Error checking if enquiry exists:', fetchError);
+      throw new Error(`Error checking enquiry: ${fetchError.message}`);
+    }
+
+    if (!existingEnquiry) {
+      // Get a list of all enquiries to help debug
+      console.log('Enquiry not found with direct ID match. Fetching all enquiries...');
+      const { data: allEnquiries, error: fetchAllError } = await supabase
+        .from('enquiries')
+        .select('id, customer_name, created_at, status')
+        .order('created_at', { ascending: false })
+        .limit(10);
+      
+      if (fetchAllError) {
+        console.error('Error fetching all enquiries:', fetchAllError);
+      }
+      
+      console.log('Existing enquiries (first 10):', allEnquiries?.map(e => ({
+        id: e.id,
+        type: typeof e.id,
+        customer: e.customer_name,
+        status: e.status,
+        created: e.created_at
+      })));
+      
+      // Try to find if the ID exists in any other format
+      const allIds = allEnquiries?.map(e => e.id) || [];
+      const idAsString = String(enquiryId);
+      const idAsNumber = parseInt(idAsString, 10);
+      
+      const matchingId = allIds.find(id => 
+        String(id) === idAsString || 
+        (Number.isInteger(idAsNumber) && id === idAsNumber) ||
+        String(id).includes(idAsString)
+      );
+      
+      if (matchingId) {
+        console.warn(`Found similar ID in database: ${matchingId} (type: ${typeof matchingId})`);
+      }
+      
+      throw new Error(`Enquiry not found. ID: ${enquiryId} (type: ${typeof enquiryId}). Check console for existing enquiries.`);
+    }
+
+    // First delete related notes (if any)
+    console.log('Deleting related notes...');
+    try {
+      const { count: notesCount, error: notesError } = await supabase
+        .from('enquiry_notes')
+        .delete()
+        .eq('enquiry_id', enquiryId);
+
+      console.log(`Deleted ${notesCount || 0} related notes`);
+      
+      if (notesError) {
+        console.warn('Warning deleting enquiry notes:', notesError);
+      }
+    } catch (notesError) {
+      console.warn('Error while deleting related notes:', notesError);
+      // Continue with enquiry deletion even if notes deletion fails
+    }
+
+    // Try primary deletion via database RPC (handles RLS + related cleanup)
+    console.log('Attempting to delete via delete_enquiry RPC...');
+    const rpcInput = typeof enquiryId === 'string' ? enquiryId : String(enquiryId);
+    const { data: rpcResult, error: rpcError } = await supabase.rpc('delete_enquiry', {
+      p_enquiry_id: rpcInput
+    });
+
+    console.log('delete_enquiry RPC response:', { rpcResult, rpcError });
+
+    if (!rpcError && rpcResult) {
+      if (rpcResult.success) {
+        console.log('RPC deletion succeeded:', rpcResult);
+        console.groupEnd();
+        return { data: rpcResult, error: null };
+      }
+
+      console.warn('RPC completed without success flag:', rpcResult);
+      throw new Error(rpcResult.error || 'Delete RPC did not confirm success');
+    }
+
+    if (rpcError) {
+      console.warn('RPC delete failed, attempting direct delete fallback:', {
+        message: rpcError.message,
+        details: rpcError.details,
+        hint: rpcError.hint,
+        code: rpcError.code
+      });
+    } else {
+      console.warn('RPC delete returned no result, attempting direct delete fallback');
+    }
+
+    console.log('Falling back to direct delete via Supabase client...');
+    const {
+      data: directDeleted,
+      error: directError
+    } = await supabase
       .from('enquiries')
       .delete()
-      .eq('id', id)
+      .eq('id', enquiryId)
+      .select()
+      .maybeSingle();
 
-    if (error) throw error
+    if (directError) {
+      console.error('Direct delete failed:', directError);
+      throw new Error(`Delete failed: ${directError.message}`);
+    }
 
-    return { data: null, error: null }
+    if (!directDeleted) {
+      console.error('No enquiry returned from direct delete operation');
+      throw new Error('Enquiry not found or already deleted');
+    }
+
+    console.log('Direct delete succeeded:', directDeleted);
+
+    const result = {
+      data: {
+        success: true,
+        deletedEnquiry: directDeleted
+      },
+      error: null
+    };
+
+    console.groupEnd();
+    return result;
   } catch (error) {
-    console.error('Error deleting enquiry:', error)
-    return { data: null, error: error.message }
+    console.error('Error in deleteEnquiry:', {
+      message: error.message,
+      stack: error.stack,
+      name: error.name,
+      ...error
+    });
+    
+    const errorResult = { 
+      data: null, 
+      error: error.message || 'Failed to delete enquiry' 
+    };
+    
+    console.log('Returning error result:', errorResult);
+    console.groupEnd();
+    return errorResult;
   }
 }
 

@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 
-import { createProducts, fieldMapping } from '@/lib/database/products'
+import { createProductsV2, fieldMappingV2 } from '@/lib/database/products-v2'
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -262,35 +262,30 @@ export default function DataEntryPage() {
       const variationsWithType = variations.map(variation => {
         const mappedVariation = {}
         Object.entries(variation).forEach(([key, value]) => {
-          if (key === 'category') {
-            return
-          }
-
-          const dbColumn = fieldMapping[key] || key
+          // Map frontend field names to v2 database column names
+          const dbColumn = fieldMappingV2[key] || key
           mappedVariation[dbColumn] = value
         })
 
+        // Map category to sub_category in v2 schema
         if (formData.category) {
-          const categoryColumn = formData.type === 'indoor' ? 'Indoor' : 'Outdoor'
-          mappedVariation[categoryColumn] = formData.category
+          mappedVariation.sub_category = formData.category
         }
 
+        // Map name to product_name in v2 schema
         if (formData.name) {
-          mappedVariation[fieldMapping.name] = formData.name
+          mappedVariation.product_name = formData.name
         }
 
-        if (formData.description) {
-          mappedVariation[fieldMapping.description] = formData.description
-        }
+        // Note: description and producttype fields don't exist in v2 tables
+        // They are omitted from the insert
 
-        mappedVariation.producttype = formData.productType
-        mappedVariation.type = formData.type
         mappedVariation.model_number = formData.modelNumber
 
         return mappedVariation
       })
 
-      const { data, error } = await createProducts(variationsWithType)
+      const { data, error } = await createProductsV2(formData.type, variationsWithType)
       if (error) {
         throw new Error(error)
       }

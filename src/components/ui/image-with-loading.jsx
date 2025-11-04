@@ -17,6 +17,9 @@ export function ImageWithLoading({
 }) {
   const [isLoading, setIsLoading] = useState(true)
   const [hasError, setHasError] = useState(false)
+  
+  // Check if it's a placeholder image
+  const isPlaceholder = src?.includes('placeholder-product.svg')
 
   const handleLoad = () => {
     setIsLoading(false)
@@ -25,7 +28,10 @@ export function ImageWithLoading({
 
   const handleError = () => {
     setIsLoading(false)
-    setHasError(true)
+    // Don't show error for placeholder images
+    if (!isPlaceholder) {
+      setHasError(true)
+    }
   }
 
   return (

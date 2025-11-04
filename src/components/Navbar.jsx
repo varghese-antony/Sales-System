@@ -105,8 +105,8 @@ export function Navbar() {
                             {indoorCategories.slice(0, 6).map((category, index) => (
                               <ListItem
                                 key={index}
-                                href={`/indoor#${category['Indoor'].toLowerCase().replace(/\s+/g, '-')}`}
-                                title={category['Indoor']}
+                                href={`/indoor#${category.sub_category.toLowerCase().replace(/\s+/g, '-')}`}
+                                title={category.sub_category}
                               />
                             ))}
                           </div>
@@ -143,8 +143,8 @@ export function Navbar() {
                             {outdoorCategories.slice(0, 6).map((category, index) => (
                               <ListItem
                                 key={index}
-                                href={`/outdoor#${category['Outdoor'].toLowerCase().replace(/\s+/g, '-')}`}
-                                title={category['Outdoor']}
+                                href={`/outdoor#${category.sub_category.toLowerCase().replace(/\s+/g, '-')}`}
+                                title={category.sub_category}
                               />
                             ))}
                           </div>

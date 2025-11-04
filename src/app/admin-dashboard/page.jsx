@@ -41,8 +41,8 @@ export default function AdminDashboardPage() {
     const fetchData = async () => {
       try {
         const [statsRes, activitiesRes] = await Promise.all([
-          fetch('/api/admin/dashboard-stats'),
-          fetch('/api/admin/recent-activity')
+          fetch('/api/admin/dashboard-stats-v2'),
+          fetch('/api/admin/recent-activity-v2')
         ])
 
         if (statsRes.ok) {
@@ -157,10 +157,12 @@ export default function AdminDashboardPage() {
   const filteredNavigationCards = navigationCards.filter(card => !card.superAdminOnly || isSuperAdmin)
 
   const recentActivity = activities.length > 0 ? activities.map(activity => ({
+    id: activity.id ?? `${activity.type}-${activity.timestamp}`,
     title: activity.title,
     timestamp: activity.timestamp,
     details: activity.details,
-    status: activity.status
+    status: activity.status,
+    type: activity.type
   })) : []
 
   return (
@@ -334,7 +336,7 @@ export default function AdminDashboardPage() {
                 </CardHeader>
                 <CardContent className="space-y-4">
                   {recentActivity.map((activity) => (
-                    <div key={activity.title} className="rounded-xl border border-border/40 bg-background/60 p-3 sm:p-4 dark:border-border/50 dark:bg-background/70">
+                    <div key={`${activity.type}-${activity.id}`} className="rounded-xl border border-border/40 bg-background/60 p-3 sm:p-4 dark:border-border/50 dark:bg-background/70">
                       <div className="flex items-center justify-between">
                         <h3 className="font-semibold text-foreground">{activity.title}</h3>
                         <Badge variant="outline" className="border-border/60 text-xs text-muted-foreground dark:border-border/70">

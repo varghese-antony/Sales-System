@@ -1,6 +1,6 @@
 'use client'
 import { useState, useEffect } from 'react'
-import { getDistinctCategories, getProductTypesByCategory, getProductsByType, testColumnNames } from '@/lib/database/products'
+import { getDistinctCategoriesV2, getProductNamesByCategoryV2, getProductsByCategoryV2 } from '@/lib/database/products-v2'
 import { ProductCard } from "@/components/ProductCard"
 import { Lightbulb, Home, ArrowLeft, Zap, Star } from 'lucide-react'
 import { Button } from "@/components/ui/button"
@@ -121,7 +121,7 @@ export default function Indoor() {
       let currentActiveSection = ''
 
       categories.forEach((category) => {
-        const categoryName = category['Indoor']
+        const categoryName = category['sub_category']
         const elementId = categoryName.toLowerCase().replace(/\s+/g, '-')
         const element = document.getElementById(elementId)
 
@@ -170,12 +170,8 @@ export default function Indoor() {
       try {
         setLoading(true)
 
-        // Test column names first
-        console.log('Testing column names...')
-        await testColumnNames('indoor')
-
-        // First fetch: Get distinct categories
-        const { data: categoriesData, error: categoriesError } = await getDistinctCategories('indoor')
+        // First fetch: Get distinct categories from v2 table
+        const { data: categoriesData, error: categoriesError } = await getDistinctCategoriesV2('indoor')
         if (categoriesError) {
           throw new Error(`Failed to fetch categories: ${categoriesError}`)
         }
@@ -184,38 +180,41 @@ export default function Indoor() {
         // Set categories immediately for UI
         setCategories(categories)
 
-        // Second fetch: Get distinct product types for each category with sample images
-        const { data: productTypesData, error: productTypesError } = await getProductTypesByCategory('indoor')
-        if (productTypesError) {
-          throw new Error(`Failed to fetch product types by category: ${productTypesError}`)
+        // Second fetch: Get distinct product names for each category with sample images
+        const { data: productNamesData, error: productNamesError } = await getProductNamesByCategoryV2('indoor')
+        if (productNamesError) {
+          throw new Error(`Failed to fetch product names by category: ${productNamesError}`)
         }
-        const productTypes = productTypesData || []
+        const productNames = productNamesData || []
 
-        // Fetch sample images for each product type
-        const productTypesWithImages = await Promise.all(
-          productTypes.flatMap(categoryData => 
-            categoryData.producttypes.map(async (productTypeName) => {
+        // Fetch sample images for each product name
+        const productNamesWithImages = await Promise.all(
+          productNames.flatMap(categoryData => 
+            categoryData.product_names.map(async (productName) => {
               try {
-                const { data: sampleProducts, error: sampleError } = await getProductsByType('indoor', productTypeName, { limit: 1 })
+                const { data: sampleProducts, error: sampleError } = await getProductsByCategoryV2('indoor', categoryData.sub_category, { 
+                  limit: 1,
+                  filters: { productName: productName }
+                })
                 if (sampleError) {
                   console.error('Error fetching sample product:', sampleError)
                   return {
-                    ...categoryData,
-                    producttype: productTypeName,
+                    sub_category: categoryData.sub_category,
+                    product_name: productName,
                     sampleImage: null
                   }
                 }
                 const sampleProduct = sampleProducts?.[0]
                 return {
-                  ...categoryData,
-                  producttype: productTypeName,
-                  sampleImage: sampleProduct?.Photo || null
+                  sub_category: categoryData.sub_category,
+                  product_name: productName,
+                  sampleImage: sampleProduct?.photo || null
                 }
               } catch (error) {
                 console.error('Error fetching sample image:', error)
                 return {
-                  ...categoryData,
-                  producttype: productTypeName,
+                  sub_category: categoryData.sub_category,
+                  product_name: productName,
                   sampleImage: null
                 }
               }
@@ -223,8 +222,8 @@ export default function Indoor() {
           )
         )
 
-        // Combine categories with their product types
-        setCategoriesWithProducts(productTypesWithImages)
+        // Combine categories with their product names
+        setCategoriesWithProducts(productNamesWithImages)
       } catch (error) {
         console.error('Error fetching indoor data:', error)
         setError('Failed to load indoor products. Please try again later.')
@@ -271,7 +270,6 @@ export default function Indoor() {
         </svg>
       </div>
 
-      {/* Category Navigation Sidebar - DEBUG: FORCE VISIBLE */}
       <CategoryNavigation
         type="indoor"
         categories={categories}
@@ -367,13 +365,13 @@ export default function Indoor() {
                   </div>
                   <div>
                     <h2
-                      id={category['Indoor'].toLowerCase().replace(/\s+/g, '-')}
+                      id={category['sub_category'].toLowerCase().replace(/\s+/g, '-')}
                       className="text-3xl md:text-4xl font-bold text-foreground group-hover:text-primary transition-colors duration-300"
                     >
-                      {category.Indoor}
+                      {category.sub_category}
                     </h2>
                     <p className="text-muted-foreground mt-2">
-                      Discover our {category.Indoor.toLowerCase()} collection
+                      Discover our {category.sub_category.toLowerCase()} collection
                     </p>
                   </div>
                 </div>
@@ -384,7 +382,7 @@ export default function Indoor() {
                 {/* Products Grid */}
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 xl:grid-cols-3 gap-6">
                   {categoriesWithProducts
-                    .filter(productType => productType.Indoor === category.Indoor)
+                    .filter(productType => productType.sub_category === category.sub_category)
                     .map((productType, typeIndex) => (
                       <motion.div
                         key={typeIndex}
@@ -393,9 +391,9 @@ export default function Indoor() {
                         transition={{ delay: typeIndex * 0.1 }}
                       >
                         <ProductCard
-                          title={productType['producttype']}
-                          description={`Explore our ${productType['producttype'].toLowerCase()} options`}
-                          link={`/indoor/${productType['producttype']}`}
+                          title={productType['product_name']}
+                          description={`Explore our ${productType['product_name'].toLowerCase()} options`}
+                          link={`/indoor/${encodeURIComponent(productType['product_name'])}`}
                           icon={<Lightbulb className="w-6 h-6" />}
                           gradient="from-blue-500 to-purple-600"
                           image={productType.sampleImage}
@@ -406,7 +404,7 @@ export default function Indoor() {
                 </div>
 
                 {/* Empty State */}
-                {categoriesWithProducts.filter(productType => productType.Indoor === category.Indoor).length === 0 && (
+                {categoriesWithProducts.filter(productType => productType.sub_category === category.sub_category).length === 0 && (
                   <div className="text-center py-12">
                     <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-muted flex items-center justify-center">
                       <Lightbulb className="w-8 h-8 text-muted-foreground" />

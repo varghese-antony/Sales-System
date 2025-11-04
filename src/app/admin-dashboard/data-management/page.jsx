@@ -69,16 +69,16 @@ import { useDebounce } from '@/hooks/useDebounce';
 import { useCache } from '@/hooks/useCache';
 import { useToast } from '@/contexts/ToastContext';
 import {
-  getProductsWithPaginationClient,
-  clearCacheClient,
-  createProductsClient,
-  updateProductClient,
-  deleteProductClient,
-  bulkDeleteProductsClient,
-  updateProductPricesClient,
-  bulkUpdateProductsClient,
-  bulkSetCategoryClient,
-  searchProductsClient
+  getProductsWithPaginationClientV2 as getProductsWithPaginationClient,
+  clearCacheClientV2 as clearCacheClient,
+  createProductsClientV2 as createProductsClient,
+  updateProductClientV2 as updateProductClient,
+  deleteProductClientV2 as deleteProductClient,
+  bulkDeleteProductsClientV2 as bulkDeleteProductsClient,
+  updateProductPricesClientV2 as updateProductPricesClient,
+  bulkUpdateProductsClientV2 as bulkUpdateProductsClient,
+  bulkSetCategoryClientV2 as bulkSetCategoryClient,
+  searchProductsClientV2 as searchProductsClient
 } from '@/lib/database/products-client';
 import {
   formatProductForExport,
@@ -91,11 +91,9 @@ import { StatsCardsSkeleton, DataTableSkeleton } from '@/components/DataTableSke
 
 const FALLBACK_EXPORT_PRODUCT = {
   type: 'indoor',
-  Indoor: '',
-  category: '',
-  producttype: '',
+  sub_category: '',
+  product_name: '',
   model_number: '',
-  name: '',
   description: '',
   Size: '',
   Mounting: '',
@@ -122,7 +120,7 @@ const FALLBACK_EXPORT_PRODUCT = {
   Warranty: '',
   lead_time: '',
   MOQ: '',
-  price_pc: '',
+  price_per_piece: '', // V2 field name
   cost_china_ddp_usa: '',
   cost_thailand_vietnam: '',
   Photo: '',
@@ -260,15 +258,16 @@ export default function DataManagementPage() {
       )
     },
     {
-      key: 'category',
+      key: 'sub_category',
       label: 'Category',
       sortable: true,
-      render: (_, row) => row[row.type === 'indoor' ? 'Indoor' : 'Outdoor'] || '-'
+      render: (value) => value || '-'
     },
     {
-      key: 'producttype',
+      key: 'product_name',
       label: 'Product Type',
-      sortable: true
+      sortable: true,
+      render: (value) => value || '-'
     },
     // Identification
     {
@@ -276,28 +275,17 @@ export default function DataManagementPage() {
       label: 'Model Number',
       sortable: true
     },
-    {
-      key: 'name',
-      label: 'Product Name',
-      sortable: true,
-      render: (value) => value || '-'
-    },
-    {
-      key: 'description',
-      label: 'Description',
-      sortable: true,
-      render: (value) => value ? value.slice(0, 120) + (value.length > 120 ? '…' : '') : '-'
-    },
+
 
     // Dimensions
     {
-      key: 'Size',
+      key: 'size',
       label: 'Size',
       sortable: true,
       render: (value) => value || '-'
     },
     {
-      key: 'Mounting',
+      key: 'mounting',
       label: 'Mounting',
       sortable: true,
       render: (value) => value || '-'
@@ -311,13 +299,13 @@ export default function DataManagementPage() {
       render: (value) => value || '-'
     },
     {
-      key: 'Voltage',
+      key: 'voltage',
       label: 'Voltage',
       sortable: true,
       render: (value) => value || '-'
     },
     {
-      key: 'CCT',
+      key: 'cct',
       label: 'CCT',
       sortable: true,
       render: (value) => value || '-'
@@ -329,33 +317,22 @@ export default function DataManagementPage() {
       render: (value) => value || '-'
     },
     {
-      key: 'Lumen',
+      key: 'lumen',
       label: 'Lumen',
       sortable: true,
       render: (value) => value || '-'
     },
     {
-      key: 'efficacy_lmw',
+      key: 'efficacy_lumen_per_w',
       label: 'Efficacy (lm/W)',
       sortable: true,
       render: (value) => value || '-'
     },
-    {
-      key: 'beam_angle',
-      label: 'Beam Angle',
-      sortable: true,
-      render: (value) => value || '-'
-    },
-    {
-      key: 'power_factor',
-      label: 'Power Factor',
-      sortable: true,
-      render: (value) => value || '-'
-    },
+
 
     // Features
     {
-      key: 'Dimming Type',
+      key: 'dimming_type',
       label: 'Dimming Type',
       sortable: true,
       render: (value) => value || '-'
@@ -364,16 +341,22 @@ export default function DataManagementPage() {
       key: 'emergency_backup_battery',
       label: 'Emergency Backup Battery',
       sortable: true,
-      render: (value) => value || '-'
+      render: (value) => {
+        if (value === null || value === undefined) return '-';
+        return value ? 'Yes' : 'No';
+      }
     },
     {
       key: 'plugin_sensor',
       label: 'Plug-in Sensor',
       sortable: true,
-      render: (value) => value || '-'
+      render: (value) => {
+        if (value === null || value === undefined) return '-';
+        return value ? 'Yes' : 'No';
+      }
     },
     {
-      key: 'sensor_microwave_bluetooth',
+      key: 'pir_microwave_bluetooth',
       label: 'Sensor / Microwave / Bluetooth',
       sortable: true,
       render: (value) => value || '-'
@@ -382,13 +365,19 @@ export default function DataManagementPage() {
       key: 'junction_cover',
       label: 'Junction Cover',
       sortable: true,
-      render: (value) => value || '-'
+      render: (value) => {
+        if (value === null || value === undefined) return '-';
+        return value ? 'Yes' : 'No';
+      }
     },
     {
       key: 'remote_control',
       label: 'Remote Control',
       sortable: true,
-      render: (value) => value || '-'
+      render: (value) => {
+        if (value === null || value === undefined) return '-';
+        return value ? 'Yes' : 'No';
+      }
     },
     {
       key: 'installation_kits',
@@ -403,33 +392,22 @@ export default function DataManagementPage() {
       render: (value) => value || '-'
     },
     {
-      key: 'Material Finish',
+      key: 'material_finish',
       label: 'Material Finish',
       sortable: true,
       render: (value) => value || '-'
     },
-    {
-      key: 'led_type',
-      label: 'LED Type',
-      sortable: true,
-      render: (value) => value || '-'
-    },
-    {
-      key: 'driver_brand',
-      label: 'Driver Brand',
-      sortable: true,
-      render: (value) => value || '-'
-    },
+
 
     // Certifications & Warranty
     {
-      key: 'Certifications',
+      key: 'certifications',
       label: 'Certifications',
       sortable: true,
       render: (value) => value || '-'
     },
     {
-      key: 'Warranty',
+      key: 'warranty',
       label: 'Warranty',
       sortable: true,
       render: (value) => value || '-'
@@ -443,13 +421,13 @@ export default function DataManagementPage() {
       render: (value) => value || '-'
     },
     {
-      key: 'MOQ',
+      key: 'moq',
       label: 'MOQ',
       sortable: true,
       render: (value) => value || '-'
     },
     {
-      key: 'price_pc',
+      key: 'price_per_piece',
       label: 'Price / PC',
       sortable: true,
       render: (value) => value ? `$${value}` : '-'
@@ -469,7 +447,7 @@ export default function DataManagementPage() {
 
     // Media & Documentation
     {
-      key: 'Photo',
+      key: 'photo',
       label: 'Photo URL',
       sortable: false,
       render: (value) => value ? (
@@ -490,17 +468,7 @@ export default function DataManagementPage() {
         </a>
       ) : '-'
     },
-    {
-      key: 'image_url',
-      label: 'Image URL',
-      sortable: false,
-      render: (value) => value ? (
-        <a href={value} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-primary hover:underline">
-          <ExternalLink className="h-4 w-4" />
-          View Image
-        </a>
-      ) : '-'
-    },
+
 
     // Outdoor Specific
     {
@@ -549,10 +517,9 @@ export default function DataManagementPage() {
   const exportFieldLabelMap = useMemo(() => {
     const baseMapping = {
       type: 'Type',
-      category: 'Category',
-      producttype: 'Product Type',
+      sub_category: 'Category',
+      product_name: 'Product Type',
       model_number: 'Model Number',
-      name: 'Product Name',
       description: 'Description',
       Size: 'Sizes',
       Mounting: 'Mounting',
@@ -579,7 +546,7 @@ export default function DataManagementPage() {
       Warranty: 'Warranty',
       lead_time: 'Lead Time',
       MOQ: 'MOQ',
-      price_pc: 'Price per piece',
+      price_per_piece: 'Price per piece',
       cost_china_ddp_usa: 'Cost China DDP USA',
       cost_thailand_vietnam: 'Cost Thailand/Vietnam',
       Photo: 'Photo',
@@ -1227,10 +1194,10 @@ export default function DataManagementPage() {
         if (result.error) throw result.error;
       }
 
-      // Update local state
+      // Update local state with v2 field name
       setProducts(prev => prev.map(p =>
         selectedRows.some(s => s.id === p.id)
-          ? { ...p, [p.type === 'indoor' ? 'Indoor' : 'Outdoor']: categoryValue }
+          ? { ...p, sub_category: categoryValue }
           : p
       ));
       setSelectedRows([]);
@@ -1495,7 +1462,7 @@ export default function DataManagementPage() {
   const stats = useMemo(() => {
     const indoorCount = countsByType.indoor || 0;
     const outdoorCount = countsByType.outdoor || 0;
-    const totalValue = products.reduce((sum, p) => sum + (parseFloat(p.price_pc) || 0), 0);
+    const totalValue = products.reduce((sum, p) => sum + (parseFloat(p.price_per_piece) || 0), 0);
 
     return {
       totalProducts: totalItems,

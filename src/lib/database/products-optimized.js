@@ -87,6 +87,14 @@ function getSupabaseClient() {
   return supabaseClient
 }
 
+// Helper function to get the correct table name (v2 tables)
+function getTableName(table) {
+  if (table === 'indoor') return 'indoor_products_v2'
+  if (table === 'outdoor') return 'outdoor_products_v2'
+  if (table === 'both') return 'both' // Special case handled separately
+  return table // Return as-is if already a full table name
+}
+
 function applyFiltersToQuery(query, table, filters = {}) {
   Object.entries(filters).forEach(([key, value]) => {
     if (value === null || value === undefined || value === '' || value === 'all') {
@@ -94,10 +102,10 @@ function applyFiltersToQuery(query, table, filters = {}) {
     }
 
     if (key === 'category') {
-      const categoryColumn = table === 'indoor' ? 'Indoor' : 'Outdoor'
-      query = query.eq(categoryColumn, value)
+      // V2 tables use 'sub_category' column
+      query = query.eq('sub_category', value)
     } else if (key === 'search') {
-      query = query.or(`model_number.ilike.%${value}%,producttype.ilike.%${value}%`)
+      query = query.or(`model_number.ilike.%${value}%,product_name.ilike.%${value}%,sub_category.ilike.%${value}%`)
     } else {
       const dbColumn = fieldMapping[key] || key
       query = query.eq(dbColumn, value)
@@ -131,8 +139,9 @@ function addValueToSet(value, targetSet) {
 }
 
 async function getTableCount(table, filters = {}) {
+  const tableName = getTableName(table)
   let query = getSupabaseClient()
-    .from(table)
+    .from(tableName)
     .select('*', { count: 'exact', head: true })
 
   query = applyFiltersToQuery(query, table, filters)
@@ -145,15 +154,16 @@ async function getTableCount(table, filters = {}) {
 }
 
 async function getFilterOptionsForTable(table, filters = {}) {
-  const categoryColumn = table === 'indoor' ? 'Indoor' : 'Outdoor'
+  const tableName = getTableName(table)
+  // V2 tables use 'sub_category' and 'product_name' columns
   const filterColumns = [
-    categoryColumn,
-    'producttype',
-    'Voltage',
+    'sub_category',
+    'product_name',
+    'voltage',
     'power_w',
-    'CCT',
+    'cct',
     'cri_ra',
-    'Dimming Type',
+    'dimming_type',
     'led_type',
     'driver_brand'
   ]
@@ -163,7 +173,7 @@ async function getFilterOptionsForTable(table, filters = {}) {
   }
 
   let query = getSupabaseClient()
-    .from(table)
+    .from(tableName)
     .select(filterColumns.map(formatColumnName).join(','))
 
   query = applyFiltersToQuery(query, table, filters)
@@ -187,13 +197,13 @@ async function getFilterOptionsForTable(table, filters = {}) {
   }
 
   data.forEach(row => {
-    addValueToSet(row[categoryColumn], options.categories)
-    addValueToSet(row.producttype, options.producttypes)
-    addValueToSet(row.Voltage, options.Voltage)
+    addValueToSet(row.sub_category, options.categories)
+    addValueToSet(row.product_name, options.producttypes)
+    addValueToSet(row.voltage, options.Voltage)
     addValueToSet(row.power_w, options.power_w)
-    addValueToSet(row.CCT, options.CCT)
+    addValueToSet(row.cct, options.CCT)
     addValueToSet(row.cri_ra, options.cri_ra)
-    addValueToSet(row['Dimming Type'], options.dimmingType)
+    addValueToSet(row.dimming_type, options.dimmingType)
     addValueToSet(row.led_type, options.led_type)
     addValueToSet(row.driver_brand, options.driver_brand)
 
@@ -220,8 +230,9 @@ async function getFilterOptionsForTable(table, filters = {}) {
 }
 
 async function fetchTableData(table, filters = {}, offset = 0, limit = 10) {
+  const tableName = getTableName(table)
   let query = getSupabaseClient()
-    .from(table)
+    .from(tableName)
     .select('*', { count: 'exact' })
 
   query = applyFiltersToQuery(query, table, filters)
@@ -251,20 +262,21 @@ export async function getProductTypesByCategory(type) {
       return cached
     }
 
-    const categoryColumn = type === 'indoor' ? 'Indoor' : 'Outdoor'
-    const { data, error } = await getSupabaseClient()
-      .from(type)
-      .select(`${formatColumnName(categoryColumn)},producttype`)
-      .not('producttype', 'is', null)
-      .not(formatColumnName(categoryColumn), 'is', null)
-      .order('producttype', { ascending: true })
+    const tableName = getTableName(type)
+    // V2 tables use 'sub_category' and 'product_name' columns
+    const { data, error} = await getSupabaseClient()
+      .from(tableName)
+      .select('sub_category,product_name')
+      .not('product_name', 'is', null)
+      .not('sub_category', 'is', null)
+      .order('product_name', { ascending: true })
 
     if (error) throw error
 
     // Group product types by category
     const groupedData = data.reduce((acc, item) => {
-      const category = item[categoryColumn]
-      const productType = item.producttype
+      const category = item.sub_category
+      const productType = item.product_name
 
       if (!acc[category]) {
         acc[category] = []
@@ -404,9 +416,10 @@ export async function bulkUpdateProductsBatch(table, updates) {
 
       // Execute updates for each field
       for (const [field, fieldUpdates] of Object.entries(updateGroups)) {
+        const tableName = getTableName(table)
         const ids = fieldUpdates.map(u => u.id)
         const { data, error } = await getSupabaseClient()
-          .from(table)
+          .from(tableName)
           .update({ [field]: fieldUpdates[0].value })
           .in('id', ids)
           .select()
@@ -446,8 +459,9 @@ export async function searchProductsOptimized(table, searchTerm, filters = {}) {
       'Size'
     ].map(formatColumnName).join(',')
 
+    const tableName = getTableName(table)
     let query = getSupabaseClient()
-      .from(table)
+      .from(tableName)
       .select(selectColumns)
 
     // Apply search
@@ -459,8 +473,8 @@ export async function searchProductsOptimized(table, searchTerm, filters = {}) {
     Object.entries(filters).forEach(([key, value]) => {
       if (value !== null && value !== undefined && value !== '') {
         if (key === 'category') {
-          const categoryColumn = table === 'indoor' ? 'Indoor' : 'Outdoor'
-          query = query.eq(formatColumnName(categoryColumn), value)
+          // V2 tables use 'sub_category' column
+          query = query.eq('sub_category', value)
         } else {
           const dbColumn = fieldMapping[key] || key
           query = query.eq(formatColumnName(dbColumn), value)
@@ -493,8 +507,9 @@ export async function getProductStats(table) {
       return cached
     }
 
+    const tableName = getTableName(table)
     const { data, error } = await getSupabaseClient()
-      .from(table)
+      .from(tableName)
       .select('producttype')
       .not('producttype', 'is', null)
 
@@ -502,7 +517,7 @@ export async function getProductStats(table) {
 
     // Calculate stats
     const stats = data.reduce((acc, item) => {
-      const type = item.producttype
+      const type = item.product_name
       acc[type] = (acc[type] || 0) + 1
       return acc
     }, {})
@@ -531,8 +546,9 @@ export async function createProductsBatch(products) {
     for (let i = 0; i < productsToInsert.length; i += batchSize) {
       const batch = productsToInsert.slice(i, i + batchSize)
 
+      const tableName = getTableName(table)
       const { data, error } = await getSupabaseClient()
-        .from(table)
+        .from(tableName)
         .insert(batch)
         .select()
 
@@ -553,8 +569,9 @@ export async function createProductsBatch(products) {
 // Get product by ID
 export async function getProductById(table, id) {
   try {
+    const tableName = getTableName(table)
     const { data, error } = await getSupabaseClient()
-      .from(table)
+      .from(tableName)
       .select('*')
       .eq('id', id)
       .single()
@@ -577,8 +594,9 @@ export async function createProducts(products) {
     // Remove the type field since it's determined by the table
     const productsToInsert = products.map(({ type, ...product }) => product)
 
+    const tableName = getTableName(table)
     const { data, error } = await getSupabaseClient()
-      .from(table)
+      .from(tableName)
       .insert(productsToInsert)
       .select()
 
@@ -601,8 +619,9 @@ export async function updateProduct(table, id, updateData) {
       mappedData[dbColumn] = value
     })
 
+    const tableName = getTableName(table)
     const { data, error } = await getSupabaseClient()
-      .from(table)
+      .from(tableName)
       .update(mappedData)
       .eq('id', id)
       .select()
@@ -619,8 +638,9 @@ export async function updateProduct(table, id, updateData) {
 // Delete single product
 export async function deleteProduct(table, id) {
   try {
+    const tableName = getTableName(table)
     const { data, error } = await getSupabaseClient()
-      .from(table)
+      .from(tableName)
       .delete()
       .eq('id', id)
 
@@ -636,8 +656,9 @@ export async function deleteProduct(table, id) {
 // Bulk delete multiple products
 export async function bulkDeleteProducts(table, ids) {
   try {
+    const tableName = getTableName(table)
     const { data, error } = await getSupabaseClient()
-      .from(table)
+      .from(tableName)
       .delete()
       .in('id', ids)
 
@@ -658,8 +679,9 @@ export async function updateProductPrices(priceUpdates) {
     for (const update of priceUpdates) {
       const { id, price, type } = update
 
+      const tableName = getTableName(type)
       const { data, error } = await getSupabaseClient()
-        .from(type)
+        .from(tableName)
         .update({ price_pc: price })
         .eq('id', id)
         .select()
@@ -684,8 +706,9 @@ export async function bulkUpdateProducts(table, ids, updateData) {
       mappedData[dbColumn] = value
     })
 
+    const tableName = getTableName(table)
     const { data, error } = await getSupabaseClient()
-      .from(table)
+      .from(tableName)
       .update(mappedData)
       .in('id', ids)
       .select()
@@ -702,11 +725,12 @@ export async function bulkUpdateProducts(table, ids, updateData) {
 // Bulk set category for multiple products
 export async function bulkSetCategory(table, ids, categoryValue) {
   try {
-    const categoryColumn = table === 'indoor' ? 'Indoor' : 'Outdoor'
-    const updateData = { [categoryColumn]: categoryValue }
+    // V2 tables use 'sub_category' column
+    const updateData = { sub_category: categoryValue }
 
+    const tableName = getTableName(table)
     const { data, error } = await getSupabaseClient()
-      .from(table)
+      .from(tableName)
       .update(updateData)
       .in('id', ids)
       .select()
@@ -733,8 +757,9 @@ export async function searchProducts(table, searchTerm) {
       'Size'
     ].map(formatColumnName).join(',')
 
+    const tableName = getTableName(table)
     const { data, error } = await getSupabaseClient()
-      .from(table)
+      .from(tableName)
       .select(selectColumns)
       .or(`model_number.ilike.%${searchTerm}%,producttype.ilike.%${searchTerm}%`)
     if (error) throw error

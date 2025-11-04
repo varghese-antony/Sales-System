@@ -168,6 +168,26 @@ DROP POLICY IF EXISTS "Anyone can insert enquiries" ON public.enquiries;
 CREATE POLICY "Anyone can insert enquiries" ON public.enquiries
   FOR INSERT WITH CHECK (true);
 
+-- Admins can delete enquiries
+DROP POLICY IF EXISTS "Admins can delete all enquiries" ON public.enquiries;
+CREATE POLICY "Admins can delete all enquiries" ON public.enquiries
+  FOR DELETE USING (
+    EXISTS (
+      SELECT 1 FROM public.profiles
+      WHERE id = auth.uid() AND user_type = 'admin'
+    )
+  );
+
+-- Super admins can delete enquiries
+DROP POLICY IF EXISTS "Super admins can delete all enquiries" ON public.enquiries;
+CREATE POLICY "Super admins can delete all enquiries" ON public.enquiries
+  FOR DELETE USING (
+    EXISTS (
+      SELECT 1 FROM public.profiles
+      WHERE id = auth.uid() AND user_type = 'super_admin'
+    )
+  );
+
 -- ============================================================================
 -- Enquiry management enhancements
 -- ============================================================================

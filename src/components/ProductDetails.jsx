@@ -38,13 +38,15 @@ export function ProductDetails({ product, onBack }) {
   }, [product, reverseFieldMapping])
 
   const optimizedImageUrl = useMemo(() => {
-    const imageFields = ['image', 'image_url', 'thumbnail', 'Photo'];
+    // Check for image fields in order of priority (v2 tables use 'photo')
+    const imageFields = ['photo', 'Photo', 'image', 'image_url', 'thumbnail'];
     for (const field of imageFields) {
       if (product[field]) {
         return getOptimizedImageUrl(product[field]);
       }
     }
-    return null;
+    // Return placeholder if no image found
+    return '/placeholder-product.svg';
   }, [product]);
 
   // Handle ESC key to close modal
@@ -74,29 +76,31 @@ export function ProductDetails({ product, onBack }) {
     setQuantity(newQuantity)
   }
   
-  const excludedKeys = ['MOQ', 'cost_china_ddp_usa', 'cost_thailand_vietnam', 'cut_sheet', 'Photo', 'lead_time', 'Warranty', 'id', 'Indoor', 'Outdoor', 'price_pc']
-  const productKeys = Object.keys(mappedProduct).filter(key => !excludedKeys.includes(key))
+  const excludedKeys = ['moq', 'cost_china_ddp_usa', 'cost_thailand_vietnam', 'cut_sheet', 'photo', 'lead_time', 'warranty', 'id', 'created_at', 'updated_at', 'price_per_piece']
+  const productKeys = Object.keys(product).filter(key => !excludedKeys.includes(key))
   
-  // Key specifications to highlight (using frontend field names)
-  const keySpecs = ['model_number', 'sizes', 'powerW', 'voltage', 'cct', 'lumen', 'materialFinish']
-  const highlightedSpecs = keySpecs.filter(key => mappedProduct[key]).slice(0, 6)
+  // Key specifications to highlight
+  const keySpecs = ['model_number', 'size', 'power_w', 'voltage', 'cct', 'lumen', 'material_finish']
+  const highlightedSpecs = keySpecs.filter(key => product[key]).slice(0, 6)
   
   const getKeyIcon = (key) => {
     if (key.toLowerCase().includes('power') || key.toLowerCase().includes('watt') || key.toLowerCase().includes('voltage')) return <Zap className="w-4 h-4" />
     if (key.toLowerCase().includes('certification')) return <Award className="w-4 h-4" />
     if (key.toLowerCase().includes('warranty') || key.toLowerCase().includes('backup')) return <Shield className="w-4 h-4" />
-    if (key.toLowerCase().includes('dimming') || key.toLowerCase().includes('sensor') || key.toLowerCase().includes('remote')) return <Settings className="w-4 h-4" />
+    if (key.toLowerCase().includes('dimming') || key.toLowerCase().includes('sensor') || key.toLowerCase().includes('remote') || key.toLowerCase().includes('control')) return <Settings className="w-4 h-4" />
     return <Info className="w-4 h-4" />
   }
 
   const getKeyCategory = (key) => {
-    const powerKeys = ['powerW', 'voltage', 'efficacyLmw', 'lumen']
-    const designKeys = ['modelNumber', 'sizes', 'materialFinish', 'mounting', 'cct', 'criRa']
-    const featureKeys = ['dimmingType', 'sensorMicrowaveBluetooth', 'remoteControl', 'emergencyBackupBattery', 'pluginSensor', 'junctionCover', 'adjustmentDial']
-    const certKeys = ['certifications', 'installationKits']
+    const powerKeys = ['power_w', 'voltage', 'efficacy_lumen_per_w', 'lumen']
+    const designKeys = ['model_number', 'size', 'material_finish', 'mounting', 'cct', 'cri_ra', 'sub_category', 'product_name', 'ip_rating']
+    const sensorKeys = ['sensors_and_controls', 'pir_microwave_bluetooth', 'remote_control', 'emergency_backup_battery', 'plugin_sensor']
+    const featureKeys = ['dimming_type', 'junction_cover', 'adjustment_dial', 'installation_kits']
+    const certKeys = ['certifications']
 
     if (powerKeys.includes(key)) return 'power'
     if (designKeys.includes(key)) return 'design'
+    if (sensorKeys.includes(key)) return 'sensors'
     if (featureKeys.includes(key)) return 'features'
     if (certKeys.includes(key)) return 'certification'
     return 'general'
@@ -113,10 +117,16 @@ export function ProductDetails({ product, onBack }) {
   const categoryTitles = {
     power: 'Power & Performance',
     design: 'Design & Specifications',
+    sensors: 'Sensors & Controls',
     features: 'Smart Features',
     certification: 'Certifications & Installation',
-    general: 'Additional Information',
-    pricing: 'Pricing & Availability'
+    general: 'Additional Information'
+  }
+
+  const formatFieldName = (key) => {
+    return key
+      .replace(/_/g, ' ')
+      .replace(/\b\w/g, l => l.toUpperCase())
   }
 
   return (
@@ -171,49 +181,52 @@ export function ProductDetails({ product, onBack }) {
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           {/* Left Column - Image & Key Specs */}
           <div className="lg:col-span-1 space-y-6">
-            {/* Product Image */}
-            {optimizedImageUrl && (
-              <Card className="overflow-hidden">
-                <CardContent className="p-0">
-                  <div 
-                    className="relative aspect-square group cursor-pointer"
-                    onClick={() => setIsImageModalOpen(true)}
-                  >
-                    <ImageWithLoading
-                      src={optimizedImageUrl}
-                      alt={product['producttype'] || 'Product Image'}
-                      className="w-full h-full object-contain transition-transform duration-300 group-hover:scale-105"
-                      containerClassName="w-full h-full"
-                    />
-                    <div className="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none" />
-                    <div className="absolute top-4 right-4 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
-                      <div className="p-2 rounded-full bg-white/90 backdrop-blur-sm shadow-lg">
-                        <ZoomIn className="w-4 h-4 text-gray-700" />
-                      </div>
-                    </div>
-                    <div className="absolute bottom-4 left-4 right-4 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
-                      <div className="p-2 rounded-lg bg-black/50 backdrop-blur-sm">
-                        <p className="text-white text-xs text-center">Click to view full size</p>
-                      </div>
+            {/* Product Image - Always show */}
+            <Card className="overflow-hidden">
+              <CardContent className="p-0">
+                <div 
+                  className="relative aspect-square group cursor-pointer bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-800"
+                  onClick={() => setIsImageModalOpen(true)}
+                >
+                  <ImageWithLoading
+                    src={optimizedImageUrl}
+                    alt={product['product_name'] || product['producttype'] || 'Product Image'}
+                    className="w-full h-full object-contain transition-transform duration-300 group-hover:scale-105 p-4"
+                    containerClassName="w-full h-full"
+                  />
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none" />
+                  <div className="absolute top-4 right-4 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
+                    <div className="p-2 rounded-full bg-white/90 backdrop-blur-sm shadow-lg">
+                      <ZoomIn className="w-4 h-4 text-gray-700" />
                     </div>
                   </div>
-                </CardContent>
-              </Card>
-            )}
+                  <div className="absolute bottom-4 left-4 right-4 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
+                    <div className="p-2 rounded-lg bg-black/50 backdrop-blur-sm">
+                      <p className="text-white text-xs text-center">Click to view full size</p>
+                    </div>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
 
             {/* Product Title */}
             <div>
               <h1 className="text-2xl font-bold mb-2">
-                {product['producttype'] || 'Lighting Product'}
+                {product['product_name'] || product['producttype'] || 'Lighting Product'}
               </h1>
+              {product['model_number'] && (
+                <p className="text-sm text-muted-foreground mb-2">
+                  Model: {product['model_number']}
+                </p>
+              )}
               <div className="flex flex-wrap gap-2">
-                {product['Indoor'] && (
-                  <Badge variant="secondary">{product['Indoor']}</Badge>
+                {product['sub_category'] && (
+                  <Badge variant="secondary">{product['sub_category']}</Badge>
                 )}
-                {product['Outdoor'] && (
-                  <Badge variant="secondary">{product['Outdoor']}</Badge>
+                {product['sensors_and_controls'] && (
+                  <Badge variant="outline">{product['sensors_and_controls']}</Badge>
                 )}
-                {optimizedImageUrl && (
+                {optimizedImageUrl && optimizedImageUrl !== '/placeholder-product.svg' && (
                   <Badge variant="outline" className="flex items-center gap-1">
                     <ImageIcon className="w-3 h-3" />
                     Image Available
@@ -230,7 +243,7 @@ export function ProductDetails({ product, onBack }) {
               <CardContent className="space-y-3">
                 {highlightedSpecs.map((key) => (
                   <div key={key} className="flex justify-between items-center py-2 border-b border-border/50 last:border-b-0">
-                    <span className="text-sm font-medium text-muted-foreground">{key}</span>
+                    <span className="text-sm font-medium text-muted-foreground">{formatFieldName(key)}</span>
                     <span className="text-sm font-semibold">{product[key]}</span>
                   </div>
                 ))}
@@ -286,9 +299,15 @@ export function ProductDetails({ product, onBack }) {
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     {keys.map((key) => (
                       <div key={key} className="flex flex-col space-y-1">
-                        <span className="text-sm font-medium text-muted-foreground">{key}</span>
+                        <span className="text-sm font-medium text-muted-foreground">{formatFieldName(key)}</span>
                         <span className="text-sm font-semibold">
-                          {mappedProduct[key] || (
+                          {product[key] !== null && product[key] !== undefined && product[key] !== '' ? (
+                            typeof product[key] === 'boolean' ? (
+                              product[key] ? 'Yes' : 'No'
+                            ) : (
+                              product[key].toString()
+                            )
+                          ) : (
                             <span className="text-muted-foreground italic">Not specified</span>
                           )}
                         </span>

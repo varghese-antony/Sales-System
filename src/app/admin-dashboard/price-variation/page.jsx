@@ -1,14 +1,13 @@
 "use client";
 
 import { useState, useEffect } from 'react';
-import { getAllProducts, updateProductPrices, getDistinctProductTypes } from '@/lib/database/products';
+import { getAllProductsV2, updateProductPricesV2, getDistinctProductTypesV2 } from '@/lib/database/products-v2';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { LoadingSpinner } from '@/components/ui/loading';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Progress } from '@/components/ui/progress';
 import {
   ArrowLeft,
   ArrowRight,
@@ -43,19 +42,17 @@ export default function PriceVariationPage() {
   const [currentFieldIndex, setCurrentFieldIndex] = useState(0);
   const [updatedProductsCount, setUpdatedProductsCount] = useState(0);
 
-  // Field configuration
+  // Field configuration - updated to use v2 database column names
   const pricingFields = [
     { key: 'power_w', label: 'Power (W)', dbColumn: 'power_w' },
-    { key: 'Voltage', label: 'Voltage', dbColumn: 'Voltage' },
-    { key: 'CCT', label: 'CCT (K)', dbColumn: 'CCT' },
+    { key: 'voltage', label: 'Voltage', dbColumn: 'voltage' },
+    { key: 'cct', label: 'CCT (K)', dbColumn: 'cct' },
     { key: 'cri_ra', label: 'CRI (Ra)', dbColumn: 'cri_ra' },
-    { key: 'Lumen', label: 'Lumen', dbColumn: 'Lumen' },
-    { key: 'efficacy_lmw', label: 'Beam Angle', dbColumn: 'efficacy_lmw' },
-    { key: 'Power Factor', label: 'Power Factor', dbColumn: 'Power Factor' },
-    { key: 'Dimmable', label: 'Dimmable', dbColumn: 'Dimmable' },
-    { key: 'Material Finish', label: 'Finish', dbColumn: 'material_finish' },
-    { key: 'led_type', label: 'LED Type', dbColumn: 'led_type' },
-    { key: 'Driver Brand', label: 'Driver Brand', dbColumn: 'driver_brand' },
+    { key: 'lumen', label: 'Lumen', dbColumn: 'lumen' },
+    { key: 'efficacy_lumen_per_w', label: 'Efficacy (lm/W)', dbColumn: 'efficacy_lumen_per_w' },
+    { key: 'dimming_type', label: 'Dimming Type', dbColumn: 'dimming_type' },
+    { key: 'material_finish', label: 'Material Finish', dbColumn: 'material_finish' },
+    { key: 'mounting', label: 'Mounting', dbColumn: 'mounting' },
     { key: 'adjustment_dial', label: 'Adjustment Dial', dbColumn: 'adjustment_dial' },
     { key: 'certifications', label: 'Certifications', dbColumn: 'certifications' }
   ];
@@ -76,9 +73,9 @@ export default function PriceVariationPage() {
 
       const allProducts = [...indoorProducts, ...outdoorProducts];
 
-      // Filter products without prices
+      // Filter products without prices (using v2 field name: price_per_piece)
       const productsWithoutPrices = allProducts.filter(product =>
-        !product.price_pc || product.price_pc.trim() === ''
+        !product.price_per_piece || product.price_per_piece.trim() === ''
       );
 
       setProducts(allProducts);
@@ -94,13 +91,13 @@ export default function PriceVariationPage() {
 
   const fetchProductsByTable = async (table) => {
     try {
-      const { data: productTypes, error: typesError } = await getDistinctProductTypes(table);
+      const { data: productTypes, error: typesError } = await getDistinctProductTypesV2(table);
       if (typesError) throw typesError;
 
       const allProducts = [];
       for (const productType of productTypes || []) {
-        const { data: products, error } = await getAllProducts(table, {
-          producttype: productType.producttype
+        const { data: products, error } = await getAllProductsV2(table, {
+          productName: productType.product_name
         });
         if (!error && products) {
           allProducts.push(...products.map(p => ({ ...p, type: table })));
@@ -118,7 +115,7 @@ export default function PriceVariationPage() {
     setSelectedProductType('');
 
     try {
-      const { data: productTypes, error } = await getDistinctProductTypes(type);
+      const { data: productTypes, error } = await getDistinctProductTypesV2(type);
       if (!error) {
         setAvailableProductTypes(productTypes || []);
       }
@@ -130,11 +127,11 @@ export default function PriceVariationPage() {
   const handleProductTypeSelection = (productType) => {
     setSelectedProductType(productType);
 
-    // Filter products based on selections
+    // Filter products based on selections (using v2 field names)
     let filtered = products.filter(product =>
       (!selectedType || product.type === selectedType) &&
-      (!productType || product.producttype === productType) &&
-      (!product.price_pc || product.price_pc.trim() === '')
+      (!productType || product.product_name === productType) &&
+      (!product.price_per_piece || product.price_per_piece.trim() === '')
     );
 
     setFilteredProducts(filtered);
@@ -214,7 +211,7 @@ export default function PriceVariationPage() {
 
     try {
       setLoading(true);
-      const { results, error } = await updateProductPrices(priceVariations);
+      const { results, error } = await updateProductPricesV2(priceVariations);
 
       if (error) throw error;
 
@@ -225,10 +222,10 @@ export default function PriceVariationPage() {
         // Store the count before clearing
         setUpdatedProductsCount(successful);
 
-        // Update local state
+        // Update local state (using v2 field name: price_per_piece)
         setProducts(prev => prev.map(p => {
           const update = priceVariations.find(u => u.id === p.id);
-          return update ? { ...p, price_pc: update.price } : p;
+          return update ? { ...p, price_per_piece: update.price } : p;
         }));
 
         setFilteredProducts([]);
@@ -723,7 +720,7 @@ export default function PriceVariationPage() {
                             <div key={index} className="flex justify-between items-start p-2 sm:p-3 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded">
                               <div className="flex-1">
                                 <div className="font-medium text-foreground">
-                                  {product.producttype} - {product.model_number}
+                                  {product.product_name} - {product.model_number}
                                 </div>
                                 {variations.length > 0 && (
                                   <div className="text-xs text-gray-600 dark:text-gray-400 mt-1">

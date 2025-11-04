@@ -48,8 +48,8 @@ export function CategoryNavigation({ type, categories, categoriesWithProducts, i
     }
     
     const categoryData = productTypes.find(item => {
-      const categoryColumn = type === 'indoor' ? 'Indoor' : 'Outdoor'
-      return item[categoryColumn] === categoryName
+      // V2 tables use 'sub_category' column
+      return item.sub_category === categoryName
     })
     
     console.log('CategoryNavigation - Found category data for', categoryName, ':', categoryData)

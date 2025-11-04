@@ -31,7 +31,8 @@ export function ProductCard({
   // Determine image source based on variant
   let optimizedImageUrl = null;
   if (variant === "product" && product) {
-    const productImage = product.Photo || product.image_url;
+    // Check for image fields in order of priority (v2 tables use 'photo')
+    const productImage = product.photo || product.Photo || product.image || product.image_url || product.thumbnail;
     optimizedImageUrl = productImage ? getOptimizedImageUrl(productImage) : null;
   } else if (image) {
     optimizedImageUrl = getOptimizedImageUrl(image);

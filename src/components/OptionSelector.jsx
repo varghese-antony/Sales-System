@@ -76,12 +76,21 @@ export function OptionSelector({
   }
 
   const getProductImage = (value) => {
+    // Find a product that matches this option value and has an image
+    const normalizedValue = norm(value);
     const match = products.find(p => {
-      // Check if product matches the option value and has any image field
-      const imageFields = ['image', 'image_url', 'thumbnail', 'Photo'];
-      return p[title] === value && imageFields.some(field => p[field]);
+      const productValue = norm(p[title]);
+      if (productValue !== normalizedValue) return false;
+      
+      // Check if product has any image field
+      const imageFields = ['photo', 'Photo', 'image', 'image_url', 'thumbnail'];
+      return imageFields.some(field => p[field]);
     });
-    return match?.image || match?.image_url || match?.thumbnail || match?.Photo || null;
+    
+    if (!match) return null;
+    
+    // Return the first available image
+    return match.photo || match.Photo || match.image || match.image_url || match.thumbnail || null;
   };
 
   const modelMap = useMemo(() => {

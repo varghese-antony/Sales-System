@@ -97,3 +97,54 @@ export async function GET(request) {
     );
   }
 }
+
+export async function DELETE(request) {
+  try {
+    const { searchParams } = new URL(request.url);
+    const id = searchParams.get('id');
+
+    if (!id) {
+      return NextResponse.json(
+        { error: 'Enquiry ID is required' },
+        { status: 400 }
+      );
+    }
+
+    // First delete related notes
+    const { error: notesError } = await supabase
+      .from('enquiry_notes')
+      .delete()
+      .eq('enquiry_id', id);
+
+    // Don't throw if notes deletion fails (notes might not exist)
+    if (notesError) {
+      console.warn('Warning deleting enquiry notes:', notesError);
+    }
+
+    // Then delete the enquiry
+    const { error } = await supabase
+      .from('enquiries')
+      .delete()
+      .eq('id', id);
+
+    if (error) {
+      console.error('Supabase error:', error);
+      return NextResponse.json(
+        { error: 'Failed to delete enquiry' },
+        { status: 500 }
+      );
+    }
+
+    return NextResponse.json({
+      success: true,
+      message: 'Enquiry deleted successfully'
+    });
+
+  } catch (error) {
+    console.error('API error:', error);
+    return NextResponse.json(
+      { error: 'Internal server error' },
+      { status: 500 }
+    );
+  }
+}

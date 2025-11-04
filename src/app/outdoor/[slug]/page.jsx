@@ -1,8 +1,7 @@
 "use client"
-import React from 'react'
-import { useState, useEffect } from 'react'
-import { getProductsByType } from '@/lib/database/products'
+import React, { useState, useEffect } from 'react'
 import { motion } from "framer-motion"
+import { DynamicSensorSelector } from "@/components/DynamicSensorSelector"
 import { OptionSelector } from "@/components/OptionSelector"
 import { ProductDetails } from "@/components/ProductDetails"
 import { LoadingSpinner } from "@/components/ui/loading"
@@ -11,150 +10,119 @@ import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Sun, Home, ArrowLeft, RotateCcw } from "lucide-react"
 import Link from "next/link"
-
+import { getAllProductsV2 } from '@/lib/database/products-v2'
+import { slugToProductName } from '@/lib/utils/slug'
 
 export default function OutdoorProductPage({ params }) {
-  const { slug } = params;
+  const { slug } = params
   
   const [products, setProducts] = useState([])
+  const [sensorSelection, setSensorSelection] = useState(null)
   const [selectedFilters, setSelectedFilters] = useState({})
   const [currentStep, setCurrentStep] = useState(0)
   const [finalProduct, setFinalProduct] = useState(null)
-  const [isSidebarOpen, setIsSidebarOpen] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState(null)
 
-
-  const productType = decodeURIComponent(slug).replace(/%20/g, ' ')
+  const productType = slugToProductName(slug)
 
   const desiredKeys = [
-    'Size', 'power_w', 'Voltage', 'CCT', 'cri_ra', 'Lumen','efficacy_lmw',
-    'Dimming Type', 'Material Finish', 'sensor_microwave_bluetooth', 'plugin_sensor',
-    'emergency_backup_battery', 'junction_cover', 'remote_control', 'Mounting',
-    'installation_kits', 'adjustment_dial', 'Certifications'
+    'size', 'power_w', 'voltage', 'cct', 'cri_ra', 'lumen', 'efficacy_lumen_per_w',
+    'dimming_type', 'material_finish', 'mounting', 'installation_kits', 
+    'adjustment_dial', 'certifications', 'ip_rating'
   ]
 
-  const keyDescriptions = {
-    'Size': 'Choose the dimensions that fit your outdoor space perfectly',
-    'power_w': 'Select the power consumption for optimal energy efficiency',
-    'Voltage': 'Pick the voltage compatible with your outdoor electrical system',
-    'CCT': 'Choose the color temperature for the desired outdoor ambiance',
-    'cri_ra': 'Select the color rendering index for accurate outdoor color representation',
-    'Lumen': 'Pick the brightness level suitable for your outdoor application',
-    'efficacy_lmw': 'Choose the energy efficiency rating for outdoor use',
-    'Dimming Type': 'Select your preferred outdoor dimming control method',
-    'Material Finish': 'Choose the weather-resistant finish for your outdoor environment',
-    'Mounting': 'Select the outdoor installation method that works for your space'
-  }
-
-  useEffect(() => {
-    fetchInitialProducts()
-  }, [])
-
-  const fetchData = async (type, productType, filters = {}) => {
-    try {
-      const { data, error } = await getProductsByType(type, productType, { filters })
-      if (error) throw error
-      return Array.isArray(data) ? data : []
-    } catch (error) {
-      console.error('Error fetching data:', error)
-      throw error
-    }
-  }
-
-  const buildSupabaseFilters = (filters) => {
-    // Convert frontend filter names to database column names
-    const columnMapping = {
-      'Size': 'Size',
-      'Power (W)': 'power_w',
-      'Voltage': 'Voltage',
-      'CCT': 'CCT',
-      'CRI/RA': 'cri_ra',
-      'Lumen': 'Lumen',
-      'Efficacy (lm/W)': 'efficacy_lmw',
-      'Dimming Type': 'Dimming Type',
-      'Material Finish': 'Material Finish',
-      'Sensor(Microwave/Bluetooth)': 'sensor_microwave_bluetooth',
-      'Plug-in Sensor': 'plugin_sensor',
-      'Eme. Backup-Battery': 'emergency_backup_battery',
-      'Junction Cover': 'junction_cover',
-      'Remote Control': 'remote_control',
-      'Mounting': 'Mounting',
-      'Installation Kits': 'installation_kits',
-      'Adjustment Dial': 'adjustment_dial',
-      'Certifications': 'Certifications'
-    }
-
-    // Convert the filters object to use database column names
-    const supabaseFilters = {}
-    Object.entries(filters).forEach(([key, value]) => {
-      const dbColumn = columnMapping[key] || key
-      supabaseFilters[dbColumn] = value
-    })
-
-    return supabaseFilters
-  }
-
-  const fetchInitialProducts = async () => {
+  const handleSensorSelection = async (selection) => {
+    setSensorSelection(selection)
     setIsLoading(true)
     setError(null)
+
     try {
-      const data = await fetchData('outdoor', productType)
-      setProducts(data)
-      if (data.length === 0) {
-        setError('No products found for this category.')
+      const filters = {
+        productName: productType
       }
-    } catch (error) {
-      console.error('Error:', error)
+
+      // Only filter by sensors if user selected actual sensor types (not "None")
+      if (selection.sensorsAndControls !== 'None') {
+        filters.sensorsAndControls = selection.sensorsAndControls
+      }
+      if (selection.sensorType !== 'None') {
+        filters.pirMicrowaveBluetooth = selection.sensorType
+      }
+
+      // Only add optional features if they are explicitly true
+      if (selection.remoteControl) {
+        filters.remoteControl = selection.remoteControl
+      }
+      if (selection.emergencyBackupBattery) {
+        filters.emergencyBackupBattery = selection.emergencyBackupBattery
+      }
+      if (selection.pluginSensor) {
+        filters.pluginSensor = selection.pluginSensor
+      }
+
+      const { data, error: fetchError } = await getAllProductsV2('outdoor', filters)
+      
+      if (fetchError) throw new Error(fetchError)
+      
+      if (data && data.length > 0) {
+        setProducts(data)
+      } else {
+        setError('No products found matching your sensor configuration.')
+      }
+    } catch (err) {
       setError('Failed to load products. Please try again.')
-      setProducts([])
+    } finally {
+      setIsLoading(false)
     }
-    setIsLoading(false)
   }
 
   const filterProducts = async (key, value) => {
     setIsLoading(true)
     setError(null)
-    
-    // Convert database column name back to frontend name for filtering
-    const reverseColumnMapping = {
-      'Size': 'Size',
-      'power_w': 'Power (W)',
-      'Voltage': 'Voltage',
-      'CCT': 'CCT',
-      'cri_ra': 'CRI/RA',
-      'Lumen': 'Lumen',
-      'efficacy_lmw': 'Efficacy (lm/W)',
-      'Dimming Type': 'Dimming Type',
-      'Material Finish': 'Material Finish',
-      'sensor_microwave_bluetooth': 'Sensor(Microwave/Bluetooth)',
-      'plugin_sensor': 'Plug-in Sensor',
-      'emergency_backup_battery': 'Eme. Backup-Battery',
-      'junction_cover': 'Junction Cover',
-      'remote_control': 'Remote Control',
-      'Mounting': 'Mounting',
-      'installation_kits': 'Installation Kits',
-      'adjustment_dial': 'Adjustment Dial',
-      'Certifications': 'Certifications'
-    }
-    
-    const frontendKey = reverseColumnMapping[key] || key
-    const newFilters = { ...selectedFilters, [frontendKey]: value }
+
+    const newFilters = { ...selectedFilters, [key]: value }
     setSelectedFilters(newFilters)
-    
+
     try {
-      const filtered = await fetchData('outdoor', productType, buildSupabaseFilters(newFilters))
-      if (filtered.length === 1) {
-        setFinalProduct(filtered[0])
-      } else if (filtered.length === 0) {
-        setError('No products match your current selection. Please try different options.')
-        setProducts([])
-      } else {
-        setProducts(filtered)
-        setCurrentStep(prev => prev + 1)
+      const allFilters = {
+        productName: productType,
+        ...newFilters
       }
-    } catch (error) {
-      console.error('Error:', error)
+
+      // Only filter by sensors if user selected actual sensor types (not "None")
+      if (sensorSelection.sensorsAndControls !== 'None') {
+        allFilters.sensorsAndControls = sensorSelection.sensorsAndControls
+      }
+      if (sensorSelection.sensorType !== 'None') {
+        allFilters.pirMicrowaveBluetooth = sensorSelection.sensorType
+      }
+
+      // Only add optional features if they are explicitly true
+      if (sensorSelection.remoteControl) {
+        allFilters.remoteControl = sensorSelection.remoteControl
+      }
+      if (sensorSelection.emergencyBackupBattery) {
+        allFilters.emergencyBackupBattery = sensorSelection.emergencyBackupBattery
+      }
+      if (sensorSelection.pluginSensor) {
+        allFilters.pluginSensor = sensorSelection.pluginSensor
+      }
+
+      const { data, error: fetchError } = await getAllProductsV2('outdoor', allFilters)
+      
+      if (fetchError) throw new Error(fetchError)
+
+      if (data && data.length === 1) {
+        setFinalProduct(data[0])
+      } else if (data && data.length > 0) {
+        setProducts(data)
+        setCurrentStep(prev => prev + 1)
+      } else {
+        setError('No products match your selection. Please try different options.')
+        setProducts([])
+      }
+    } catch (err) {
       setError('Failed to filter products. Please try again.')
     } finally {
       setIsLoading(false)
@@ -162,74 +130,42 @@ export default function OutdoorProductPage({ params }) {
   }
 
   const resetSelection = () => {
+    setSensorSelection(null)
     setSelectedFilters({})
     setCurrentStep(0)
     setFinalProduct(null)
+    setProducts([])
     setError(null)
-    fetchInitialProducts()
   }
 
-  const goBack = async () => {
+  const goBack = () => {
     if (finalProduct) {
       setFinalProduct(null)
       return
     }
-    
+
     if (currentStep > 0) {
       const newStep = currentStep - 1
       const newFilters = { ...selectedFilters }
       const currentKey = desiredKeys[currentStep]
-      
-      // Convert database column name back to frontend name for removal
-      const reverseColumnMapping = {
-        'Size': 'Size',
-        'power_w': 'Power (W)',
-        'Voltage': 'Voltage',
-        'CCT': 'CCT',
-        'cri_ra': 'CRI/RA',
-        'Lumen': 'Lumen',
-        'efficacy_lmw': 'Efficacy (lm/W)',
-        'Dimming Type': 'Dimming Type',
-        'Material Finish': 'Material Finish',
-        'sensor_microwave_bluetooth': 'Sensor(Microwave/Bluetooth)',
-        'plugin_sensor': 'Plug-in Sensor',
-        'emergency_backup_battery': 'Eme. Backup-Battery',
-        'junction_cover': 'Junction Cover',
-        'remote_control': 'Remote Control',
-        'Mounting': 'Mounting',
-        'installation_kits': 'Installation Kits',
-        'adjustment_dial': 'Adjustment Dial',
-        'Certifications': 'Certifications'
-      }
-      
-      const frontendKey = reverseColumnMapping[currentKey] || currentKey
-      delete newFilters[frontendKey]
+      delete newFilters[currentKey]
       
       setSelectedFilters(newFilters)
       setCurrentStep(newStep)
       setError(null)
       
-      // Refetch with previous filters
-      if (Object.keys(newFilters).length === 0) {
-        fetchInitialProducts()
-      } else {
-        try {
-          const filtered = await fetchData('outdoor', productType, buildSupabaseFilters(newFilters))
-          setProducts(filtered)
-        } catch (error) {
-          console.error('Error:', error)
-        }
-      }
+      handleSensorSelection(sensorSelection)
+    } else {
+      setSensorSelection(null)
+      setProducts([])
     }
   }
 
-  // Show final product details
   if (finalProduct) {
     return <ProductDetails product={finalProduct} onBack={goBack} />
   }
 
-  // Show loading state
-  if (isLoading && products.length === 0 && currentStep === 0) {
+  if (isLoading && !sensorSelection) {
     return (
       <div className='min-h-screen flex items-center justify-center bg-gradient-to-br from-green-50/50 via-teal-50/30 to-emerald-50/50 dark:from-green-950/20 dark:via-teal-950/10 dark:to-emerald-950/20'>
         <div className="text-center space-y-4 flex items-center justify-center flex-col">
@@ -241,14 +177,15 @@ export default function OutdoorProductPage({ params }) {
   }
 
   const currentKey = desiredKeys[currentStep]
-  const currentValues = [...new Set(products.map(p => { 
-    const value = p[currentKey]; 
-    return value === null || value === undefined ? 'N/A' : value; 
-  }))].filter(v => v?.toString().trim())
+  const currentValues = products.length > 0 
+    ? [...new Set(products.map(p => {
+        const value = p[currentKey]
+        return value === null || value === undefined ? 'N/A' : value
+      }))].filter(v => v?.toString().trim())
+    : []
 
   return (
     <div className='min-h-screen bg-gradient-to-br from-green-50/50 via-teal-50/30 to-emerald-50/50 dark:from-green-950/20 dark:via-teal-950/10 dark:to-emerald-950/20'>
-      {/* Background Pattern */}
       <div className="absolute inset-0 opacity-[0.02] dark:opacity-[0.05]">
         <svg className="w-full h-full" xmlns="http://www.w3.org/2000/svg">
           <defs>
@@ -261,14 +198,12 @@ export default function OutdoorProductPage({ params }) {
       </div>
 
       <div className='container mx-auto py-12 px-4 sm:px-6 lg:px-8 relative z-10'>
-        {/* Header */}
         <motion.div
           initial={{ opacity: 0, y: -30 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.6 }}
           className="mb-12"
         >
-          {/* Breadcrumb */}
           <div className="flex items-center gap-2 mb-6">
             <Link href="/" className="flex items-center gap-2 text-muted-foreground hover:text-primary transition-colors">
               <Home className="w-4 h-4" />
@@ -282,7 +217,6 @@ export default function OutdoorProductPage({ params }) {
             <span className="text-primary font-medium">{productType}</span>
           </div>
 
-          {/* Title */}
           <div className="text-center">
             <div className="flex justify-center items-center gap-3 mb-6">
               <Sun className="w-12 h-12 text-primary" />
@@ -298,36 +232,47 @@ export default function OutdoorProductPage({ params }) {
               Configure your perfect outdoor lighting solution by selecting from the weather-resistant options below.
             </p>
 
-            {/* Selected Filters */}
-            {Object.keys(selectedFilters).length > 0 && (
+            {sensorSelection && Object.keys(selectedFilters).length > 0 && (
               <div className="flex flex-wrap justify-center gap-2 mb-6">
                 {Object.entries(selectedFilters).map(([key, value]) => (
-                  <Badge key={key} variant="secondary" className="flex items-center gap-2 bg-gradient-to-r from-green-500/10 to-teal-500/10 border-green-500/20">
+                  <Badge key={key} variant="secondary">
                     {key}: {value || 'Not Specified'}
                   </Badge>
                 ))}
               </div>
             )}
 
-            {/* Action Buttons */}
-            <div className="flex flex-wrap justify-center gap-3">
-              {(currentStep > 0 || Object.keys(selectedFilters).length > 0) && (
+            {sensorSelection && (
+              <div className="flex flex-wrap justify-center gap-3">
                 <Button variant="outline" onClick={goBack} className="group">
                   <ArrowLeft className="w-4 h-4 mr-2 group-hover:-translate-x-1 transition-transform" />
                   Go Back
                 </Button>
-              )}
-              {Object.keys(selectedFilters).length > 0 && (
                 <Button variant="ghost" onClick={resetSelection} className="group">
                   <RotateCcw className="w-4 h-4 mr-2 group-hover:rotate-180 transition-transform" />
                   Reset Selection
                 </Button>
-              )}
-            </div>
+              </div>
+            )}
           </div>
         </motion.div>
 
-        {/* Error State */}
+        {!sensorSelection && (
+          <div className="max-w-4xl mx-auto">
+            <div className="text-center mb-8">
+              <h2 className="text-2xl font-bold mb-2">Configure Sensors & Controls</h2>
+              <p className="text-muted-foreground">
+                Choose your preferred sensor and control options for this lighting product
+              </p>
+            </div>
+            <DynamicSensorSelector 
+              productName={productType}
+              type="outdoor"
+              onSelectionChange={handleSensorSelection} 
+            />
+          </div>
+        )}
+
         {error && (
           <motion.div
             initial={{ opacity: 0, scale: 0.95 }}
@@ -340,11 +285,10 @@ export default function OutdoorProductPage({ params }) {
           </motion.div>
         )}
 
-        {/* Option Selection */}
-        {!error && currentValues.length > 0 && (
+        {sensorSelection && !error && currentValues.length > 0 && (
           <OptionSelector
             title={currentKey}
-            description={keyDescriptions[currentKey]}
+            description={`Select your preferred ${currentKey.replace(/_/g, ' ')}`}
             options={currentValues}
             onSelect={(value) => filterProducts(currentKey, value)}
             isLoading={isLoading}
@@ -353,30 +297,6 @@ export default function OutdoorProductPage({ params }) {
             products={products}
           />
         )}
-
-
-
-        {/* Empty State */}
-        {!isLoading && !error && currentValues.length === 0 && products.length === 0 && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            className="text-center py-16"
-          >
-            <div className="w-24 h-24 mx-auto mb-6 rounded-full bg-muted flex items-center justify-center">
-              <Sun className="w-12 h-12 text-muted-foreground" />
-            </div>
-            <h3 className="text-2xl font-semibold mb-4">No Options Available</h3>
-            <p className="text-muted-foreground mb-6 max-w-md mx-auto">
-              We couldn't find any outdoor products matching your current selection. Try adjusting your filters or contact our support team.
-            </p>
-            <Button onClick={resetSelection} variant="outline">
-              Start Over
-            </Button>
-          </motion.div>
-        )}
-
-
       </div>
     </div>
   )

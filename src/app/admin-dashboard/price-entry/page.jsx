@@ -2,8 +2,7 @@
 
 import { useState, useEffect } from 'react';
 
-import { getDistinctProductTypes, getAllProducts, updateProductPrices } from '@/lib/database/products'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { getDistinctProductNamesV2, getAllProductsV2, updateProductV2 } from '@/lib/database/products-v2'
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -28,44 +27,44 @@ export default function PriceEntryPage() {
       setLoading(true);
       setError(null);
 
-      // Fetch all product types for indoor
-      const { data: indoorTypes, error: indoorTypesError } = await getDistinctProductTypes('indoor')
-      if (indoorTypesError) {
-        throw new Error(`Failed to fetch indoor product types: ${indoorTypesError}`)
+      // Fetch all product names for indoor
+      const { data: indoorNames, error: indoorNamesError } = await getDistinctProductNamesV2('indoor')
+      if (indoorNamesError) {
+        throw new Error(`Failed to fetch indoor product names: ${indoorNamesError}`)
       }
 
-      // Fetch all product types for outdoor
-      const { data: outdoorTypes, error: outdoorTypesError } = await getDistinctProductTypes('outdoor')
-      if (outdoorTypesError) {
-        throw new Error(`Failed to fetch outdoor product types: ${outdoorTypesError}`)
+      // Fetch all product names for outdoor
+      const { data: outdoorNames, error: outdoorNamesError } = await getDistinctProductNamesV2('outdoor')
+      if (outdoorNamesError) {
+        throw new Error(`Failed to fetch outdoor product names: ${outdoorNamesError}`)
       }
 
-      const indoorTypesList = indoorTypes || []
-      const outdoorTypesList = outdoorTypes || []
+      const indoorNamesList = indoorNames || []
+      const outdoorNamesList = outdoorNames || []
 
-      // Fetch products for each indoor product type
+      // Fetch products for each indoor product name
       const indoorProducts = []
-      for (const productType of indoorTypesList) {
+      for (const productName of indoorNamesList) {
         try {
-          const { data: products, error } = await getAllProducts('indoor', { producttype: productType.producttype })
+          const { data: products, error } = await getAllProductsV2('indoor', { productName: productName.product_name })
           if (!error && products) {
             indoorProducts.push(...products.map(p => ({ ...p, type: 'indoor' })))
           }
         } catch (error) {
-          console.error(`Error fetching indoor products for ${productType['producttype']}:`, error)
+          console.error(`Error fetching indoor products for ${productName.product_name}:`, error)
         }
       }
 
-      // Fetch products for each outdoor product type
+      // Fetch products for each outdoor product name
       const outdoorProducts = []
-      for (const productType of outdoorTypesList) {
+      for (const productName of outdoorNamesList) {
         try {
-          const { data: products, error } = await getAllProducts('outdoor', { producttype: productType.producttype })
+          const { data: products, error } = await getAllProductsV2('outdoor', { productName: productName.product_name })
           if (!error && products) {
             outdoorProducts.push(...products.map(p => ({ ...p, type: 'outdoor' })))
           }
         } catch (error) {
-          console.error(`Error fetching outdoor products for ${productType['producttype']}:`, error)
+          console.error(`Error fetching outdoor products for ${productName.product_name}:`, error)
         }
       }
 
@@ -74,9 +73,9 @@ export default function PriceEntryPage() {
 
       setProducts(allProducts);
 
-      // Filter products with empty Price/pc
+      // Filter products with empty price_per_piece
       const emptyPriceProducts = allProducts.filter(product =>
-        !product['price_pc'] || product['price_pc'].trim() === ''
+        !product.price_per_piece || product.price_per_piece.toString().trim() === ''
       );
 
       setFilteredProducts(emptyPriceProducts);
@@ -114,20 +113,17 @@ export default function PriceEntryPage() {
     if (!price || price.trim() === '') return;
 
     try {
-      const { results, error } = await updateProductPrices([{
-        id: product.id,
-        price: price,
-        type: product.type
-      }])
+      const { data, error } = await updateProductV2(product.type, product.id, {
+        pricePerPiece: price
+      })
       if (error) {
         throw new Error(error)
       }
 
-      const result = results[0]
-      if (result && !result.error) {
+      if (data) {
         // Update local state
         setProducts(prev => prev.map(p =>
-          p.id === product.id ? { ...p, "price_pc": price } : p
+          p.id === product.id ? { ...p, price_per_piece: price } : p
         ));
         setFilteredProducts(prev => prev.filter(p => p.id !== product.id));
         setPriceInputs(prev => {
@@ -135,12 +131,12 @@ export default function PriceEntryPage() {
           delete updated[product.id];
           return updated;
         });
-        setSaveMessage(`Price updated for ${product.producttype} - ${product['model_number']}`);
+        setSaveMessage(`Price updated for ${product.product_name} - ${product.model_number}`);
       } else {
-        setSaveMessage(`Failed to update price for ${product.producttype} - ${product['model_number']}`);
+        setSaveMessage(`Failed to update price for ${product.product_name} - ${product.model_number}`);
       }
     } catch (error) {
-      setSaveMessage(`Error updating price for ${product['producttype']} - ${product['model_number']}`);
+      setSaveMessage(`Error updating price for ${product.product_name} - ${product.model_number}`);
     }
 
     setTimeout(() => setSaveMessage(''), 3000);
@@ -156,17 +152,23 @@ export default function PriceEntryPage() {
 
     setSaving(true);
     try {
-      const { results, error } = await updateProductPrices(productsToUpdate)
-      if (error) {
-        throw new Error(error)
+      const results = []
+      
+      // Update each product individually
+      for (const product of productsToUpdate) {
+        const price = priceInputs[product.id]
+        const { data, error } = await updateProductV2(product.type, product.id, {
+          pricePerPiece: price
+        })
+        results.push({ id: product.id, data, error })
       }
 
-      const successful = results.filter(r => !r.error).length
+      const successful = results.filter(r => !r.error && r.data).length
       if (successful > 0) {
         // Update local state
         setProducts(prev => prev.map(p => {
           const update = productsToUpdate.find(u => u.id === p.id);
-          return update ? { ...p, "price_pc": update['price_pc'] } : p;
+          return update ? { ...p, price_per_piece: priceInputs[update.id] } : p;
         }));
         setFilteredProducts(prev => prev.filter(p => !productsToUpdate.some(u => u.id === p.id)));
         setPriceInputs({});
@@ -301,10 +303,10 @@ export default function PriceEntryPage() {
                       </span>
                     </div>
                     <h3 className="text-base sm:text-lg font-semibold text-gray-900 dark:text-white">
-                      {product.producttype}
+                      {product.product_name}
                     </h3>
                     <p className="text-xs sm:text-sm text-gray-600 dark:text-gray-300">
-                      Model: {product['model_number']}
+                      Model: {product.model_number}
                     </p>
                   </div>
 
@@ -330,10 +332,10 @@ export default function PriceEntryPage() {
 
                 {/* Product Details Grid */}
                 <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-3 sm:gap-4 text-xs">
-                  {product.Size && (
+                  {product.size && (
                     <div>
                       <span className="text-[10px] sm:text-xs text-gray-500 dark:text-gray-400">Size:</span>
-                      <div className="font-medium text-gray-900 dark:text-white break-words">{product.Size}</div>
+                      <div className="font-medium text-gray-900 dark:text-white break-words">{product.size}</div>
                     </div>
                   )}
 
@@ -344,17 +346,17 @@ export default function PriceEntryPage() {
                     </div>
                   )}
 
-                  {product.Voltage && (
+                  {product.voltage && (
                     <div>
                       <span className="text-[10px] sm:text-xs text-gray-500 dark:text-gray-400">Voltage:</span>
-                      <div className="font-medium text-gray-900 dark:text-white break-words">{product.Voltage}</div>
+                      <div className="font-medium text-gray-900 dark:text-white break-words">{product.voltage}</div>
                     </div>
                   )}
 
-                  {product.CCT && (
+                  {product.cct && (
                     <div>
                       <span className="text-[10px] sm:text-xs text-gray-500 dark:text-gray-400">CCT:</span>
-                      <div className="font-medium text-gray-900 dark:text-white break-words">{product.CCT}</div>
+                      <div className="font-medium text-gray-900 dark:text-white break-words">{product.cct}</div>
                     </div>
                   )}
 
@@ -365,24 +367,17 @@ export default function PriceEntryPage() {
                     </div>
                   )}
 
-                  {product.Lumen && (
+                  {product.lumen && (
                     <div>
                       <span className="text-[10px] sm:text-xs text-gray-500 dark:text-gray-400">Lumen:</span>
-                      <div className="font-medium text-gray-900 dark:text-white break-words">{product.Lumen}</div>
+                      <div className="font-medium text-gray-900 dark:text-white break-words">{product.lumen}</div>
                     </div>
                   )}
 
-                  {product.beam_angle && (
-                    <div>
-                      <span className="text-[10px] sm:text-xs text-gray-500 dark:text-gray-400">Beam Angle:</span>
-                      <div className="font-medium text-gray-900 dark:text-white break-words">{product.beam_angle}</div>
-                    </div>
-                  )}
-
-                  {product.efficacy_lmw && (
+                  {product.efficacy_lumen_per_w && (
                     <div>
                       <span className="text-[10px] sm:text-xs text-gray-500 dark:text-gray-400">Efficacy (lm/W):</span>
-                      <div className="font-medium text-gray-900 dark:text-white break-words">{product.efficacy_lmw}</div>
+                      <div className="font-medium text-gray-900 dark:text-white break-words">{product.efficacy_lumen_per_w}</div>
                     </div>
                   )}
 
@@ -393,17 +388,17 @@ export default function PriceEntryPage() {
                     </div>
                   )}
 
-                  {product['led_type'] && (
+                  {product.dimming_type && (
                     <div>
-                      <span className="text-[10px] sm:text-xs text-gray-500 dark:text-gray-400">LED Type:</span>
-                      <div className="font-medium text-gray-900 dark:text-white break-words">{product['led_type']}</div>
+                      <span className="text-[10px] sm:text-xs text-gray-500 dark:text-gray-400">Dimming:</span>
+                      <div className="font-medium text-gray-900 dark:text-white break-words">{product.dimming_type}</div>
                     </div>
                   )}
 
-                  {product['driver_brand'] && (
+                  {product.mounting && (
                     <div>
-                      <span className="text-[10px] sm:text-xs text-gray-500 dark:text-gray-400">Driver:</span>
-                      <div className="font-medium text-gray-900 dark:text-white break-words">{product['driver_brand']}</div>
+                      <span className="text-[10px] sm:text-xs text-gray-500 dark:text-gray-400">Mounting:</span>
+                      <div className="font-medium text-gray-900 dark:text-white break-words">{product.mounting}</div>
                     </div>
                   )}
 

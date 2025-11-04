@@ -132,8 +132,8 @@ export function EditProductModal({ product, isOpen, onClose, onSave, isCreate = 
     });
 
     if (!initial.category && productData.type) {
-      const categoryColumn = productData.type === 'outdoor' ? 'Outdoor' : 'Indoor';
-      initial.category = productData[categoryColumn] || '';
+      // V2 tables use 'sub_category' column
+      initial.category = productData.sub_category || '';
     }
 
     return initial;
@@ -176,8 +176,8 @@ export function EditProductModal({ product, isOpen, onClose, onSave, isCreate = 
     });
 
     if (data.category) {
-      const categoryColumn = (data.type || 'indoor') === 'outdoor' ? 'Outdoor' : 'Indoor';
-      mapped[categoryColumn] = data.category;
+      // V2 tables use 'sub_category' column
+      mapped.sub_category = data.category;
     }
 
     mapped.type = data.type || 'indoor';

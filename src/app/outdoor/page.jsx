@@ -1,6 +1,6 @@
 'use client'
 import { useState, useEffect } from 'react'
-import { getDistinctCategories, getProductTypesByCategory, getProductsByType } from '@/lib/database/products'
+import { getDistinctCategoriesV2, getProductNamesByCategoryV2, getProductsByCategoryV2 } from '@/lib/database/products-v2'
 import { ProductCard } from "@/components/ProductCard"
 import { Sun, Home, ArrowLeft, Shield, Star } from 'lucide-react'
 import { Button } from "@/components/ui/button"
@@ -71,24 +71,18 @@ export default function Outdoor() {
   useEffect(() => {
     if (categories.length === 0) return
 
-    console.log('🔍 [OUTDOOR] Setting up Intersection Observer with categories:', categories.length)
-
     const observerOptions = {
       root: null,
-      rootMargin: '-20% 0px -60% 0px', // Trigger when section is 20% from top and 60% from bottom
+      rootMargin: '-20% 0px -60% 0px',
       threshold: 0.1
     }
 
     const observerCallback = (entries) => {
-      console.log('🔍 [OUTDOOR] Intersection Observer callback triggered with', entries.length, 'entries')
-
       entries.forEach((entry) => {
         if (entry.isIntersecting && entry.intersectionRatio > 0.1) {
           const sectionId = entry.target.id
           if (sectionId && sectionId !== 'outdoor-grid') {
-            // Convert id back to category name
             const categoryName = decodeURIComponent(sectionId).replace(/-/g, ' ')
-            console.log('🔍 [OUTDOOR] Setting active section to:', categoryName)
             setActiveSection(categoryName)
           }
         }
@@ -96,34 +90,26 @@ export default function Outdoor() {
     }
 
     const observer = new IntersectionObserver(observerCallback, observerOptions)
-    console.log('🔍 [OUTDOOR] Created Intersection Observer')
 
-    // Observe all category sections
     const sections = document.querySelectorAll('[id]')
-    console.log('🔍 [OUTDOOR] Found', sections.length, 'elements with IDs')
 
     sections.forEach((section) => {
-      if (section.id && section.id !== 'outdoor-grid') { // Exclude background pattern
-        console.log('🔍 [OUTDOOR] Observing element:', section.id, section.tagName)
+      if (section.id && section.id !== 'outdoor-grid') {
         observer.observe(section)
       }
     })
 
     return () => {
-      console.log('🔍 [OUTDOOR] Cleaning up Intersection Observer')
       sections.forEach((section) => {
         if (section.id && section.id !== 'outdoor-grid') {
           observer.unobserve(section)
         }
       })
     }
-  }, [categories]) // Only re-run when categories change
+  }, [categories])
 
-  // Scroll Event Listener approach as alternative
   useEffect(() => {
     if (categories.length === 0) return
-
-    console.log('📜 [OUTDOOR] Setting up Scroll Event Listener with categories:', categories.length)
 
     const handleScroll = () => {
       const scrollPosition = window.scrollY + window.innerHeight * 0.3 // 30% from top
@@ -132,7 +118,7 @@ export default function Outdoor() {
       let currentActiveSection = ''
 
       categories.forEach((category) => {
-        const categoryName = category['Outdoor']
+        const categoryName = category['sub_category']
         const elementId = categoryName.toLowerCase().replace(/\s+/g, '-')
         const element = document.getElementById(elementId)
 
@@ -181,51 +167,49 @@ export default function Outdoor() {
       try {
         setLoading(true)
         
-        // First fetch: Get distinct categories
-        const { data: categoriesData, error: categoriesError } = await getDistinctCategories('outdoor')
+        // First fetch: Get distinct categories from v2 table
+        const { data: categoriesData, error: categoriesError } = await getDistinctCategoriesV2('outdoor')
         if (categoriesError) {
           throw new Error(`Failed to fetch categories: ${categoriesError}`)
         }
         const categories = categoriesData || []
 
-        // Set categories immediately for UI
         setCategories(categories)
-        console.log('🏷️ [OUTDOOR] Categories set:', categories)
 
-        // Second fetch: Get distinct product types for each category with sample images
-        const { data: productTypesData, error: productTypesError } = await getProductTypesByCategory('outdoor')
-        console.log('Product types by category data:', productTypesData)
-        console.log('Product types by category error:', productTypesError)
-        if (productTypesError) {
-          throw new Error(`Failed to fetch product types by category: ${productTypesError}`)
+        const { data: productNamesData, error: productNamesError } = await getProductNamesByCategoryV2('outdoor')
+        if (productNamesError) {
+          throw new Error(`Failed to fetch product names by category: ${productNamesError}`)
         }
-        const productTypes = productTypesData || []
-        console.log('Product types by category:', productTypes)
-        // Fetch sample images for each product type
-        const productTypesWithImages = await Promise.all(
-          productTypes.flatMap(categoryData => 
-            categoryData.producttypes.map(async (productTypeName) => {
+        const productNames = productNamesData || []
+        
+        // Fetch sample images for each product name
+        const productNamesWithImages = await Promise.all(
+          productNames.flatMap(categoryData => 
+            categoryData.product_names.map(async (productName) => {
               try {
-                const { data: sampleProducts, error: sampleError } = await getProductsByType('outdoor', productTypeName, { limit: 1 })
+                const { data: sampleProducts, error: sampleError } = await getProductsByCategoryV2('outdoor', categoryData.sub_category, { 
+                  limit: 1,
+                  filters: { productName: productName }
+                })
                 if (sampleError) {
                   console.error('Error fetching sample product:', sampleError)
                   return {
-                    ...categoryData,
-                    producttype: productTypeName,
+                    sub_category: categoryData.sub_category,
+                    product_name: productName,
                     sampleImage: null
                   }
                 }
                 const sampleProduct = sampleProducts?.[0]
                 return {
-                  ...categoryData,
-                  producttype: productTypeName,
-                  sampleImage: sampleProduct?.Photo || null
+                  sub_category: categoryData.sub_category,
+                  product_name: productName,
+                  sampleImage: sampleProduct?.photo || null
                 }
               } catch (error) {
                 console.error('Error fetching sample image:', error)
                 return {
-                  ...categoryData,
-                  producttype: productTypeName,
+                  sub_category: categoryData.sub_category,
+                  product_name: productName,
                   sampleImage: null
                 }
               }
@@ -233,8 +217,8 @@ export default function Outdoor() {
           )
         )
 
-        // Combine categories with their product types
-        setCategoriesWithProducts(productTypesWithImages)
+        // Combine categories with their product names
+        setCategoriesWithProducts(productNamesWithImages)
         
       } catch (error) {
         console.error('Error fetching outdoor data:', error)
@@ -282,7 +266,6 @@ export default function Outdoor() {
         </svg>
       </div>
 
-      {/* Category Navigation Sidebar - DEBUG: FORCE VISIBLE */}
       <CategoryNavigation
         type="outdoor"
         categories={categories}
@@ -378,13 +361,13 @@ export default function Outdoor() {
                   </div>
                   <div>
                     <h2 
-                      id={category['Outdoor'].toLowerCase().replace(/\s+/g, '-')} 
+                      id={category['sub_category'].toLowerCase().replace(/\s+/g, '-')} 
                       className="text-3xl md:text-4xl font-bold text-foreground group-hover:text-primary transition-colors duration-300"
                     >
-                      {category.Outdoor}
+                      {category.sub_category}
                     </h2>
                     <p className="text-muted-foreground mt-2">
-                      Discover our {category.Outdoor.toLowerCase()} collection
+                      Discover our {category.sub_category.toLowerCase()} collection
                     </p>
                   </div>
                 </div>
@@ -395,7 +378,7 @@ export default function Outdoor() {
                 {/* Products Grid */}
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 xl:grid-cols-3 gap-6">
                   {categoriesWithProducts
-                    .filter(productType => productType.Outdoor === category.Outdoor)
+                    .filter(productType => productType.sub_category === category.sub_category)
                     .map((productType, typeIndex) => (
                       <motion.div
                         key={typeIndex}
@@ -404,9 +387,9 @@ export default function Outdoor() {
                         transition={{ delay: typeIndex * 0.1 }}
                       >
                         <ProductCard 
-                          title={productType['producttype']} 
-                          description={`Explore our ${productType['producttype'].toLowerCase()} options`}
-                          link={`/outdoor/${productType['producttype']}`}
+                          title={productType['product_name']} 
+                          description={`Explore our ${productType['product_name'].toLowerCase()} options`}
+                          link={`/outdoor/${encodeURIComponent(productType['product_name'])}`}
                           icon={<Sun className="w-6 h-6" />}
                           gradient="from-green-500 to-teal-600"
                           image={productType.sampleImage}
@@ -417,7 +400,7 @@ export default function Outdoor() {
                 </div>
 
                 {/* Empty State */}
-                {categoriesWithProducts.filter(productType => productType.Outdoor === category.Outdoor).length === 0 && (
+                {categoriesWithProducts.filter(productType => productType.sub_category === category.sub_category).length === 0 && (
                   <div className="text-center py-12">
                     <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-muted flex items-center justify-center">
                       <Sun className="w-8 h-8 text-muted-foreground" />

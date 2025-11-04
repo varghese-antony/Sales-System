@@ -167,29 +167,30 @@ export function EnquiryDetailsModal({ isOpen, onClose, enquiry, onStatusUpdate, 
   const formatCartItems = (cartItems) => {
     if (!Array.isArray(cartItems) || cartItems.length === 0) return [];
 
+    // Updated to prioritize v2 field names (snake_case) first
     const SPEC_FIELD_CONFIG = [
-      { label: 'Size', keys: ['Size', 'size', 'sizes'] },
-      { label: 'Power (W)', keys: ['Power (W)', 'power_w', 'power', 'powerW'] },
-      { label: 'Voltage', keys: ['Voltage', 'voltage'] },
-      { label: 'CCT', keys: ['CCT', 'cct'] },
-      { label: 'CRI (Ra)', keys: ['CRI (Ra)', 'cri_ra', 'cri', 'criRa'] },
-      { label: 'Lumen', keys: ['Lumen', 'lumen'] },
-      { label: 'Beam Angle', keys: ['Beam Angle', 'beam_angle', 'beamAngle'] },
-      { label: 'Power Factor', keys: ['Power Factor', 'power_factor', 'powerFactor'] },
-      { label: 'Material Finish', keys: ['Material Finish', 'material_finish', 'materialFinish'] },
-      { label: 'Mounting', keys: ['Mounting', 'mounting'] },
-      { label: 'Driver Brand', keys: ['Driver Brand', 'driver_brand', 'driverBrand'] },
-      { label: 'LED Type', keys: ['LED Type', 'led_type', 'ledType'] },
-      { label: 'Dimming Type', keys: ['Dimming Type', 'dimming_type', 'dimmingType'] },
-      { label: 'Sensor / Controls', keys: ['Sensor / Controls', 'sensor', 'sensor_controls', 'sensor_microwave_bluetooth', 'sensorMicrowaveBluetooth'] },
-      { label: 'Emergency Backup Battery', keys: ['Emergency Backup Battery', 'emergency_backup_battery', 'emergencyBackupBattery'] },
-      { label: 'Plug-in Sensor', keys: ['Plug-in Sensor', 'plugin_sensor', 'pluginSensor'] },
-      { label: 'Adjustment Dial', keys: ['Adjustment Dial', 'adjustment_dial', 'adjustmentDial'] },
-      { label: 'Certifications', keys: ['Certifications', 'certifications'] },
-      { label: 'IP Rating', keys: ['IP Rating', 'ip_rating', 'ipRating'] },
-      { label: 'IK Rating', keys: ['IK Rating', 'ik_rating', 'ikRating'] },
-      { label: 'Warranty', keys: ['Warranty', 'warranty'] },
-      { label: 'Lead Time', keys: ['Lead Time', 'lead_time', 'leadTime'] }
+      { label: 'Size', keys: ['size', 'Size', 'sizes'] },
+      { label: 'Power (W)', keys: ['power_w', 'Power (W)', 'power', 'powerW'] },
+      { label: 'Voltage', keys: ['voltage', 'Voltage'] },
+      { label: 'CCT', keys: ['cct', 'CCT'] },
+      { label: 'CRI (Ra)', keys: ['cri_ra', 'CRI (Ra)', 'cri', 'criRa'] },
+      { label: 'Lumen', keys: ['lumen', 'Lumen'] },
+      { label: 'Beam Angle', keys: ['beam_angle', 'Beam Angle', 'beamAngle'] },
+      { label: 'Power Factor', keys: ['power_factor', 'Power Factor', 'powerFactor'] },
+      { label: 'Material Finish', keys: ['material_finish', 'Material Finish', 'materialFinish'] },
+      { label: 'Mounting', keys: ['mounting', 'Mounting'] },
+      { label: 'Driver Brand', keys: ['driver_brand', 'Driver Brand', 'driverBrand'] },
+      { label: 'LED Type', keys: ['led_type', 'LED Type', 'ledType'] },
+      { label: 'Dimming Type', keys: ['dimming_type', 'Dimming Type', 'dimmingType'] },
+      { label: 'Sensor / Controls', keys: ['sensors_and_controls', 'pir_microwave_bluetooth', 'Sensor / Controls', 'sensor', 'sensor_controls', 'sensor_microwave_bluetooth', 'sensorMicrowaveBluetooth'] },
+      { label: 'Emergency Backup Battery', keys: ['emergency_backup_battery', 'Emergency Backup Battery', 'emergencyBackupBattery'] },
+      { label: 'Plug-in Sensor', keys: ['plugin_sensor', 'Plug-in Sensor', 'pluginSensor'] },
+      { label: 'Adjustment Dial', keys: ['adjustment_dial', 'Adjustment Dial', 'adjustmentDial'] },
+      { label: 'Certifications', keys: ['certifications', 'Certifications'] },
+      { label: 'IP Rating', keys: ['ip_rating', 'IP Rating', 'ipRating'] },
+      { label: 'IK Rating', keys: ['ik_rating', 'IK Rating', 'ikRating'] },
+      { label: 'Warranty', keys: ['warranty', 'Warranty'] },
+      { label: 'Lead Time', keys: ['lead_time', 'Lead Time', 'leadTime'] }
     ];
 
     const normalizeValue = (value) => {
@@ -266,17 +267,19 @@ export function EnquiryDetailsModal({ isOpen, onClose, enquiry, onStatusUpdate, 
         product.productType ||
         'Product';
 
+      // Prioritize v2 field names (product_name, model_number)
       const productName =
+        product.product_name ||
+        item.product_name ||
         product.name ||
         product.ProductName ||
         item.name ||
-        item.product_name ||
         null;
 
       const modelNumber =
+        product.model_number ||
         item.model_number ||
         item.modelNumber ||
-        product.model_number ||
         product.modelNumber ||
         null;
 

@@ -5,10 +5,19 @@ function formatColumnName(column) {
   return /^[a-z0-9_]+$/.test(column) ? column : `"${column.replace(/"/g, '""')}"`
 }
 
+// Helper function to get the correct table name (v2 tables)
+function getTableName(table) {
+  if (table === 'indoor') return 'indoor_products_v2'
+  if (table === 'outdoor') return 'outdoor_products_v2'
+  if (table === 'both') return 'both' // Special case handled separately
+  return table // Return as-is if already a full table name
+}
+
 export async function getProductById(table, id) {
   try {
+    const tableName = getTableName(table)
     const { data, error } = await supabase
-      .from(table)
+      .from(tableName)
       .select('*')
       .eq('id', id)
       .single()
@@ -38,46 +47,47 @@ export async function getProductsByIds(references = []) {
   return results.filter(Boolean)
 }
 
-// Field mapping for frontend to database column translation
+// Field mapping for frontend to database column translation (V2 tables)
 export const fieldMapping = {
-  productType: 'producttype',
-  category: 'category',
-  name: 'name',
-  description: 'description',
+  productType: 'product_name',
+  category: 'sub_category',
+  subCategory: 'sub_category',
+  productName: 'product_name',
   modelNumber: 'model_number',
-  sizes: 'Size',
-  mounting: 'Mounting',
-  voltage: 'Voltage',
+  size: 'size',
+  sizes: 'size',
   powerW: 'power_w',
-  cct: 'CCT',
+  voltage: 'voltage',
+  cct: 'cct',
   criRa: 'cri_ra',
-  lumen: 'Lumen',
-  efficacyLmw: 'efficacy_lmw',
-  beamAngle: 'beam_angle',
-  powerFactor: 'power_factor',
-  emergencyBackupBattery: 'emergency_backup_battery',
-  pluginSensor: 'plugin_sensor',
-  sensorMicrowaveBluetooth: 'sensor_microwave_bluetooth',
-  junctionCover: 'junction_cover',
+  lumen: 'lumen',
+  efficacyLumenPerW: 'efficacy_lumen_per_w',
+  efficacyLmw: 'efficacy_lumen_per_w',
+  dimmingType: 'dimming_type',
+  materialFinish: 'material_finish',
+  sensorsAndControls: 'sensors_and_controls',
+  occupancy: 'occupancy',
+  biLevel: 'bi_level',
+  pirMicrowaveBluetooth: 'pir_microwave_bluetooth',
+  sensorMicrowaveBluetooth: 'pir_microwave_bluetooth',
   remoteControl: 'remote_control',
+  pluginSensor: 'plugin_sensor',
+  emergencyBackupBattery: 'emergency_backup_battery',
+  junctionCover: 'junction_cover',
+  mounting: 'mounting',
   installationKits: 'installation_kits',
   adjustmentDial: 'adjustment_dial',
-  materialFinish: 'Material Finish',
-  ledType: 'led_type',
-  driverBrand: 'driver_brand',
-  dimmingType: 'Dimming Type',
-  certifications: 'Certifications',
+  certifications: 'certifications',
+  pricePerPiece: 'price_per_piece',
+  pricePc: 'price_per_piece',
   leadTime: 'lead_time',
-  warranty: 'Warranty',
-  moq: 'MOQ',
-  pricePc: 'price_pc',
+  cutSheet: 'cut_sheet',
+  warranty: 'warranty',
+  moq: 'moq',
   costChinaDdpUsa: 'cost_china_ddp_usa',
   costThailandVietnam: 'cost_thailand_vietnam',
-  photo: 'Photo',
-  cutSheet: 'cut_sheet',
-  imageUrl: 'image_url',
-  ipRating: 'ip_rating',
-  ikRating: 'ik_rating',
+  photo: 'photo',
+  ipRating: 'ip_rating'
 }
 
 // Note: Supabase tables mix snake_case with PascalCase + spaces (e.g. `Voltage`, `Dimming Type`).
@@ -95,8 +105,9 @@ export const OUTDOOR_ONLY_FIELDS = ['ip_rating', 'ik_rating']
 // Test function to check actual column names in database
 export async function testColumnNames(type) {
   try {
+    const tableName = getTableName(type)
     const { data, error } = await supabase
-      .from(type)
+      .from(tableName)
       .select('*')
       .limit(1)
 
@@ -115,12 +126,14 @@ export async function testColumnNames(type) {
 // Using proper column selection without DISTINCT keyword
 export async function getDistinctCategories(type) {
   try {
-    const columnName = type === 'indoor' ? 'Indoor' : 'Outdoor'
+    const tableName = getTableName(type)
+    // V2 tables use 'sub_category' column instead of 'Indoor'/'Outdoor'
+    const columnName = 'sub_category'
     const { data, error } = await supabase
-      .from(type)
-      .select(formatColumnName(columnName))
-      .not(formatColumnName(columnName), 'is', null)
-      .order(formatColumnName(columnName), { ascending: true })
+      .from(tableName)
+      .select(columnName)
+      .not(columnName, 'is', null)
+      .order(columnName, { ascending: true })
 
     if (error) {
       console.error('Database error in getDistinctCategories:', error)
@@ -131,7 +144,7 @@ export async function getDistinctCategories(type) {
     const uniqueValues = [...new Set(data.map(item => item[columnName]).filter(Boolean))]
     
     // Transform the data to match the expected format
-    return { data: uniqueValues.map(value => ({ [columnName]: value })), error: null }
+    return { data: uniqueValues.map(value => ({ sub_category: value })), error: null }
   } catch (error) {
     console.error('Error fetching categories:', error)
     return { data: null, error: error.message }
@@ -141,19 +154,22 @@ export async function getDistinctCategories(type) {
 // Get distinct product types from indoor or outdoor table
 export async function getDistinctProductTypes(type) {
   try {
+    const tableName = getTableName(type)
+    // V2 tables use 'product_name' column instead of 'producttype'
+    const columnName = 'product_name'
     const { data, error } = await supabase
-      .from(type)
-      .select('producttype')
-      .not('producttype', 'is', null)
-      .order('producttype', { ascending: true })
+      .from(tableName)
+      .select(columnName)
+      .not(columnName, 'is', null)
+      .order(columnName, { ascending: true })
 
     if (error) throw error
 
     // Get unique product types manually since Supabase doesn't support DISTINCT
-    const uniqueTypes = [...new Set(data.map(item => item.producttype).filter(Boolean))]
+    const uniqueTypes = [...new Set(data.map(item => item[columnName]).filter(Boolean))]
     
-    // Transform the data to match the expected format
-    return { data: uniqueTypes.map(producttype => ({ producttype })), error: null }
+    // Transform the data to match the expected format (using product_name as producttype for compatibility)
+    return { data: uniqueTypes.map(product_name => ({ producttype: product_name, product_name })), error: null }
   } catch (error) {
     console.error('Error fetching distinct product types:', error)
     return { data: null, error: error.message }
@@ -163,20 +179,21 @@ export async function getDistinctProductTypes(type) {
 // Get product types grouped by category
 export async function getProductTypesByCategory(type) {
   try {
-    const categoryColumn = type === 'indoor' ? 'Indoor' : 'Outdoor'
+    const tableName = getTableName(type)
+    // V2 tables use 'sub_category' and 'product_name' columns
     const { data, error } = await supabase
-      .from(type)
-      .select(`${formatColumnName(categoryColumn)},producttype`)
-      .not('producttype', 'is', null)
-      .not(formatColumnName(categoryColumn), 'is', null)
-      .order('producttype', { ascending: true })
+      .from(tableName)
+      .select('sub_category,product_name')
+      .not('product_name', 'is', null)
+      .not('sub_category', 'is', null)
+      .order('product_name', { ascending: true })
 
     if (error) throw error
 
     // Group product types by category
     const groupedData = data.reduce((acc, item) => {
-      const category = item[categoryColumn]
-      const productType = item.producttype
+      const category = item.sub_category
+      const productType = item.product_name
       
       if (!acc[category]) {
         acc[category] = []
@@ -191,7 +208,7 @@ export async function getProductTypesByCategory(type) {
 
     // Transform to the expected format
     const result = Object.entries(groupedData).map(([category, productTypes]) => ({
-      [categoryColumn]: category,
+      sub_category: category,
       producttypes: productTypes
     }))
 
@@ -205,11 +222,12 @@ export async function getProductTypesByCategory(type) {
 // Get products by type with optional limit and filters
 export async function getProductsByType(type, productType, options = {}) {
   try {
+    const tableName = getTableName(type)
     const { limit = null, filters: filterObj } = options
     let query = supabase
-      .from(type)
+      .from(tableName)
       .select('*')
-      .eq('producttype', productType)
+      .eq('product_name', productType)
     
     // Apply filters
     if (filterObj) {
@@ -239,8 +257,9 @@ export async function getProductsByType(type, productType, options = {}) {
 // Get all products with optional filters
 export async function getAllProducts(type, filters = {}) {
   try {
+    const tableName = getTableName(type)
     let query = supabase
-      .from(type)
+      .from(tableName)
       .select('*')
 
     // Apply filters
@@ -272,8 +291,9 @@ export async function createProducts(products) {
     // Remove the type field since it's determined by the table
     const productsToInsert = products.map(({ type, ...product }) => product)
 
+    const tableName = getTableName(table)
     const { data, error } = await supabase
-      .from(table)
+      .from(tableName)
       .insert(productsToInsert)
       .select()
 
@@ -294,8 +314,9 @@ export async function updateProductPrices(priceUpdates) {
     for (const update of priceUpdates) {
       const { id, price, type } = update
 
+      const tableName = getTableName(type)
       const { data, error } = await supabase
-        .from(type)
+        .from(tableName)
         .update({ price_pc: price })
         .eq('id', id)
         .select()
@@ -313,10 +334,11 @@ export async function updateProductPrices(priceUpdates) {
 // Search products by model number or other criteria
 export async function searchProducts(type, searchTerm) {
   try {
+    const tableName = getTableName(type)
     const { data, error } = await supabase
-      .from(type)
+      .from(tableName)
       .select('*')
-      .or(`model_number.ilike.%${searchTerm}%, producttype.ilike.%${searchTerm}%`)
+      .or(`model_number.ilike.%${searchTerm}%, product_name.ilike.%${searchTerm}%, sub_category.ilike.%${searchTerm}%`)
 
     if (error) throw error
 
@@ -337,8 +359,9 @@ export async function updateProduct(table, id, updateData) {
       mappedData[dbColumn] = value
     })
 
+    const tableName = getTableName(table)
     const { data, error } = await supabase
-      .from(table)
+      .from(tableName)
       .update(mappedData)
       .eq('id', id)
       .select()
@@ -355,8 +378,9 @@ export async function updateProduct(table, id, updateData) {
 // Delete single product
 export async function deleteProduct(table, id) {
   try {
+    const tableName = getTableName(table)
     const { data, error } = await supabase
-      .from(table)
+      .from(tableName)
       .delete()
       .eq('id', id)
 
@@ -379,8 +403,9 @@ export async function bulkUpdateProducts(table, ids, updateData) {
       mappedData[dbColumn] = value
     })
 
+    const tableName = getTableName(table)
     const { data, error } = await supabase
-      .from(table)
+      .from(tableName)
       .update(mappedData)
       .in('id', ids)
       .select()
@@ -397,8 +422,9 @@ export async function bulkUpdateProducts(table, ids, updateData) {
 // Bulk delete multiple products
 export async function bulkDeleteProducts(table, ids) {
   try {
+    const tableName = getTableName(table)
     const { data, error } = await supabase
-      .from(table)
+      .from(tableName)
       .delete()
       .in('id', ids)
 
@@ -414,11 +440,12 @@ export async function bulkDeleteProducts(table, ids) {
 // Bulk set category for multiple products
 export async function bulkSetCategory(table, ids, categoryValue) {
   try {
-    const categoryColumn = table === 'indoor' ? 'Indoor' : 'Outdoor'
-    const updateData = { [categoryColumn]: categoryValue }
+    // V2 tables use 'sub_category' column
+    const updateData = { sub_category: categoryValue }
 
+    const tableName = getTableName(table)
     const { data, error } = await supabase
-      .from(table)
+      .from(tableName)
       .update(updateData)
       .in('id', ids)
       .select()
@@ -438,17 +465,17 @@ export async function getProductsWithPagination(table, filters = {}, pagination 
     const { currentPage = 1, pageSize = 25 } = pagination
     const offset = (currentPage - 1) * pageSize
 
+    const tableName = getTableName(table)
     let query = supabase
-      .from(table)
+      .from(tableName)
       .select('*', { count: 'exact' })
 
     // Apply filters
     Object.entries(filters).forEach(([key, value]) => {
       if (value !== null && value !== undefined && value !== '') {
-        // Special handling for category filter - map to table-specific column
+        // Special handling for category filter - map to v2 column
         if (key === 'category') {
-          const categoryColumn = table === 'indoor' ? 'Indoor' : 'Outdoor';
-          query = query.eq(formatColumnName(categoryColumn), value);
+          query = query.eq('sub_category', value);
         } else {
           // Map frontend field names to database column names
           const dbColumn = fieldMapping[key] || key;
@@ -474,17 +501,17 @@ export async function getProductsWithPagination(table, filters = {}, pagination 
 // Get total product count for pagination
 export async function getProductCount(table, filters = {}) {
   try {
+    const tableName = getTableName(table)
     let query = supabase
-      .from(table)
+      .from(tableName)
       .select('*', { count: 'exact', head: true })
 
     // Apply filters
     Object.entries(filters).forEach(([key, value]) => {
       if (value !== null && value !== undefined && value !== '') {
-        // Special handling for category filter - map to table-specific column
+        // Special handling for category filter - map to v2 column
         if (key === 'category') {
-          const categoryColumn = table === 'indoor' ? 'Indoor' : 'Outdoor';
-          query = query.eq(categoryColumn, value);
+          query = query.eq('sub_category', value);
         } else {
           // Map frontend field names to database column names
           const dbColumn = fieldMapping[key] || key;

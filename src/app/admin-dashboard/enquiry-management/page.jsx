@@ -172,23 +172,82 @@ export default function EnquiryManagementPage() {
     }
 
     try {
-      const result = await deleteEnquiry(enquiryId);
-      if (result.error) throw new Error(result.error);
+      // Ensure we have a valid ID
+      if (enquiryId === undefined || enquiryId === null) {
+        throw new Error('No enquiry ID provided');
+      }
 
-      setEnquiries(prev => prev.filter(enquiry => enquiry.id !== enquiryId));
+      // Handle different ID formats
+      let finalId;
+      const idStr = String(enquiryId).trim();
+      
+      // Check if it's a numeric ID
+      if (/^\d+$/.test(idStr)) {
+        console.log('Numeric ID detected, converting to integer');
+        finalId = parseInt(idStr, 10);
+      } 
+      // Check if it's a UUID
+      else {
+        const uuidRegex = /[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}/i;
+        const extractedUuid = idStr.match(uuidRegex)?.[0];
+        
+        if (extractedUuid) {
+          console.log('UUID extracted from string:', extractedUuid);
+          finalId = extractedUuid;
+        } else if (uuidRegex.test(idStr)) {
+          console.log('Valid UUID format detected');
+          finalId = idStr;
+        } else {
+          console.error('Unrecognized ID format:', idStr);
+          throw new Error('Invalid enquiry ID format. Please try again or contact support.');
+        }
+      }
 
-      const statsResult = await getEnquiryStats(statsRange);
-      if (statsResult.error) throw new Error(statsResult.error);
-      setStats(statsResult.data);
+      console.log('Deleting enquiry with ID:', finalId);
+      const result = await deleteEnquiry(finalId);
+      
+      if (result.error) {
+        console.error('Error from deleteEnquiry:', result.error);
+        throw new Error(result.error);
+      }
+
+      // Update UI by removing the deleted enquiry
+      setEnquiries(prev => {
+        const updated = prev.filter(enquiry => {
+          // Handle both string and object IDs
+          const enquiryId = enquiry.id?.id || enquiry.id;
+          const enquiryIdStr = String(enquiryId).toLowerCase();
+          const finalIdStr = String(finalId).toLowerCase();
+          return enquiryIdStr !== finalIdStr;
+        });
+        console.log('Updated enquiries after deletion:', updated.length, 'remaining');
+        return updated;
+      });
+
+      // Refresh stats
+      try {
+        console.log('Refreshing stats...');
+        const statsResult = await getEnquiryStats(statsRange);
+        if (statsResult.data) {
+          console.log('Stats refreshed successfully');
+          setStats(statsResult.data);
+        } else if (statsResult.error) {
+          console.warn('Error in stats response:', statsResult.error);
+        }
+      } catch (statsError) {
+        console.error('Error refreshing stats:', statsError);
+        // Don't fail the operation if stats refresh fails
+      }
 
       if (!suppressToast) {
         toast({
           title: 'Enquiry deleted',
-          description: `Enquiry #${enquiryId} has been deleted.`
+          description: 'The enquiry has been successfully deleted.',
+          variant: 'success'
         });
       }
-
-      return { error: null };
+      
+      return { success: true };
     } catch (error) {
       console.error('Error deleting enquiry:', error);
       toast({
@@ -362,7 +421,53 @@ export default function EnquiryManagementPage() {
       label: 'Delete',
       icon: Trash2,
       variant: 'destructive',
-      onClick: (row) => handleDeleteEnquiry(row.id)
+      onClick: (row) => {
+        console.group('Delete Action - Row Data');
+        try {
+          if (!row) {
+            console.error('No row data provided for deletion');
+            toast({
+              title: 'Error',
+              description: 'Cannot delete: No enquiry data provided',
+              variant: 'destructive'
+            });
+            return;
+          }
+          
+          console.log('Full row data:', JSON.parse(JSON.stringify(row)));
+          
+          // Try to get the ID from different possible locations
+          const possibleIdFields = [
+            'id', 'enquiry_id', 'enquiryId', 'enquiry.id', 
+            'enquiry.enquiry_id', 'enquiry.enquiryId'
+          ];
+          
+          let idToDelete;
+          for (const field of possibleIdFields) {
+            const value = field.split('.').reduce((obj, key) => obj?.[key], row);
+            if (value !== undefined && value !== null) {
+              idToDelete = value;
+              console.log(`Found ID in field '${field}':`, idToDelete, 'Type:', typeof idToDelete);
+              break;
+            }
+          }
+          
+          if (!idToDelete) {
+            console.error('No valid ID found in row data. Available fields:', Object.keys(row));
+            toast({
+              title: 'Error',
+              description: 'Cannot delete: No valid ID found for this enquiry',
+              variant: 'destructive'
+            });
+            return;
+          }
+          
+          console.log('Attempting to delete enquiry with ID:', idToDelete, 'Type:', typeof idToDelete);
+          handleDeleteEnquiry(idToDelete);
+        } finally {
+          console.groupEnd();
+        }
+      }
     }
   ]), [handleStatusUpdate, handleDeleteEnquiry]);
 

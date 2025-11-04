@@ -178,36 +178,102 @@ export default function CartPage() {
 
                       {/* Product Details */}
                       <div className="flex-1 min-w-0">
-                        <h3 className="font-semibold text-lg mb-1 truncate">
-                          {item['producttype'] || 'Lighting Product'}
-                        </h3>
+                        <div className="flex justify-between items-start">
+                          <h3 className="font-semibold text-lg mb-2">
+                            {item.name || item.product_name || item.producttype || 'Lighting Product'}
+                            {item.model_number && ` - ${item.model_number}`}
+                            {!item.name && !item.product_name && !item.producttype && item.id && ` #${item.id}`}
+                          </h3>
+                          <div className="text-lg font-semibold">
+                            {item.price ? `$${parseFloat(item.price).toFixed(2)}` : 'Price on request'}
+                          </div>
+                        </div>
 
+                        {/* Product Type Badges */}
                         <div className="flex flex-wrap gap-2 mb-3">
-                          {item['Indoor'] && (
-                            <Badge variant="secondary" className="text-xs">
-                              Indoor: {item['Indoor']}
+                          {item.type && (
+                            <Badge variant="outline" className="text-xs bg-blue-50">
+                              {item.type}
                             </Badge>
                           )}
-                          {item['Outdoor'] && (
-                            <Badge variant="secondary" className="text-xs">
-                              Outdoor: {item['Outdoor']}
+                          {item.indoor_outdoor && (
+                            <Badge variant="outline" className="text-xs bg-green-50">
+                              {item.indoor_outdoor}
+                            </Badge>
+                          )}
+                          {item.ip_rating && (
+                            <Badge variant="outline" className="text-xs bg-amber-50">
+                              IP{item.ip_rating}
+                            </Badge>
+                          )}
+                          {item.certification && (
+                            <Badge variant="outline" className="text-xs bg-purple-50">
+                              {item.certification}
                             </Badge>
                           )}
                         </div>
 
-                        {/* Key Specs */}
-                        <div className="grid grid-cols-2 gap-2 text-sm text-muted-foreground mb-4">
-                          {item['Power (W)'] && (
-                            <div>Power: {item['Power (W)']}</div>
+                        {/* Key Specifications */}
+                        <div className="grid grid-cols-2 gap-x-4 gap-y-2 text-sm text-muted-foreground mb-4">
+                          {item.power_w && (
+                            <div className="flex items-center gap-1">
+                              <span className="font-medium">Power:</span>
+                              <span>{item.power_w}W</span>
+                            </div>
                           )}
-                          {item['Size'] && (
-                            <div>Size: {item['Size']}</div>
+                          {item.voltage_v && (
+                            <div className="flex items-center gap-1">
+                              <span className="font-medium">Voltage:</span>
+                              <span>{item.voltage_v}V</span>
+                            </div>
                           )}
-                          {item['CCT'] && (
-                            <div>CCT: {item['CCT']}</div>
+                          {item.cct_k && (
+                            <div className="flex items-center gap-1">
+                              <span className="font-medium">CCT:</span>
+                              <span>{item.cct_k}K</span>
+                            </div>
                           )}
-                          {item['Lumen'] && (
-                            <div>Lumen: {item['Lumen']}</div>
+                          {item.lm && (
+                            <div className="flex items-center gap-1">
+                              <span className="font-medium">Lumen:</span>
+                              <span>{item.lm}lm</span>
+                            </div>
+                          )}
+                          {item.cri && (
+                            <div className="flex items-center gap-1">
+                              <span className="font-medium">CRI:</span>
+                              <span>Ra {item.cri}</span>
+                            </div>
+                          )}
+                          {item.beam_angle && (
+                            <div className="flex items-center gap-1">
+                              <span className="font-medium">Beam:</span>
+                              <span>{item.beam_angle}°</span>
+                            </div>
+                          )}
+                          {item.dimmable && (
+                            <div className="flex items-center gap-1">
+                              <span className="font-medium">Dimmable:</span>
+                              <span>{item.dimmable === 'Yes' ? 'Yes' : 'No'}</span>
+                            </div>
+                          )}
+                          {item.warranty && (
+                            <div className="flex items-center gap-1">
+                              <span className="font-medium">Warranty:</span>
+                              <span>{item.warranty} years</span>
+                            </div>
+                          )}
+                          {item.driver_brand && (
+                            <div className="flex items-center gap-1">
+                              <span className="font-medium">Driver:</span>
+                              <span>{item.driver_brand}</span>
+                            </div>
+                          )}
+                          {item.material && (
+                            <div className="flex items-center gap-1">
+                              <span className="font-medium">Material:</span>
+                              <span>{item.material}</span>
+                            </div>
                           )}
                         </div>
 
