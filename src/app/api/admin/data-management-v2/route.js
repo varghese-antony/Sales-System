@@ -11,7 +11,8 @@ import {
   bulkUpdateProductsV2,
   searchProductsV2,
   getDistinctCategoriesV2,
-  getDistinctProductTypesV2
+  getDistinctProductTypesV2,
+  getFilterOptionsV2
 } from '@/lib/database/products-v2';
 
 /**
@@ -137,9 +138,64 @@ export async function GET(request) {
     const productType = searchParams.get('productType') || '';
 
     // Build filters object using v2 field names
+    // Map of query param keys -> products-v2 fieldMappingV2 keys
+    const paramToFilterKey = {
+      // basic
+      category: 'subCategory',
+      productType: 'productName',
+      name: 'modelNumber', // Using modelNumber for name filtering
+      description: 'description',
+      modelNumber: 'modelNumber',
+      size: 'size',
+      // technical
+      voltage: 'voltage',
+      powerW: 'powerW',
+      cct: 'cct',
+      criRa: 'criRa',
+      lumen: 'lumen',
+      efficacyLumenPerW: 'efficacyLumenPerW',
+      dimmingType: 'dimmingType',
+      ledType: 'ledType',
+      driverBrand: 'driverBrand',
+      // physical
+      materialFinish: 'materialFinish',
+      sensorsAndControls: 'sensorsAndControls',
+      mounting: 'mounting',
+      certifications: 'certifications',
+      // business
+      leadTime: 'leadTime',
+      warranty: 'warranty',
+      moq: 'moq',
+      // ratings
+      ipRating: 'ipRating',
+      ikRating: 'ikRating',
+      // type filter
+      type: 'type'
+    };
+    
     const filters = {};
+    
+    // Explicitly handle category & productType for backwards compatibility
     if (category) filters.subCategory = category;
     if (productType) filters.productName = productType;
+    
+    // Iterate over all search params and map any recognised param into the filters object
+    for (const [key, value] of searchParams.entries()) {
+      if (!value) continue;
+      // skip known non-filter params
+      if (['action', 'table', 'page', 'limit', 'search', 'category', 'productType'].includes(key)) {
+        continue;
+      }
+      
+      const mappedKey = paramToFilterKey[key];
+      if (mappedKey) {
+        filters[mappedKey] = value;
+      }
+    }
+    
+    console.log('[API Route] Received filters:', filters);
+    console.log('[API Route] All search params:', Object.fromEntries(searchParams.entries()));
+
     if (search) {
       // For search, we'll use the search function instead
       if (table === 'both') {
@@ -251,7 +307,27 @@ export async function GET(request) {
           indoor: indoorResult.count || 0,
           outdoor: outdoorResult.count || 0
         },
-        filterOptions: null, // TODO: Implement filter options aggregation
+        filterOptions: {
+          ...(await (async () => {
+            if (table === 'both') {
+              const [indoorOpts, outdoorOpts] = await Promise.all([
+                getFilterOptionsV2('indoor', filters),
+                getFilterOptionsV2('outdoor', filters)
+              ]);
+              // merge sets
+              const merged = {};
+              [indoorOpts, outdoorOpts].forEach(opts => {
+                Object.entries(opts).forEach(([k, arr]) => {
+                  if (!merged[k]) merged[k] = new Set();
+                  arr.forEach(v => merged[k].add(v));
+                });
+              });
+              return Object.fromEntries(Object.entries(merged).map(([k, set]) => [k, Array.from(set)]));
+            } else {
+              return await getFilterOptionsV2(table, filters);
+            }
+          })())
+        },
         currentPage: page,
         pageSize: limit,
         totalPages: Math.ceil(totalCount / limit)
@@ -275,14 +351,17 @@ export async function GET(request) {
         );
       }
 
+      // Add type field to products for single table queries
+      const productsWithType = (result.data || []).map(p => ({ ...p, type: table }));
+
       const response = NextResponse.json({
-        data: result.data,
+        data: productsWithType,
         count: result.count,
         countsByType: {
           indoor: table === 'indoor' ? result.count || 0 : 0,
           outdoor: table === 'outdoor' ? result.count || 0 : 0
         },
-        filterOptions: null, // TODO: Implement filter options
+        filterOptions: await getFilterOptionsV2(table, filters),
         currentPage: page,
         pageSize: limit,
         totalPages: Math.ceil((result.count || 0) / limit)
@@ -450,21 +529,27 @@ export async function POST(request) {
 
       case 'bulkUpdate':
         // Validate required parameters
-        if (!params.type || !params.ids || !Array.isArray(params.ids) || !params.updateData) {
+        console.log('API - bulkUpdate called with params:', params);
+        if (!params.table || !params.ids || !Array.isArray(params.ids) || !params.updateData) {
           return NextResponse.json(
-            { error: 'Missing required parameters: type, ids (array), and updateData' },
+            { error: 'Missing required parameters: table, ids (array), and updateData' },
             { status: 400 }
           );
         }
-        result = await bulkUpdateProductsV2(params.type, params.ids, params.updateData);
+        result = await bulkUpdateProductsV2(params.table, params.ids, params.updateData);
         if (result.error) {
-          return NextResponse.json(
-            { 
-              error: `Failed to bulk update products in ${params.type}_products_v2 table`,
-              details: result.error
-            },
-            { status: 500 }
-          );
+          console.error('Bulk update error details:', result);
+          const errorResponse = {
+            error: `Failed to bulk update products in ${params.table}_products_v2 table`,
+            message: result.error,
+            rawError: result.errorDetails || result.error
+          };
+
+          if (result.resolvedIds) {
+            errorResponse.resolvedIds = result.resolvedIds;
+          }
+
+          return NextResponse.json(errorResponse, { status: 500 });
         }
         break;
 

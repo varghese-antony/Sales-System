@@ -107,7 +107,8 @@ function applyFiltersToQuery(query, table, filters = {}) {
     } else if (key === 'search') {
       query = query.or(`model_number.ilike.%${value}%,product_name.ilike.%${value}%,sub_category.ilike.%${value}%`)
     } else {
-      const dbColumn = fieldMapping[key] || key
+      const cleanedKey = key.replace(/Filter$/, '');
+      const dbColumn = fieldMapping[cleanedKey] || cleanedKey;
       query = query.eq(dbColumn, value)
     }
   })

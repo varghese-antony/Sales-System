@@ -48,6 +48,80 @@ import {
   V2_ERROR_TYPES
 } from './v2-validation'
 
+const idResolutionCache = new Map();
+
+async function ensureUUIDForId(type, rawId) {
+  if (rawId === null || rawId === undefined) {
+    return { original: rawId, resolved: rawId, isUUID: false, changed: false };
+  }
+
+  const stringId = typeof rawId === 'string' ? rawId : String(rawId);
+  const cacheKey = `${type}:${stringId}`;
+
+  if (idResolutionCache.has(cacheKey)) {
+    return idResolutionCache.get(cacheKey);
+  }
+
+  const resolver = (async () => {
+    if (isValidUUID(stringId)) {
+      return { original: stringId, resolved: stringId, isUUID: true, changed: false };
+    }
+
+    const { id: resolvedId, isUUID } = await resolveProductId(type, stringId);
+    const resolvedValue = isUUID && resolvedId ? resolvedId : stringId;
+
+    return {
+      original: stringId,
+      resolved: resolvedValue,
+      isUUID,
+      changed: isUUID && resolvedId && resolvedId !== stringId
+    };
+  })();
+
+  idResolutionCache.set(cacheKey, resolver);
+  return resolver;
+}
+
+async function resolveProductListIds(type, products = []) {
+  if (!Array.isArray(products) || products.length === 0) return products;
+
+  const resolvedProducts = await Promise.all(
+    products.map(async (product) => {
+      if (!product || typeof product !== 'object') return product;
+
+      const result = await ensureUUIDForId(type, product.id);
+      if (!result) return product;
+
+      if (result.changed) {
+        return {
+          ...product,
+          id: result.resolved,
+          legacy_id: product.legacy_id ?? result.original
+        };
+      }
+
+      if (result.resolved !== product.id) {
+        return { ...product, id: result.resolved };
+      }
+
+      return product;
+    })
+  );
+
+  return resolvedProducts;
+}
+
+async function normalizeIdsForQuery(type, ids = []) {
+  if (!Array.isArray(ids) || ids.length === 0) {
+    return { idsForQuery: [], resolution: [] };
+  }
+
+  const resolution = await Promise.all(ids.map((id) => ensureUUIDForId(type, id)));
+  const idsForQuery = Array.from(new Set(resolution.map((item) => item.resolved)));
+
+  return { idsForQuery, resolution };
+}
+
 function formatColumnName(column) {
   if (!column) return column
   return /^[a-z0-9_]+$/.test(column) ? column : `"${column.replace(/"/g, '""')}"`
@@ -71,14 +145,7 @@ export const fieldMappingV2 = {
   dimmingType: 'dimming_type',
   materialFinish: 'material_finish',
   sensorsAndControls: 'sensors_and_controls',
-  occupancy: 'occupancy',
-  biLevel: 'bi_level',
   pirMicrowaveBluetooth: 'pir_microwave_bluetooth',
-  sensorMicrowaveBluetooth: 'pir_microwave_bluetooth',
-  remoteControl: 'remote_control',
-  pluginSensor: 'plugin_sensor',
-  emergencyBackupBattery: 'emergency_backup_battery',
-  junctionCover: 'junction_cover',
   mounting: 'mounting',
   installationKits: 'installation_kits',
   adjustmentDial: 'adjustment_dial',
@@ -92,7 +159,135 @@ export const fieldMappingV2 = {
   costChinaDdpUsa: 'cost_china_ddp_usa',
   costThailandVietnam: 'cost_thailand_vietnam',
   photo: 'photo',
-  ipRating: 'ip_rating'
+  ipRating: 'ip_rating',
+  sensorCost: 'sensor_cost',
+  sensorPrice: 'sensor_price',
+  remoteControlBluetoothCost: 'remote_control_bluetooth_cost',
+  remoteControlBluetoothPrice: 'remote_control_bluetooth_price',
+  pluginSensorCost: 'plugin_sensor_cost',
+  pluginSensorPrice: 'plugin_sensor_price',
+  emergencyBackupBatteryCost: 'emergency_backup_battery_cost',
+  emergencyBackupBatteryPrice: 'emergency_backup_battery_price',
+  installationKitsCost: 'installation_kits_cost',
+  installationKitsPrice: 'installation_kits_price'
+}
+
+const V2_ALLOWED_COLUMNS = new Set([
+  'sub_category',
+  'product_name',
+  'model_number',
+  'size',
+  'power_w',
+  'voltage',
+  'cct',
+  'cri_ra',
+  'lumen',
+  'efficacy_lumen_per_w',
+  'dimming_type',
+  'material_finish',
+  'sensors_and_controls',
+  'occupancy',
+  'bi_level',
+  'pir_microwave_bluetooth',
+  'remote_control',
+  'plugin_sensor',
+  'emergency_backup_battery',
+  'junction_cover',
+  'mounting',
+  'installation_kits',
+  'adjustment_dial',
+  'certifications',
+  'price_per_piece',
+  'lead_time',
+  'cut_sheet',
+  'warranty',
+  'moq',
+  'cost_china_ddp_usa',
+  'cost_thailand_vietnam',
+  'photo',
+  'ip_rating',
+  'sensor_cost',
+  'sensor_price',
+  'remote_control_bluetooth_cost',
+  'remote_control_bluetooth_price',
+  'plugin_sensor_cost',
+  'plugin_sensor_price',
+  'emergency_backup_battery_cost',
+  'emergency_backup_battery_price',
+  'installation_kits_cost',
+  'installation_kits_price'
+])
+
+const V2_BOOLEAN_COLUMNS = new Set([
+  'occupancy',
+  'bi_level',
+  'remote_control',
+  'plugin_sensor',
+  'emergency_backup_battery',
+  'junction_cover'
+])
+
+const V2_INTEGER_COLUMNS = new Set(['cri_ra'])
+
+const TRUTHY_BOOLEAN_VALUES = new Set(['true', 'yes', '1', 'included', 'optional'])
+
+function normalizeBooleanInput(value) {
+  if (typeof value === 'boolean') return value
+  if (value === null || value === undefined) return false
+  const normalized = String(value).trim().toLowerCase()
+  if (normalized === '') return false
+  if (normalized === 'false' || normalized === 'no' || normalized === '0') return false
+  return TRUTHY_BOOLEAN_VALUES.has(normalized)
+}
+
+function normalizeIntegerInput(value) {
+  if (value === null || value === undefined || value === '') return null
+  const parsed = parseInt(value, 10)
+  return Number.isNaN(parsed) ? null : parsed
+}
+
+export function sanitizeProductForInsert(product, options = {}) {
+  const { fillBooleanDefaults = true } = options
+  const sanitized = {}
+
+  Object.entries(product).forEach(([key, rawValue]) => {
+    const dbColumn = fieldMappingV2[key] || key
+    if (!V2_ALLOWED_COLUMNS.has(dbColumn)) {
+      return
+    }
+
+    let value = rawValue
+    if (typeof value === 'string') {
+      value = value.trim()
+    }
+
+    if (value === '') {
+      sanitized[dbColumn] = null
+      return
+    }
+
+    if (V2_BOOLEAN_COLUMNS.has(dbColumn)) {
+      sanitized[dbColumn] = normalizeBooleanInput(value)
+      return
+    }
+
+    if (V2_INTEGER_COLUMNS.has(dbColumn)) {
+      sanitized[dbColumn] = normalizeIntegerInput(value)
+      return
+    }
+
+    sanitized[dbColumn] = value
+  })
+
+  if (fillBooleanDefaults) {
+    V2_BOOLEAN_COLUMNS.forEach((column) => {
+      if (!(column in sanitized)) {
+        sanitized[column] = false
+      }
+    })
+  }
+
+  return sanitized
 }
 
 export function getReverseFieldMappingV2() {
@@ -132,7 +327,8 @@ export async function getProductByIdV2(type, id) {
     if (error) throw error;
     
     if (data && data.length > 0) {
-      return { data: data[0], error: null };
+      const [resolvedProduct] = await resolveProductListIds(type, data)
+      return { data: resolvedProduct, error: null };
     }
     
     // If not found and ID is numeric, try with a different approach
@@ -145,7 +341,8 @@ export async function getProductByIdV2(type, id) {
         .limit(1);
         
       if (fallbackData && fallbackData.length > 0) {
-        return { data: fallbackData[0], error: null };
+        const [resolvedFallback] = await resolveProductListIds(type, fallbackData)
+        return { data: resolvedFallback, error: null };
       }
       
       if (fallbackError) {
@@ -311,7 +508,9 @@ export async function getProductsByCategoryV2(type, category, options = {}) {
     const { data, error } = await query
     if (error) throw error
     
-    return { data, error: null }
+    const resolvedData = await resolveProductListIds(type, data || [])
+
+    return { data: resolvedData, error: null }
   } catch (error) {
     console.error('Error fetching products:', error)
     return { data: null, error: error.message }
@@ -353,7 +552,9 @@ export async function getAllProductsV2(type, filters = {}) {
 
     if (error) throw error
 
-    return { data, error: null }
+    const resolvedData = await resolveProductListIds(type, data || [])
+
+    return { data: resolvedData, error: null }
   } catch (error) {
     console.error('Error fetching all products from v2 tables:', error)
     const formattedError = formatDatabaseErrorV2(error, 'read', type)
@@ -389,7 +590,9 @@ export async function getProductsWithSensorFiltersV2(type, filters = {}) {
 
     if (error) throw error
 
-    return { data, error: null }
+    const resolvedData = await resolveProductListIds(type, data || [])
+
+    return { data: resolvedData, error: null }
   } catch (error) {
     console.error('Error fetching products with sensor filters:', error)
     return { data: null, error: error.message }
@@ -460,7 +663,9 @@ export async function searchProductsV2(type, searchTerm) {
 
     if (error) throw error
 
-    return { data, error: null }
+    const resolvedData = await resolveProductListIds(type, data || [])
+
+    return { data: resolvedData, error: null }
   } catch (error) {
     console.error('Error searching products in v2 table:', error)
     const formattedError = formatDatabaseErrorV2(error, 'search', type)
@@ -511,7 +716,9 @@ export async function getProductsWithPaginationV2(type, filters = {}, pagination
 
     if (error) throw error
 
-    return { data, count, error: null }
+    const resolvedData = await resolveProductListIds(type, data || [])
+
+    return { data: resolvedData, count, error: null }
   } catch (error) {
     console.error('Error fetching products with pagination from v2 tables:', error)
     const formattedError = formatDatabaseErrorV2(error, 'read', type)
@@ -536,12 +743,8 @@ export async function updateProductV2(type, id, updateData) {
     }
     
     // Map frontend field names to database column names
-    const mappedData = {}
-    Object.entries(updateData).forEach(([key, value]) => {
-      const dbColumn = fieldMappingV2[key] || key
-      mappedData[dbColumn] = value
-    })
-    
+    const mappedData = sanitizeProductForInsert(updateData, { fillBooleanDefaults: false })
+
     // Validate update data
     const validationErrors = validateProductDataV2(type, mappedData, 'update')
     if (validationErrors.length > 0) {
@@ -549,6 +752,15 @@ export async function updateProductV2(type, id, updateData) {
       return { data: null, error: error.message, errorDetails: error, validationErrors }
     }
     
+    if (Object.keys(mappedData).length === 0) {
+      const error = createV2Error(
+        V2_ERROR_TYPES.INVALID_FIELD_VALUE,
+        'No valid fields provided for update operation',
+        { operation: 'update', table: type }
+      )
+      return { data: null, error: error.message, errorDetails: error }
+    }
+
     const table = getTableNameV2(type)
     const { data, error } = await supabase
       .from(table)
@@ -568,7 +780,9 @@ export async function updateProductV2(type, id, updateData) {
       return { data: null, error: notFoundError.message, errorDetails: notFoundError }
     }
 
-    return { data, error: null }
+    const resolvedData = await resolveProductListIds(type, data || [])
+
+    return { data: resolvedData, error: null }
   } catch (error) {
     console.error('Error updating product in v2 table:', error)
     const formattedError = formatDatabaseErrorV2(error, 'update', type)
@@ -600,22 +814,17 @@ export async function createProductsV2(type, products) {
     
     for (let i = 0; i < products.length; i++) {
       const product = products[i]
-      const mappedProduct = {}
-      
-      Object.entries(product).forEach(([key, value]) => {
-        const dbColumn = fieldMappingV2[key] || key
-        mappedProduct[dbColumn] = value
-      })
-      
+      const sanitizedProduct = sanitizeProductForInsert(product, { fillBooleanDefaults: true })
+
       // Validate each product
-      const validationErrors = validateProductDataV2(type, mappedProduct, 'create')
+      const validationErrors = validateProductDataV2(type, sanitizedProduct, 'create')
       if (validationErrors.length > 0) {
         allValidationErrors.push({
           productIndex: i,
           errors: validationErrors
         })
       } else {
-        productsToInsert.push(mappedProduct)
+        productsToInsert.push(sanitizedProduct)
       }
     }
     
@@ -640,7 +849,9 @@ export async function createProductsV2(type, products) {
 
     if (error) throw error
 
-    return { data, error: null }
+    const resolvedData = await resolveProductListIds(type, data || [])
+
+    return { data: resolvedData, error: null }
   } catch (error) {
     console.error('Error creating products in v2 table:', error)
     const formattedError = formatDatabaseErrorV2(error, 'create', type)
@@ -695,12 +906,8 @@ export async function deleteProductV2(type, id) {
 export async function bulkUpdateProductsV2(type, ids, updateData) {
   try {
     // Map frontend field names to database column names
-    const mappedData = {}
-    Object.entries(updateData).forEach(([key, value]) => {
-      const dbColumn = fieldMappingV2[key] || key
-      mappedData[dbColumn] = value
-    })
-    
+    const mappedData = sanitizeProductForInsert(updateData, { fillBooleanDefaults: false })
+
     // Validate bulk operation
     const validationErrors = validateBulkOperationV2(type, ids, mappedData)
     if (validationErrors.length > 0) {
@@ -709,10 +916,40 @@ export async function bulkUpdateProductsV2(type, ids, updateData) {
     }
     
     const table = getTableNameV2(type)
+    const { idsForQuery, resolution } = await normalizeIdsForQuery(type, ids)
+
+    if (idsForQuery.length === 0) {
+      const notFoundError = createV2Error(
+        V2_ERROR_TYPES.PRODUCT_NOT_FOUND,
+        `No valid product IDs provided for ${table}`,
+        { operation: 'bulkUpdate', table: type, idsCount: ids.length, ids }
+      )
+      return { data: null, error: notFoundError.message, errorDetails: notFoundError }
+    }
+
+    console.log('[bulkUpdateProductsV2] resolved targets', {
+      type,
+      table,
+      originalIds: ids,
+      idsForQuery,
+      updateColumns: Object.keys(mappedData)
+    })
+
+    const { data: existingRecords, error: existingError } = await supabase
+      .from(table)
+      .select('id, model_number')
+      .in('id', idsForQuery)
+
+    if (existingError) {
+      console.error('[bulkUpdateProductsV2] preflight select error', existingError)
+    } else {
+      console.log('[bulkUpdateProductsV2] matches before update', existingRecords?.length || 0, existingRecords)
+    }
+
     const { data, error } = await supabase
       .from(table)
       .update(mappedData)
-      .in('id', ids)
+      .in('id', idsForQuery)
       .select()
 
     if (error) throw error
@@ -722,12 +959,21 @@ export async function bulkUpdateProductsV2(type, ids, updateData) {
       const notFoundError = createV2Error(
         V2_ERROR_TYPES.PRODUCT_NOT_FOUND,
         `No products found with the provided IDs in ${table}`,
-        { operation: 'bulkUpdate', table: type, idsCount: ids.length }
+        {
+          operation: 'bulkUpdate',
+          table: type,
+          idsCount: ids.length,
+          ids,
+          resolvedIds: resolution,
+          matchedRecords: existingRecords?.length || 0
+        }
       )
       return { data: null, error: notFoundError.message, errorDetails: notFoundError }
     }
 
-    return { data, error: null }
+    const dataWithLegacy = await resolveProductListIds(type, data || [])
+
+    return { data: dataWithLegacy, error: null, resolvedIds: resolution }
   } catch (error) {
     console.error('Error bulk updating products in v2 table:', error)
     const formattedError = formatDatabaseErrorV2(error, 'bulkUpdate', type)
@@ -880,5 +1126,136 @@ export async function updateProductPricesV2(priceUpdates) {
   } catch (error) {
     console.error('Error updating prices:', error)
     return { results: [], error: error.message }
+  }
+}
+
+// Helper to add value into a Set safely
+function addValueToSetV2(value, targetSet) {
+  if (value === null || value === undefined) return;
+
+  if (Array.isArray(value)) {
+    value.forEach(v => addValueToSetV2(v, targetSet));
+    return;
+  }
+
+  if (typeof value === 'string') {
+    const trimmed = value.trim();
+    if (!trimmed) return;
+    if (trimmed.includes(',')) {
+      trimmed.split(',').map(part => part.trim()).filter(Boolean).forEach(part => targetSet.add(part));
+      return;
+    }
+    targetSet.add(trimmed);
+    return;
+  }
+  targetSet.add(value);
+}
+
+// Fetch distinct values for dropdown filters for a given table, applying existing filters (except the column itself)
+export async function getFilterOptionsV2(type, filters = {}) {
+  try {
+    validateTableType(type);
+    // sanitize filters using existing validation util, ignore errors
+    const { filters: sanitizedFilters } = validateFiltersV2(filters);
+
+    const table = getTableNameV2(type);
+    // db column list to fetch - all available v2 fields
+    const filterColumns = [
+      'sub_category',
+      'product_name',
+      'model_number',
+      'size',
+      'power_w',
+      'voltage',
+      'cct',
+      'cri_ra',
+      'lumen',
+      'efficacy_lumen_per_w',
+      'dimming_type',
+      'material_finish',
+      'sensors_and_controls',
+      'mounting',
+      'certifications',
+      'lead_time',
+      'warranty',
+      'moq'
+    ];
+    if (type === 'outdoor') {
+      filterColumns.push('ip_rating');
+    }
+
+    let query = supabase.from(table).select(filterColumns.map(formatColumnName).join(','));
+
+    // apply filters
+    Object.entries(sanitizedFilters).forEach(([key, value]) => {
+      if (value === null || value === undefined || value === '') return;
+      const dbColumn = fieldMappingV2[key] || key;
+      // do not filter on the same column when collecting its distinct values to avoid empty sets
+      if (!filterColumns.includes(dbColumn)) {
+        query = query.eq(formatColumnName(dbColumn), value);
+      }
+    });
+
+    const { data, error } = await query;
+    if (error) throw error;
+
+    const options = {
+      categories: new Set(),
+      producttypes: new Set(),
+      modelNumbers: new Set(),
+      sizes: new Set(),
+      Voltage: new Set(),
+      power_w: new Set(),
+      CCT: new Set(),
+      cri_ra: new Set(),
+      lumen: new Set(),
+      efficacy: new Set(),
+      dimmingType: new Set(),
+      materialFinish: new Set(),
+      sensorsControls: new Set(),
+      mounting: new Set(),
+      certifications: new Set(),
+      leadTime: new Set(),
+      warranty: new Set(),
+      moq: new Set(),
+      ip_rating: type === 'outdoor' ? new Set() : null
+    };
+
+    data.forEach(row => {
+      addValueToSetV2(row.sub_category, options.categories);
+      addValueToSetV2(row.product_name, options.producttypes);
+      addValueToSetV2(row.model_number, options.modelNumbers);
+      addValueToSetV2(row.size, options.sizes);
+      addValueToSetV2(row.voltage, options.Voltage);
+      addValueToSetV2(row.power_w, options.power_w);
+      addValueToSetV2(row.cct, options.CCT);
+      addValueToSetV2(row.cri_ra, options.cri_ra);
+      addValueToSetV2(row.lumen, options.lumen);
+      addValueToSetV2(row.efficacy_lumen_per_w, options.efficacy);
+      addValueToSetV2(row.dimming_type, options.dimmingType);
+      addValueToSetV2(row.material_finish, options.materialFinish);
+      addValueToSetV2(row.sensors_and_controls, options.sensorsControls);
+      addValueToSetV2(row.mounting, options.mounting);
+      addValueToSetV2(row.certifications, options.certifications);
+      addValueToSetV2(row.lead_time, options.leadTime);
+      addValueToSetV2(row.warranty, options.warranty);
+      addValueToSetV2(row.moq, options.moq);
+      if (type === 'outdoor') {
+        addValueToSetV2(row.ip_rating, options.ip_rating);
+      }
+    });
+
+    const sortFn = (a, b) => {
+      if (typeof a === 'number' && typeof b === 'number') return a - b;
+      return String(a).localeCompare(String(b));
+    };
+
+    return Object.entries(options).reduce((acc, [key, setVal]) => {
+      acc[key] = setVal ? Array.from(setVal).sort(sortFn) : [];
+      return acc;
+    }, {});
+  } catch (error) {
+    console.error('Error fetching filter options V2:', error);
+    return {};
   }
 }

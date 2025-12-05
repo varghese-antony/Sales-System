@@ -51,15 +51,18 @@ export const V2_SCHEMA = {
   // Required fields for product creation
   required: ['sub_category', 'product_name'],
   
-  // String fields with max lengths
+  // String fields with max lengths and validation patterns
   stringFields: {
-    sub_category: { maxLength: 255 },
-    product_name: { maxLength: 255 },
+    sub_category: { maxLength: 255, required: true },
+    product_name: { maxLength: 255, required: true },
     model_number: { maxLength: 255 },
+    description: { maxLength: 1000 },
     size: { maxLength: 100 },
-    voltage: { maxLength: 50 },
-    cct: { maxLength: 50 },
+    voltage: { maxLength: 50, pattern: /^\d+(-\d+)?V$/i },
+    cct: { maxLength: 50, pattern: /^\d+K$/i },
     dimming_type: { maxLength: 100 },
+    led_type: { maxLength: 100 },
+    driver_brand: { maxLength: 255 },
     material_finish: { maxLength: 255 },
     sensors_and_controls: { maxLength: 100 },
     occupancy: { maxLength: 50 },
@@ -78,28 +81,43 @@ export const V2_SCHEMA = {
     moq: { maxLength: 100 },
     photo: { maxLength: 500 },
     cut_sheet: { maxLength: 500 },
-    ip_rating: { maxLength: 50 }
+    ip_rating: { maxLength: 50, pattern: /^IP\d{1,2}$/i },
+    ik_rating: { maxLength: 50, pattern: /^IK\d{1,2}$/i }
   },
   
   // Numeric fields with validation rules
   numericFields: {
-    power_w: { min: 0, max: 10000 },
-    cri_ra: { min: 0, max: 100 },
-    lumen: { min: 0, max: 1000000 },
-    efficacy_lumen_per_w: { min: 0, max: 1000 },
-    price_per_piece: { min: 0, max: 1000000 },
-    cost_china_ddp_usa: { min: 0, max: 1000000 },
-    cost_thailand_vietnam: { min: 0, max: 1000000 }
+    power_w: { min: 0, max: 10000, decimals: 2 },
+    cri_ra: { min: 0, max: 100, decimals: 0 },
+    lumen: { min: 0, max: 1000000, decimals: 0 },
+    efficacy_lumen_per_w: { min: 0, max: 1000, decimals: 2 },
+    price_per_piece: { min: 0, max: 1000000, decimals: 2 },
+    cost_china_ddp_usa: { min: 0, max: 1000000, decimals: 2 },
+    cost_thailand_vietnam: { min: 0, max: 1000000, decimals: 2 }
   },
   
   // Fields that should be URLs
   urlFields: ['photo', 'cut_sheet'],
   
+  // Fields that should be boolean values
+  booleanFields: ['dimmable', 'emergency_backup_battery', 'plugin_sensor', 'remote_control', 'junction_cover'],
+  
   // Indoor-only fields
   indoorOnlyFields: [],
   
   // Outdoor-only fields
-  outdoorOnlyFields: ['ip_rating']
+  outdoorOnlyFields: ['ip_rating'],
+  
+  // Common valid values for specific fields
+  validValues: {
+    dimming_type: ['0-10V', 'DALI', 'PWM', 'Triac', 'Bluetooth', 'WiFi', 'Zigbee', 'No Dimming'],
+    mounting: ['Recessed', 'Surface', 'Suspended', 'Wall', 'Track', 'Pendant', 'Flush Mount'],
+    certifications: ['CE', 'RoHS', 'UL', 'ETL', 'Energy Star', 'DLC', 'SAA', 'CB', 'FCC', 'IP65', 'IP66', 'IP67'],
+    emergency_backup_battery: ['Yes', 'No', 'Optional', 'True', 'False'],
+    plugin_sensor: ['Yes', 'No', 'Optional', 'True', 'False'],
+    remote_control: ['Yes', 'No', 'Optional', 'True', 'False'],
+    junction_cover: ['Yes', 'No', 'Included', 'True', 'False']
+  }
 }
 
 // Error types for v2 operations
@@ -170,7 +188,7 @@ export function validateRequiredFields(data, operation = 'create') {
 }
 
 /**
- * Validate string field lengths
+ * Validate string field lengths and patterns
  */
 export function validateStringFields(data) {
   const errors = []
@@ -179,6 +197,24 @@ export function validateStringFields(data) {
     if (data[field] !== undefined && data[field] !== null) {
       const value = String(data[field])
       
+      // Check required fields
+      if (rules.required && (!value || value.trim() === '')) {
+        errors.push(
+          createV2Error(
+            V2_ERROR_TYPES.MISSING_REQUIRED_FIELD,
+            `Field "${field}" is required`,
+            { field }
+          )
+        )
+        continue
+      }
+      
+      // Skip validation for empty optional fields
+      if (!value || value.trim() === '') {
+        continue
+      }
+      
+      // Check maximum length
       if (value.length > rules.maxLength) {
         errors.push(
           createV2Error(
@@ -193,6 +229,39 @@ export function validateStringFields(data) {
           )
         )
       }
+      
+      // Check pattern validation
+      if (rules.pattern && !rules.pattern.test(value)) {
+        errors.push(
+          createV2Error(
+            V2_ERROR_TYPES.INVALID_FIELD_VALUE,
+            `Field "${field}" does not match required format`,
+            { 
+              field, 
+              pattern: rules.pattern.toString(),
+              providedValue: value
+            }
+          )
+        )
+      }
+      
+      // Check valid values
+      if (V2_SCHEMA.validValues[field]) {
+        const validValues = V2_SCHEMA.validValues[field]
+        if (!validValues.some(validValue => value.toLowerCase().includes(validValue.toLowerCase()))) {
+          errors.push(
+            createV2Error(
+              V2_ERROR_TYPES.INVALID_FIELD_VALUE,
+              `Field "${field}" contains invalid value. Valid values: ${validValues.join(', ')}`,
+              { 
+                field, 
+                validValues,
+                providedValue: value
+              }
+            )
+          )
+        }
+      }
     }
   }
   
@@ -200,7 +269,7 @@ export function validateStringFields(data) {
 }
 
 /**
- * Validate numeric fields
+ * Validate numeric fields with decimal precision
  */
 export function validateNumericFields(data) {
   const errors = []
@@ -236,6 +305,46 @@ export function validateNumericFields(data) {
             V2_ERROR_TYPES.INVALID_FIELD_VALUE,
             `Field "${field}" must not exceed ${rules.max}`,
             { field, max: rules.max, providedValue: value }
+          )
+        )
+      }
+      
+      // Validate decimal precision
+      if (rules.decimals !== undefined) {
+        const decimalPlaces = (data[field].toString().split('.')[1] || '').length
+        if (decimalPlaces > rules.decimals) {
+          errors.push(
+            createV2Error(
+              V2_ERROR_TYPES.INVALID_FIELD_VALUE,
+              `Field "${field}" can have maximum ${rules.decimals} decimal places`,
+              { field, maxDecimals: rules.decimals, providedDecimals: decimalPlaces }
+            )
+          )
+        }
+      }
+    }
+  }
+  
+  return errors
+}
+
+/**
+ * Validate boolean fields
+ */
+export function validateBooleanFields(data) {
+  const errors = []
+  
+  for (const field of V2_SCHEMA.booleanFields) {
+    if (data[field] !== undefined && data[field] !== null && data[field] !== '') {
+      const value = String(data[field]).toLowerCase().trim()
+      const validBooleanValues = ['yes', 'no', 'true', 'false', '1', '0', 'optional', 'included']
+      
+      if (!validBooleanValues.some(validValue => value === validValue)) {
+        errors.push(
+          createV2Error(
+            V2_ERROR_TYPES.INVALID_FIELD_VALUE,
+            `Field "${field}" must be a boolean value (Yes/No, True/False, 1/0, Optional, Included)`,
+            { field, providedValue: data[field], validValues: validBooleanValues }
           )
         )
       }
@@ -331,11 +440,14 @@ export function validateProductDataV2(type, data, operation = 'create') {
   // Validate required fields
   errors.push(...validateRequiredFields(data, operation))
   
-  // Validate string field lengths
+  // Validate string field lengths and patterns
   errors.push(...validateStringFields(data))
   
   // Validate numeric fields
   errors.push(...validateNumericFields(data))
+  
+  // Validate boolean fields
+  errors.push(...validateBooleanFields(data))
   
   // Validate URL fields
   errors.push(...validateUrlFields(data))
@@ -491,6 +603,73 @@ export function formatDatabaseErrorV2(error, operation, table) {
 }
 
 /**
+ * Validate comma-separated values for variation fields
+ */
+export function validateCommaSeparatedValues(data, fieldName, validationRules) {
+  const errors = []
+  
+  if (data[fieldName] && typeof data[fieldName] === 'string') {
+    const values = data[fieldName].split(',').map(val => val.trim()).filter(Boolean)
+    
+    values.forEach((value, index) => {
+      // Apply numeric validation if it's a numeric field
+      if (validationRules && validationRules.numeric) {
+        const numValue = Number(value)
+        if (isNaN(numValue)) {
+          errors.push(
+            createV2Error(
+              V2_ERROR_TYPES.INVALID_FIELD_TYPE,
+              `Value "${value}" in field "${fieldName}" (variation ${index + 1}) must be a valid number`,
+              { field: fieldName, variationIndex: index, providedValue: value }
+            )
+          )
+        } else if (validationRules.min !== undefined && numValue < validationRules.min) {
+          errors.push(
+            createV2Error(
+              V2_ERROR_TYPES.INVALID_FIELD_VALUE,
+              `Value "${value}" in field "${fieldName}" (variation ${index + 1}) must be at least ${validationRules.min}`,
+              { field: fieldName, variationIndex: index, min: validationRules.min, providedValue: numValue }
+            )
+          )
+        } else if (validationRules.max !== undefined && numValue > validationRules.max) {
+          errors.push(
+            createV2Error(
+              V2_ERROR_TYPES.INVALID_FIELD_VALUE,
+              `Value "${value}" in field "${fieldName}" (variation ${index + 1}) must not exceed ${validationRules.max}`,
+              { field: fieldName, variationIndex: index, max: validationRules.max, providedValue: numValue }
+            )
+          )
+        }
+      }
+      
+      // Apply pattern validation if available
+      if (validationRules && validationRules.pattern && !validationRules.pattern.test(value)) {
+        errors.push(
+          createV2Error(
+            V2_ERROR_TYPES.INVALID_FIELD_VALUE,
+            `Value "${value}" in field "${fieldName}" (variation ${index + 1}) does not match required format`,
+            { field: fieldName, variationIndex: index, pattern: validationRules.pattern.toString(), providedValue: value }
+          )
+        )
+      }
+      
+      // Apply length validation if available
+      if (validationRules && validationRules.maxLength && value.length > validationRules.maxLength) {
+        errors.push(
+          createV2Error(
+            V2_ERROR_TYPES.FIELD_LENGTH_EXCEEDED,
+            `Value "${value}" in field "${fieldName}" (variation ${index + 1}) exceeds maximum length of ${validationRules.maxLength} characters`,
+            { field: fieldName, variationIndex: index, maxLength: validationRules.maxLength, actualLength: value.length }
+          )
+        )
+      }
+    })
+  }
+  
+  return errors
+}
+
+/**
  * Get user-friendly error message for v2 operations
  */
 export function getUserFriendlyErrorMessage(error) {
@@ -548,6 +727,8 @@ export function validateFiltersV2(filters) {
     return { errors, filters: {} }
   }
   
+  console.log('[validateFiltersV2] Input filters:', filters);
+  
   for (const [key, value] of Object.entries(filters)) {
     // Map frontend field names to database column names
     const dbColumn = fieldMappingV2[key] || key
@@ -565,6 +746,7 @@ export function validateFiltersV2(filters) {
       dbColumn === 'created_at'
     
     if (!isValidField) {
+      console.log(`[validateFiltersV2] Unknown field: ${key} (maps to ${dbColumn})`);
       errors.push(
         createV2Error(
           V2_ERROR_TYPES.INVALID_FIELD_VALUE,
@@ -577,6 +759,9 @@ export function validateFiltersV2(filters) {
     
     sanitizedFilters[key] = value
   }
+  
+  console.log('[validateFiltersV2] Sanitized filters:', sanitizedFilters);
+  console.log('[validateFiltersV2] Errors:', errors);
   
   return { errors, filters: sanitizedFilters }
 }

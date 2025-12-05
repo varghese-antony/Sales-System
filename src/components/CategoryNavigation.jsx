@@ -134,11 +134,11 @@ export function CategoryNavigation({ type, categories, categoriesWithProducts, i
             <ScrollArea className="h-[calc(100vh-12rem)]">
               <div className="p-6 space-y-6">
                 {categories.map((category, index) => {
-                  const categoryName = category[type === 'indoor' ? 'Indoor' : 'Outdoor']
+                  const categoryName = category.sub_category
                   const categoryProductTypes = getProductTypesForCategory(categoryName)
                   // Use activeSection for scroll-based highlighting, fallback to currentCategory for hash-based
                   // Handle case-insensitive matching
-                  const isActiveCategory = (activeSection &&
+                  const isActiveCategory = (activeSection && categoryName &&
                     (activeSection.toLowerCase() === categoryName.toLowerCase() ||
                      activeSection === categoryName)) ||
                    (!activeSection && currentCategory === categoryName)
@@ -149,9 +149,9 @@ export function CategoryNavigation({ type, categories, categoriesWithProducts, i
                     isActiveCategory,
                     activeSection,
                     currentCategory,
-                    categoryProductTypesCount: categoryProductTypes.length,
-                    categoryNameLower: categoryName.toLowerCase(),
-                    activeSectionLower: activeSection?.toLowerCase(),
+                    categoryProductTypesCount: categoryProductTypes?.length || 0,
+                    categoryNameLower: categoryName?.toLowerCase?.(categoryName) || '',
+                    activeSectionLower: activeSection?.toLowerCase?.(activeSection) || '',
                     type
                   })
 
@@ -169,11 +169,11 @@ export function CategoryNavigation({ type, categories, categoriesWithProducts, i
                     >
                       <div className="flex items-center justify-between">
                         <Link
-                          href={`#${categoryName.toLowerCase().replace(/\s+/g, '-')}`}
+                          href={`#${categoryName ? categoryName.toLowerCase().replace(/\s+/g, '-') : ''}`}
                           className={`text-base font-semibold transition-all duration-300 group ${
                             isActiveCategory 
                               ? 'text-primary drop-shadow-sm' 
-                              : 'hover:text-primary text-foreground'
+                              : 'text-foreground/80 hover:text-foreground'
                           }`}
                           onClick={() => {
                             // Close sidebar on mobile after navigation

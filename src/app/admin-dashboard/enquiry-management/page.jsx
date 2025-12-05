@@ -422,51 +422,15 @@ export default function EnquiryManagementPage() {
       icon: Trash2,
       variant: 'destructive',
       onClick: (row) => {
-        console.group('Delete Action - Row Data');
-        try {
-          if (!row) {
-            console.error('No row data provided for deletion');
-            toast({
-              title: 'Error',
-              description: 'Cannot delete: No enquiry data provided',
-              variant: 'destructive'
-            });
-            return;
-          }
-          
-          console.log('Full row data:', JSON.parse(JSON.stringify(row)));
-          
-          // Try to get the ID from different possible locations
-          const possibleIdFields = [
-            'id', 'enquiry_id', 'enquiryId', 'enquiry.id', 
-            'enquiry.enquiry_id', 'enquiry.enquiryId'
-          ];
-          
-          let idToDelete;
-          for (const field of possibleIdFields) {
-            const value = field.split('.').reduce((obj, key) => obj?.[key], row);
-            if (value !== undefined && value !== null) {
-              idToDelete = value;
-              console.log(`Found ID in field '${field}':`, idToDelete, 'Type:', typeof idToDelete);
-              break;
-            }
-          }
-          
-          if (!idToDelete) {
-            console.error('No valid ID found in row data. Available fields:', Object.keys(row));
-            toast({
-              title: 'Error',
-              description: 'Cannot delete: No valid ID found for this enquiry',
-              variant: 'destructive'
-            });
-            return;
-          }
-          
-          console.log('Attempting to delete enquiry with ID:', idToDelete, 'Type:', typeof idToDelete);
-          handleDeleteEnquiry(idToDelete);
-        } finally {
-          console.groupEnd();
+        if (!row || !row.id) {
+          toast({
+            title: 'Error',
+            description: 'Cannot delete: No valid enquiry selected',
+            variant: 'destructive',
+          });
+          return;
         }
+        handleDeleteEnquiry(row.id);
       }
     }
   ]), [handleStatusUpdate, handleDeleteEnquiry]);

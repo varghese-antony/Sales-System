@@ -42,15 +42,15 @@ export async function GET(request) {
     // Default: Get products with pagination
     const page = parseInt(searchParams.get('page') || '1');
     const limit = parseInt(searchParams.get('limit') || '50');
-    const search = searchParams.get('search') || '';
-    const category = searchParams.get('category') || '';
-    const productType = searchParams.get('productType') || '';
 
-    const result = await getProductsWithPagination(table, {
-      search,
-      category,
-      productType
-    }, {
+    const filters = {};
+    for (const [key, value] of searchParams.entries()) {
+      if (!['page', 'limit', 'table', 'action'].includes(key)) {
+        filters[key] = value;
+      }
+    }
+
+    const result = await getProductsWithPagination(table, filters, {
       currentPage: page,
       pageSize: limit
     });

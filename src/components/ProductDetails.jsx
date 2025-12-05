@@ -76,7 +76,26 @@ export function ProductDetails({ product, onBack }) {
     setQuantity(newQuantity)
   }
   
-  const excludedKeys = ['moq', 'cost_china_ddp_usa', 'cost_thailand_vietnam', 'cut_sheet', 'photo', 'lead_time', 'warranty', 'id', 'created_at', 'updated_at', 'price_per_piece']
+  // Excluded keys - hide costs, logistics, and internal fields from users
+  const excludedKeys = [
+    'moq', 
+    'cost_china_ddp_usa', 
+    'cost_thailand_vietnam', 
+    'cut_sheet', 
+    'photo', 
+    'lead_time', 
+    'warranty', 
+    'id', 
+    'created_at', 
+    'updated_at', 
+    'price_per_piece',
+    // Hide all addon costs (only show prices)
+    'sensor_cost',
+    'remote_control_bluetooth_cost',
+    'plugin_sensor_cost',
+    'emergency_backup_battery_cost',
+    'installation_kits_cost'
+  ]
   const productKeys = Object.keys(product).filter(key => !excludedKeys.includes(key))
   
   // Key specifications to highlight
@@ -97,12 +116,15 @@ export function ProductDetails({ product, onBack }) {
     const sensorKeys = ['sensors_and_controls', 'pir_microwave_bluetooth', 'remote_control', 'emergency_backup_battery', 'plugin_sensor']
     const featureKeys = ['dimming_type', 'junction_cover', 'adjustment_dial', 'installation_kits']
     const certKeys = ['certifications']
+    // Only show prices to users, not costs (costs are in excludedKeys)
+    const addonKeys = ['sensor_price', 'remote_control_bluetooth_price', 'plugin_sensor_price', 'emergency_backup_battery_price', 'installation_kits_price']
 
     if (powerKeys.includes(key)) return 'power'
     if (designKeys.includes(key)) return 'design'
     if (sensorKeys.includes(key)) return 'sensors'
     if (featureKeys.includes(key)) return 'features'
     if (certKeys.includes(key)) return 'certification'
+    if (addonKeys.includes(key)) return 'addons'
     return 'general'
   }
 
@@ -120,6 +142,7 @@ export function ProductDetails({ product, onBack }) {
     sensors: 'Sensors & Controls',
     features: 'Smart Features',
     certification: 'Certifications & Installation',
+    addons: 'Add-on Pricing',
     general: 'Additional Information'
   }
 

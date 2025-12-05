@@ -83,7 +83,7 @@
 - Product details visible
 - Quantity selector working
 - Shipping options displayed:
-  - Air Shipping: 30 days (selected)
+  - Air Shipping: 15 days (selected)
   - Boat Shipping: 35 days
 - Total Delivery Time: 60 days (30 manufacturing + 30 shipping)
 - "Submit Enquiry" button visible

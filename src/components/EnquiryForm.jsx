@@ -1,6 +1,7 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
+import { useAuth } from "@/contexts/AuthContext"
 import { motion } from "framer-motion"
 import { Send, User, Mail, Phone, MessageSquare, Building, MapPin } from "lucide-react"
 import { Button } from "@/components/ui/button"
@@ -15,6 +16,9 @@ import {
 import { SuccessAnimation } from "./SuccessAnimation"
 
 export function EnquiryForm({ isOpen, onClose, product, cartItems, onSuccess, /* appliedCoupon, */ selectedShipping }) {
+  // Access authenticated user and profile information
+  const { user, profile } = useAuth()
+
   const [formData, setFormData] = useState({
     name: "",
     email: "",
@@ -26,6 +30,18 @@ export function EnquiryForm({ isOpen, onClose, product, cartItems, onSuccess, /*
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [submitStatus, setSubmitStatus] = useState(null)
   const [showSuccessAnimation, setShowSuccessAnimation] = useState(false)
+
+  // Prefill name and email when user/profile information becomes available
+  useEffect(() => {
+    if (!user) return
+
+    setFormData(prev => ({
+      ...prev,
+      // Only set if these fields are still empty so we don't overwrite user edits
+      name: prev.name || profile?.full_name || "",
+      email: prev.email || user.email || "",
+    }))
+  }, [user, profile])
 
   const handleInputChange = (e) => {
     const { name, value } = e.target

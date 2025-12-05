@@ -73,11 +73,11 @@ import {
   clearCacheClientV2 as clearCacheClient,
   createProductsClientV2 as createProductsClient,
   updateProductClientV2 as updateProductClient,
-  deleteProductClientV2 as deleteProductClient,
-  bulkDeleteProductsClientV2 as bulkDeleteProductsClient,
+  deleteProductClientV2,
+  bulkDeleteProductsClientV2,
   updateProductPricesClientV2 as updateProductPricesClient,
-  bulkUpdateProductsClientV2 as bulkUpdateProductsClient,
-  bulkSetCategoryClientV2 as bulkSetCategoryClient,
+  bulkUpdateProductsClientV2,
+  bulkSetCategoryClientV2,
   searchProductsClientV2 as searchProductsClient
 } from '@/lib/database/products-client';
 import {
@@ -123,6 +123,16 @@ const FALLBACK_EXPORT_PRODUCT = {
   price_per_piece: '', // V2 field name
   cost_china_ddp_usa: '',
   cost_thailand_vietnam: '',
+  sensor_cost: '',
+  sensor_price: '',
+  remote_control_bluetooth_cost: '',
+  remote_control_bluetooth_price: '',
+  plugin_sensor_cost: '',
+  plugin_sensor_price: '',
+  emergency_backup_battery_cost: '',
+  emergency_backup_battery_price: '',
+  installation_kits_cost: '',
+  installation_kits_price: '',
   Photo: '',
   cut_sheet: '',
   image_url: '',
@@ -139,6 +149,10 @@ export default function DataManagementPage() {
   const [isFiltersOpen, setIsFiltersOpen] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
 
+  // Pagination states
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
+
   // Filter states
   const [typeFilter, setTypeFilter] = useState('both');
   const [categoryFilter, setCategoryFilter] = useState('all');
@@ -154,12 +168,102 @@ export default function DataManagementPage() {
   const [descriptionFilter, setDescriptionFilter] = useState('all');
   const [ipRatingFilter, setIpRatingFilter] = useState('all');
   const [ikRatingFilter, setIkRatingFilter] = useState('all');
+  const [modelNumberFilter, setModelNumberFilter] = useState('all');
+  const [sizeFilter, setSizeFilter] = useState('all');
+  const [lumenFilter, setLumenFilter] = useState('all');
+  const [efficacyFilter, setEfficacyFilter] = useState('all');
+  const [materialFinishFilter, setMaterialFinishFilter] = useState('all');
+  const [sensorsControlsFilter, setSensorsControlsFilter] = useState('all');
+  const [mountingFilter, setMountingFilter] = useState('all');
+  const [certificationsFilter, setCertificationsFilter] = useState('all');
+  const [leadTimeFilter, setLeadTimeFilter] = useState('all');
+  const [warrantyFilter, setWarrantyFilter] = useState('all');
+  const [moqFilter, setMoqFilter] = useState('all');
   const [searchTerm, setSearchTerm] = useState('');
   const [searchInput, setSearchInput] = useState('');
 
+  // Filter persistence
+  const FILTER_STORAGE_KEY = 'admin-dashboard-filters-v2';
+
+  // Save filters to localStorage
+  const saveFiltersToStorage = useCallback(() => {
+    if (typeof window === 'undefined') return;
+    
+    const filterState = {
+      typeFilter,
+      categoryFilter,
+      productTypeFilter,
+      voltageFilter,
+      powerFilter,
+      cctFilter,
+      criFilter,
+      dimmingTypeFilter,
+      ledTypeFilter,
+      driverBrandFilter,
+      nameFilter,
+      descriptionFilter,
+      ipRatingFilter,
+      modelNumberFilter,
+      sizeFilter,
+      lumenFilter,
+      efficacyFilter,
+      materialFinishFilter,
+      sensorsControlsFilter,
+      mountingFilter,
+      certificationsFilter,
+      leadTimeFilter,
+      warrantyFilter,
+      moqFilter,
+      searchTerm,
+      currentPage,
+      pageSize,
+      timestamp: Date.now()
+    };
+    
+    try {
+      localStorage.setItem(FILTER_STORAGE_KEY, JSON.stringify(filterState));
+    } catch (error) {
+      console.warn('Failed to save filters to localStorage:', error);
+    }
+  }, [
+    typeFilter, categoryFilter, productTypeFilter, voltageFilter, powerFilter,
+    cctFilter, criFilter, dimmingTypeFilter, ledTypeFilter, driverBrandFilter,
+    nameFilter, descriptionFilter, ipRatingFilter, modelNumberFilter, sizeFilter,
+    lumenFilter, efficacyFilter, materialFinishFilter, sensorsControlsFilter,
+    mountingFilter, certificationsFilter, leadTimeFilter, warrantyFilter, moqFilter,
+    searchTerm, currentPage, pageSize
+  ]);
+
+  // Load filters from localStorage
+  const loadFiltersFromStorage = useCallback(() => {
+    if (typeof window === 'undefined') return null;
+    
+    try {
+      const stored = localStorage.getItem(FILTER_STORAGE_KEY);
+      if (stored) {
+        const filterState = JSON.parse(stored);
+        // Check if stored data is not too old (24 hours)
+        const isRecent = filterState.timestamp && (Date.now() - filterState.timestamp) < 24 * 60 * 60 * 1000;
+        return isRecent ? filterState : null;
+      }
+    } catch (error) {
+      console.warn('Failed to load filters from localStorage:', error);
+    }
+    return null;
+  }, []);
+
+  // Clear filters from storage
+  const clearFiltersFromStorage = useCallback(() => {
+    if (typeof window === 'undefined') return;
+    try {
+      localStorage.removeItem(FILTER_STORAGE_KEY);
+    } catch (error) {
+      console.warn('Failed to clear filters from localStorage:', error);
+    }
+  }, []);
+
   // Pagination states
-  const [currentPage, setCurrentPage] = useState(1);
-  const [pageSize, setPageSize] = useState(10);
+
   const [totalItems, setTotalItems] = useState(0);
   const [countsByType, setCountsByType] = useState({ indoor: 0, outdoor: 0 });
   const [cachedFilterOptions, setCachedFilterOptions] = useState(null);
@@ -187,6 +291,17 @@ export default function DataManagementPage() {
   const [descriptions, setDescriptions] = useState([]);
   const [ipRatings, setIpRatings] = useState([]);
   const [ikRatings, setIkRatings] = useState([]);
+  const [modelNumbers, setModelNumbers] = useState([]);
+  const [sizes, setSizes] = useState([]);
+  const [lumenValues, setLumenValues] = useState([]);
+  const [efficacyValues, setEfficacyValues] = useState([]);
+  const [materialFinishes, setMaterialFinishes] = useState([]);
+  const [sensorsControls, setSensorsControls] = useState([]);
+  const [mountingTypes, setMountingTypes] = useState([]);
+  const [certificationsList, setCertificationsList] = useState([]);
+  const [leadTimes, setLeadTimes] = useState([]);
+  const [warranties, setWarranties] = useState([]);
+  const [moqs, setMoqs] = useState([]);
 
   const [customExportFields, setCustomExportFields] = useState(() => new Set());
   const [customExportScope, setCustomExportScope] = useState('all');
@@ -200,29 +315,60 @@ export default function DataManagementPage() {
   const wasCustomExportOpenRef = useRef(false);
   const { toast } = useToast();
 
+  // Track previous filters for logging
+  const prevFiltersRef = useRef({});
+
   const normalizedFilters = useMemo(() => ({
+    type: typeFilter !== 'both' ? typeFilter : '',
     category: categoryFilter !== 'all' ? categoryFilter : '',
     productType: productTypeFilter !== 'all' ? productTypeFilter : '',
+    name: nameFilter !== 'all' ? nameFilter : '',
+    description: descriptionFilter !== 'all' ? descriptionFilter : '',
+    modelNumber: modelNumberFilter !== 'all' ? modelNumberFilter : '',
+    size: sizeFilter !== 'all' ? sizeFilter : '',
     voltage: voltageFilter !== 'all' ? voltageFilter : '',
-    power_w: powerFilter !== 'all' ? powerFilter : '',
-    CCT: cctFilter !== 'all' ? cctFilter : '',
-    cri_ra: criFilter !== 'all' ? criFilter : '',
-    'Dimming Type': dimmingTypeFilter !== 'all' ? dimmingTypeFilter : '',
-    led_type: ledTypeFilter !== 'all' ? ledTypeFilter : '',
-    driver_brand: driverBrandFilter !== 'all' ? driverBrandFilter : '',
-    ip_rating: ipRatingFilter !== 'all' ? ipRatingFilter : '',
-    ik_rating: ikRatingFilter !== 'all' ? ikRatingFilter : '',
+    powerW: powerFilter !== 'all' ? powerFilter : '',
+    cct: cctFilter !== 'all' ? cctFilter : '',
+    criRa: criFilter !== 'all' ? criFilter : '',
+    lumen: lumenFilter !== 'all' ? lumenFilter : '',
+    efficacyLumenPerW: efficacyFilter !== 'all' ? efficacyFilter : '',
+    dimmingType: dimmingTypeFilter !== 'all' ? dimmingTypeFilter : '',
+    ledType: ledTypeFilter !== 'all' ? ledTypeFilter : '',
+    driverBrand: driverBrandFilter !== 'all' ? driverBrandFilter : '',
+    materialFinish: materialFinishFilter !== 'all' ? materialFinishFilter : '',
+    sensorsAndControls: sensorsControlsFilter !== 'all' ? sensorsControlsFilter : '',
+    mounting: mountingFilter !== 'all' ? mountingFilter : '',
+    certifications: certificationsFilter !== 'all' ? certificationsFilter : '',
+    leadTime: leadTimeFilter !== 'all' ? leadTimeFilter : '',
+    warranty: warrantyFilter !== 'all' ? warrantyFilter : '',
+    moq: moqFilter !== 'all' ? moqFilter : '',
+    ipRating: ipRatingFilter !== 'all' ? ipRatingFilter : '',
+    ikRating: ikRatingFilter !== 'all' ? ikRatingFilter : '',
     search: searchTerm || ''
   }), [
+    typeFilter,
     categoryFilter,
     productTypeFilter,
+    nameFilter,
+    descriptionFilter,
+    modelNumberFilter,
+    sizeFilter,
     voltageFilter,
     powerFilter,
     cctFilter,
     criFilter,
+    lumenFilter,
+    efficacyFilter,
     dimmingTypeFilter,
     ledTypeFilter,
     driverBrandFilter,
+    materialFinishFilter,
+    sensorsControlsFilter,
+    mountingFilter,
+    certificationsFilter,
+    leadTimeFilter,
+    warrantyFilter,
+    moqFilter,
     ipRatingFilter,
     ikRatingFilter,
     searchTerm
@@ -244,7 +390,7 @@ export default function DataManagementPage() {
     [tableSelection, currentPage, pageSize, normalizedFilters]
   );
 
-  // Table columns configuration
+  // Table columns configuration - Updated for v2 schema compatibility
   const columns = [
     // Type & Category
     {
@@ -255,6 +401,19 @@ export default function DataManagementPage() {
         <Badge variant={value === 'indoor' ? 'secondary' : 'outline'} size="sm">
           {value === 'indoor' ? 'Indoor' : 'Outdoor'}
         </Badge>
+      )
+    },
+    {
+      key: 'id',
+      label: 'Product ID',
+      sortable: true,
+      render: (value, row) => (
+        <div className="flex flex-col gap-0.5">
+          <span className="font-mono text-xs text-foreground">{value || '-'}</span>
+          {row?.legacy_id && row.legacy_id !== value ? (
+            <span className="font-mono text-[10px] text-muted-foreground">Legacy: {row.legacy_id}</span>
+          ) : null}
+        </div>
       )
     },
     {
@@ -275,7 +434,6 @@ export default function DataManagementPage() {
       label: 'Model Number',
       sortable: true
     },
-
 
     // Dimensions
     {
@@ -329,7 +487,6 @@ export default function DataManagementPage() {
       render: (value) => value || '-'
     },
 
-
     // Features
     {
       key: 'dimming_type',
@@ -338,8 +495,28 @@ export default function DataManagementPage() {
       render: (value) => value || '-'
     },
     {
+      key: 'material_finish',
+      label: 'Material Finish',
+      sortable: true,
+      render: (value) => value || '-'
+    },
+    {
+      key: 'sensors_and_controls',
+      label: 'Sensors & Controls',
+      sortable: true,
+      render: (value) => value || '-'
+    },
+    {
+      key: 'pir_microwave_bluetooth',
+      label: 'Sensor Type',
+      sortable: true,
+      render: (value) => value || '-'
+    },
+
+    // Boolean Features
+    {
       key: 'emergency_backup_battery',
-      label: 'Emergency Backup Battery',
+      label: 'Emergency Backup',
       sortable: true,
       render: (value) => {
         if (value === null || value === undefined) return '-';
@@ -354,12 +531,6 @@ export default function DataManagementPage() {
         if (value === null || value === undefined) return '-';
         return value ? 'Yes' : 'No';
       }
-    },
-    {
-      key: 'pir_microwave_bluetooth',
-      label: 'Sensor / Microwave / Bluetooth',
-      sortable: true,
-      render: (value) => value || '-'
     },
     {
       key: 'junction_cover',
@@ -379,6 +550,8 @@ export default function DataManagementPage() {
         return value ? 'Yes' : 'No';
       }
     },
+
+    // Installation
     {
       key: 'installation_kits',
       label: 'Installation Kits',
@@ -391,13 +564,6 @@ export default function DataManagementPage() {
       sortable: true,
       render: (value) => value || '-'
     },
-    {
-      key: 'material_finish',
-      label: 'Material Finish',
-      sortable: true,
-      render: (value) => value || '-'
-    },
-
 
     // Certifications & Warranty
     {
@@ -445,6 +611,72 @@ export default function DataManagementPage() {
       render: (value) => value ? `${value}` : '-'
     },
 
+    // Add-on Pricing - Sensor
+    {
+      key: 'sensor_cost',
+      label: 'Sensor Cost',
+      sortable: true,
+      render: (value) => value ? `${value}` : '-'
+    },
+    {
+      key: 'sensor_price',
+      label: 'Sensor Price',
+      sortable: true,
+      render: (value) => value ? `${value}` : '-'
+    },
+    // Add-on Pricing - Remote Control/Bluetooth
+    {
+      key: 'remote_control_bluetooth_cost',
+      label: 'Remote Control/BT Cost',
+      sortable: true,
+      render: (value) => value ? `${value}` : '-'
+    },
+    {
+      key: 'remote_control_bluetooth_price',
+      label: 'Remote Control/BT Price',
+      sortable: true,
+      render: (value) => value ? `${value}` : '-'
+    },
+    // Add-on Pricing - Plugin Sensor
+    {
+      key: 'plugin_sensor_cost',
+      label: 'Plugin Sensor Cost',
+      sortable: true,
+      render: (value) => value ? `${value}` : '-'
+    },
+    {
+      key: 'plugin_sensor_price',
+      label: 'Plugin Sensor Price',
+      sortable: true,
+      render: (value) => value ? `${value}` : '-'
+    },
+    // Add-on Pricing - Emergency Backup Battery
+    {
+      key: 'emergency_backup_battery_cost',
+      label: 'Backup Battery Cost',
+      sortable: true,
+      render: (value) => value ? `${value}` : '-'
+    },
+    {
+      key: 'emergency_backup_battery_price',
+      label: 'Backup Battery Price',
+      sortable: true,
+      render: (value) => value ? `${value}` : '-'
+    },
+    // Add-on Pricing - Installation Kits
+    {
+      key: 'installation_kits_cost',
+      label: 'Installation Kits Cost',
+      sortable: true,
+      render: (value) => value ? `${value}` : '-'
+    },
+    {
+      key: 'installation_kits_price',
+      label: 'Installation Kits Price',
+      sortable: true,
+      render: (value) => value ? `${value}` : '-'
+    },
+
     // Media & Documentation
     {
       key: 'photo',
@@ -468,7 +700,6 @@ export default function DataManagementPage() {
         </a>
       ) : '-'
     },
-
 
     // Outdoor Specific
     {
@@ -520,38 +751,33 @@ export default function DataManagementPage() {
       sub_category: 'Category',
       product_name: 'Product Type',
       model_number: 'Model Number',
-      description: 'Description',
-      Size: 'Sizes',
-      Mounting: 'Mounting',
+      size: 'Size',
+      mounting: 'Mounting',
       power_w: 'Power (W)',
-      Voltage: 'Voltage',
-      CCT: 'CCT (K)',
+      voltage: 'Voltage',
+      cct: 'CCT',
       cri_ra: 'CRI (Ra)',
-      Lumen: 'Lumen',
-      efficacy_lmw: 'Efficacy (lm/W)',
-      beam_angle: 'Beam Angle',
-      power_factor: 'Power Factor',
-      'Dimming Type': 'Dimming Type',
-      emergency_backup_battery: 'Emergency Backup Battery',
+      lumen: 'Lumen',
+      efficacy_lumen_per_w: 'Efficacy (lm/W)',
+      dimming_type: 'Dimming Type',
+      material_finish: 'Material Finish',
+      sensors_and_controls: 'Sensors & Controls',
+      pir_microwave_bluetooth: 'Sensor Type',
+      emergency_backup_battery: 'Emergency Backup',
       plugin_sensor: 'Plug-in Sensor',
-      sensor_microwave_bluetooth: 'Sensor / Microwave / Bluetooth',
       junction_cover: 'Junction Cover',
       remote_control: 'Remote Control',
       installation_kits: 'Installation Kits',
       adjustment_dial: 'Adjustment Dial',
-      'Material Finish': 'Material Finish',
-      led_type: 'LED Type',
-      driver_brand: 'Driver Brand',
-      Certifications: 'Certifications',
-      Warranty: 'Warranty',
+      certifications: 'Certifications',
+      warranty: 'Warranty',
       lead_time: 'Lead Time',
-      MOQ: 'MOQ',
-      price_per_piece: 'Price per piece',
+      moq: 'MOQ',
+      price_per_piece: 'Price / PC',
       cost_china_ddp_usa: 'Cost China DDP USA',
       cost_thailand_vietnam: 'Cost Thailand/Vietnam',
-      Photo: 'Photo',
+      photo: 'Photo URL',
       cut_sheet: 'Cut Sheet',
-      image_url: 'Image URL',
       ip_rating: 'IP Rating',
       ik_rating: 'IK Rating'
     };
@@ -597,6 +823,42 @@ export default function DataManagementPage() {
     };
   }, []);
 
+  // Load filters from localStorage on component mount
+  useEffect(() => {
+    const savedFilters = loadFiltersFromStorage();
+    if (savedFilters) {
+      // Apply saved filter states
+      setTypeFilter(savedFilters.typeFilter || 'both');
+      setCategoryFilter(savedFilters.categoryFilter || 'all');
+      setProductTypeFilter(savedFilters.productTypeFilter || 'all');
+      setVoltageFilter(savedFilters.voltageFilter || 'all');
+      setPowerFilter(savedFilters.powerFilter || 'all');
+      setCctFilter(savedFilters.cctFilter || 'all');
+      setCriFilter(savedFilters.criFilter || 'all');
+      setDimmingTypeFilter(savedFilters.dimmingTypeFilter || 'all');
+      setLedTypeFilter(savedFilters.ledTypeFilter || 'all');
+      setDriverBrandFilter(savedFilters.driverBrandFilter || 'all');
+      setNameFilter(savedFilters.nameFilter || 'all');
+      setDescriptionFilter(savedFilters.descriptionFilter || 'all');
+      setIpRatingFilter(savedFilters.ipRatingFilter || 'all');
+      setModelNumberFilter(savedFilters.modelNumberFilter || 'all');
+      setSizeFilter(savedFilters.sizeFilter || 'all');
+      setLumenFilter(savedFilters.lumenFilter || 'all');
+      setEfficacyFilter(savedFilters.efficacyFilter || 'all');
+      setMaterialFinishFilter(savedFilters.materialFinishFilter || 'all');
+      setSensorsControlsFilter(savedFilters.sensorsControlsFilter || 'all');
+      setMountingFilter(savedFilters.mountingFilter || 'all');
+      setCertificationsFilter(savedFilters.certificationsFilter || 'all');
+      setLeadTimeFilter(savedFilters.leadTimeFilter || 'all');
+      setWarrantyFilter(savedFilters.warrantyFilter || 'all');
+      setMoqFilter(savedFilters.moqFilter || 'all');
+      setSearchTerm(savedFilters.searchTerm || '');
+      setSearchInput(savedFilters.searchTerm || '');
+      setCurrentPage(savedFilters.currentPage || 1);
+      setPageSize(savedFilters.pageSize || 10);
+    }
+  }, [loadFiltersFromStorage]);
+
   useEffect(() => {
     setCurrentPage(prev => (prev === 1 ? prev : 1));
   }, [
@@ -610,6 +872,19 @@ export default function DataManagementPage() {
     dimmingTypeFilter,
     ledTypeFilter,
     driverBrandFilter,
+    nameFilter,
+    descriptionFilter,
+    modelNumberFilter,
+    sizeFilter,
+    lumenFilter,
+    efficacyFilter,
+    materialFinishFilter,
+    sensorsControlsFilter,
+    mountingFilter,
+    certificationsFilter,
+    leadTimeFilter,
+    warrantyFilter,
+    moqFilter,
     ipRatingFilter,
     ikRatingFilter,
     searchTerm
@@ -617,7 +892,111 @@ export default function DataManagementPage() {
 
   useEffect(() => {
     loadData();
-  }, [typeFilter, categoryFilter, productTypeFilter, voltageFilter, powerFilter, cctFilter, criFilter, dimmingTypeFilter, ledTypeFilter, driverBrandFilter, ipRatingFilter, ikRatingFilter, searchTerm, currentPage, pageSize]);
+  }, [
+    typeFilter,
+    categoryFilter,
+    productTypeFilter,
+    voltageFilter,
+    powerFilter,
+    cctFilter,
+    criFilter,
+    dimmingTypeFilter,
+    ledTypeFilter,
+    driverBrandFilter,
+    nameFilter,
+    descriptionFilter,
+    modelNumberFilter,
+    sizeFilter,
+    lumenFilter,
+    efficacyFilter,
+    materialFinishFilter,
+    sensorsControlsFilter,
+    mountingFilter,
+    certificationsFilter,
+    leadTimeFilter,
+    warrantyFilter,
+    moqFilter,
+    ipRatingFilter,
+    ikRatingFilter,
+    searchTerm,
+    currentPage,
+    pageSize
+  ]);
+
+  // Log filter changes to console
+  useEffect(() => {
+    const current = {
+      typeFilter,
+      categoryFilter,
+      productTypeFilter,
+      voltageFilter,
+      powerFilter,
+      cctFilter,
+      criFilter,
+      dimmingTypeFilter,
+      ledTypeFilter,
+      driverBrandFilter,
+      nameFilter,
+      descriptionFilter,
+      modelNumberFilter,
+      sizeFilter,
+      lumenFilter,
+      efficacyFilter,
+      materialFinishFilter,
+      sensorsControlsFilter,
+      mountingFilter,
+      certificationsFilter,
+      leadTimeFilter,
+      warrantyFilter,
+      moqFilter,
+      ipRatingFilter,
+      ikRatingFilter,
+      searchTerm
+    };
+
+    const prev = prevFiltersRef.current;
+    if (prev && Object.keys(prev).length > 0) {
+      Object.entries(current).forEach(([key, value]) => {
+        if (prev[key] !== value) {
+          console.log(`[Filter Updated] ${key}:`, prev[key], '=>', value);
+        }
+      });
+    }
+
+    prevFiltersRef.current = current;
+  }, [
+    typeFilter,
+    categoryFilter,
+    productTypeFilter,
+    voltageFilter,
+    powerFilter,
+    cctFilter,
+    criFilter,
+    dimmingTypeFilter,
+    ledTypeFilter,
+    driverBrandFilter,
+    nameFilter,
+    descriptionFilter,
+    modelNumberFilter,
+    sizeFilter,
+    lumenFilter,
+    efficacyFilter,
+    materialFinishFilter,
+    sensorsControlsFilter,
+    mountingFilter,
+    certificationsFilter,
+    leadTimeFilter,
+    warrantyFilter,
+    moqFilter,
+    ipRatingFilter,
+    ikRatingFilter,
+    searchTerm
+  ]);
+
+  // Save filters to localStorage whenever they change
+  useEffect(() => {
+    saveFiltersToStorage();
+  }, [saveFiltersToStorage]);
 
   useEffect(() => {
     const wasOpen = wasCustomExportOpenRef.current;
@@ -643,11 +1022,26 @@ export default function DataManagementPage() {
     setDimmingTypeFilter('all');
     setLedTypeFilter('all');
     setDriverBrandFilter('all');
+    setNameFilter('all');
+    setDescriptionFilter('all');
     setIpRatingFilter('all');
-    setIkRatingFilter('all');
+    setModelNumberFilter('all');
+    setSizeFilter('all');
+    setLumenFilter('all');
+    setEfficacyFilter('all');
+    setMaterialFinishFilter('all');
+    setSensorsControlsFilter('all');
+    setMountingFilter('all');
+    setCertificationsFilter('all');
+    setLeadTimeFilter('all');
+    setWarrantyFilter('all');
+    setMoqFilter('all');
     setSearchTerm('');
     setSearchInput('');
-  }, []);
+    setCurrentPage(1);
+    // Clear from localStorage
+    clearFiltersFromStorage();
+  }, [clearFiltersFromStorage]);
 
   const cleanSelectedRows = useCallback((rows) => {
     if (!Array.isArray(rows)) return [];
@@ -716,6 +1110,8 @@ export default function DataManagementPage() {
         abortController.signal
       );
 
+      console.log('[API Request] Filters sent:', normalizedFilters);
+
       if (abortController.signal.aborted || activeRequestId !== latestRequestIdRef.current) {
         return;
       }
@@ -757,15 +1153,23 @@ export default function DataManagementPage() {
     const nextOptions = {
       categories: sanitizeOptions(options.categories),
       producttypes: sanitizeOptions(options.producttypes),
+      modelNumbers: sanitizeOptions(options.modelNumbers),
+      sizes: sanitizeOptions(options.sizes),
       Voltage: sanitizeOptions(options.Voltage),
       power_w: sanitizeOptions(options.power_w),
       CCT: sanitizeOptions(options.CCT),
       cri_ra: sanitizeOptions(options.cri_ra),
+      lumen: sanitizeOptions(options.lumen),
+      efficacy: sanitizeOptions(options.efficacy),
       'Dimming Type': sanitizeOptions(options['Dimming Type']),
-      led_type: sanitizeOptions(options.led_type),
-      driver_brand: sanitizeOptions(options.driver_brand),
-      ip_rating: table === 'indoor' ? [] : sanitizeOptions(options.ip_rating),
-      ik_rating: table === 'indoor' ? [] : sanitizeOptions(options.ik_rating)
+      materialFinish: sanitizeOptions(options.materialFinish),
+      sensorsControls: sanitizeOptions(options.sensorsControls),
+      mounting: sanitizeOptions(options.mounting),
+      certifications: sanitizeOptions(options.certifications),
+      leadTime: sanitizeOptions(options.leadTime),
+      warranty: sanitizeOptions(options.warranty),
+      moq: sanitizeOptions(options.moq),
+      ip_rating: table === 'indoor' ? [] : sanitizeOptions(options.ip_rating)
     };
 
     const serialized = JSON.stringify(nextOptions);
@@ -776,13 +1180,22 @@ export default function DataManagementPage() {
     setCachedFilterOptions(serialized);
     setCategories(nextOptions.categories);
     setProductTypes(nextOptions.producttypes);
+    setModelNumbers(nextOptions.modelNumbers);
+    setSizes(nextOptions.sizes);
     setVoltages(nextOptions.Voltage);
     setPowers(nextOptions.power_w);
     setCctValues(nextOptions.CCT);
     setCriValues(nextOptions.cri_ra);
+    setLumenValues(nextOptions.lumen);
+    setEfficacyValues(nextOptions.efficacy);
     setDimmingTypeValues(nextOptions['Dimming Type']);
-    setLedTypes(nextOptions.led_type);
-    setDriverBrands(nextOptions.driver_brand);
+    setMaterialFinishes(nextOptions.materialFinish);
+    setSensorsControls(nextOptions.sensorsControls);
+    setMountingTypes(nextOptions.mounting);
+    setCertificationsList(nextOptions.certifications);
+    setLeadTimes(nextOptions.leadTime);
+    setWarranties(nextOptions.warranty);
+    setMoqs(nextOptions.moq);
     setIpRatings(nextOptions.ip_rating);
     setIkRatings(nextOptions.ik_rating);
   }, [cachedFilterOptions, sanitizeOptions]);
@@ -791,6 +1204,10 @@ export default function DataManagementPage() {
     switch (field) {
       case 'producttype':
         return productTypes;
+      case 'modelNumber':
+        return modelNumbers;
+      case 'size':
+        return sizes;
       case 'Voltage':
         return voltages;
       case 'power_w':
@@ -799,20 +1216,38 @@ export default function DataManagementPage() {
         return cctValues;
       case 'cri_ra':
         return criValues;
+      case 'lumen':
+        return lumenValues;
+      case 'efficacy':
+        return efficacyValues;
       case 'Dimming Type':
         return dimmingTypeValues;
-      case 'ledType':
-        return ledTypes;
-      case 'Driver Brand':
-        return driverBrands;
+      case 'materialFinish':
+        return materialFinishes;
+      case 'sensorsControls':
+        return sensorsControls;
+      case 'mounting':
+        return mountingTypes;
+      case 'certifications':
+        return certificationsList;
+      case 'leadTime':
+        return leadTimes;
+      case 'warranty':
+        return warranties;
+      case 'moq':
+        return moqs;
       case 'ip_rating':
         return ipRatings;
       case 'ik_rating':
         return ikRatings;
+      case 'ledType':
+        return ledTypes;
+      case 'Driver Brand':
+        return driverBrands;
       default:
         return [];
     }
-  }, [productTypes, voltages, powers, cctValues, criValues, dimmingTypeValues, ledTypes, driverBrands, ipRatings, ikRatings]);
+  }, [productTypes, modelNumbers, sizes, voltages, powers, cctValues, criValues, lumenValues, efficacyValues, dimmingTypeValues, materialFinishes, sensorsControls, mountingTypes, certificationsList, leadTimes, warranties, moqs, ipRatings, ikRatings, ledTypes, driverBrands]);
 
   const renderFilterTabs = (variant = 'desktop') => {
     const isMobileVariant = variant === 'mobile';
@@ -875,6 +1310,50 @@ export default function DataManagementPage() {
                     </Button>
                   ))}
                 </div>
+              </div>
+              <div className="space-y-3">
+                <label className="text-sm font-medium text-foreground">
+                  Model Number
+                </label>
+                <Select value={modelNumberFilter} onValueChange={setModelNumberFilter}>
+                  <SelectTrigger
+                    className={`h-9 transition-all hover:border-primary/50 hover:shadow-md focus-within:border-primary focus-within:shadow-lg focus-within:shadow-primary/20${
+                      modelNumberFilter !== 'all' ? ' border-primary/50 bg-primary/5 shadow-md' : ''
+                    }`}
+                  >
+                    <SelectValue placeholder="All Model Numbers" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Model Numbers</SelectItem>
+                    {getDynamicOptions('modelNumber').map((model, index) => (
+                      <SelectItem key={`model-${index}-${model}`} value={model}>
+                        {model}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-3">
+                <label className="text-sm font-medium text-foreground">
+                  Size
+                </label>
+                <Select value={sizeFilter} onValueChange={setSizeFilter}>
+                  <SelectTrigger
+                    className={`h-9 transition-all hover:border-primary/50 hover:shadow-md focus-within:border-primary focus-within:shadow-lg focus-within:shadow-primary/20${
+                      sizeFilter !== 'all' ? ' border-primary/50 bg-primary/5 shadow-md' : ''
+                    }`}
+                  >
+                    <SelectValue placeholder="All Sizes" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Sizes</SelectItem>
+                    {getDynamicOptions('size').map((size, index) => (
+                      <SelectItem key={`size-${index}-${size}`} value={size}>
+                        {size}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
               <div className="space-y-3">
                 <label className="text-sm font-medium text-foreground">
@@ -1024,6 +1503,50 @@ export default function DataManagementPage() {
                   </SelectContent>
                 </Select>
               </div>
+              <div className="space-y-2">
+                <label className="text-sm font-medium text-foreground">
+                  Lumen Output
+                </label>
+                <Select value={lumenFilter} onValueChange={setLumenFilter}>
+                  <SelectTrigger
+                    className={`h-9 transition-all hover:border-primary/50 hover:shadow-md focus-within:border-primary focus-within:shadow-lg focus-within:shadow-primary/20${
+                      lumenFilter !== 'all' ? ' border-primary/50 bg-primary/5 shadow-md' : ''
+                    }`}
+                  >
+                    <SelectValue placeholder="All Lumen" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Lumen</SelectItem>
+                    {getDynamicOptions('lumen').map((lumen, index) => (
+                      <SelectItem key={`lumen-${index}-${lumen}`} value={lumen}>
+                        {lumen}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <label className="text-sm font-medium text-foreground">
+                  Efficacy (lm/W)
+                </label>
+                <Select value={efficacyFilter} onValueChange={setEfficacyFilter}>
+                  <SelectTrigger
+                    className={`h-9 transition-all hover:border-primary/50 hover:shadow-md focus-within:border-primary focus-within:shadow-lg focus-within:shadow-primary/20${
+                      efficacyFilter !== 'all' ? ' border-primary/50 bg-primary/5 shadow-md' : ''
+                    }`}
+                  >
+                    <SelectValue placeholder="All Efficacy" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Efficacy</SelectItem>
+                    {getDynamicOptions('efficacy').map((efficacy, index) => (
+                      <SelectItem key={`efficacy-${index}-${efficacy}`} value={efficacy}>
+                        {efficacy}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
           </motion.div>
         </TabsContent>
@@ -1106,6 +1629,160 @@ export default function DataManagementPage() {
                   </SelectContent>
                 </Select>
               </div>
+              <div className="space-y-2">
+                <label className="text-sm font-medium text-foreground">
+                  Material & Finish
+                </label>
+                <Select value={materialFinishFilter} onValueChange={setMaterialFinishFilter}>
+                  <SelectTrigger
+                    className={`h-9 transition-all hover:border-primary/50 hover:shadow-md focus-within:border-primary focus-within:shadow-lg focus-within:shadow-primary/20${
+                      materialFinishFilter !== 'all' ? ' border-primary/50 bg-primary/5 shadow-md' : ''
+                    }`}
+                  >
+                    <SelectValue placeholder="All Materials" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Materials</SelectItem>
+                    {getDynamicOptions('materialFinish').map((material, index) => (
+                      <SelectItem key={`material-${index}-${material}`} value={material}>
+                        {material}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <label className="text-sm font-medium text-foreground">
+                  Sensors & Controls
+                </label>
+                <Select value={sensorsControlsFilter} onValueChange={setSensorsControlsFilter}>
+                  <SelectTrigger
+                    className={`h-9 transition-all hover:border-primary/50 hover:shadow-md focus-within:border-primary focus-within:shadow-lg focus-within:shadow-primary/20${
+                      sensorsControlsFilter !== 'all' ? ' border-primary/50 bg-primary/5 shadow-md' : ''
+                    }`}
+                  >
+                    <SelectValue placeholder="All Sensors" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Sensors</SelectItem>
+                    {getDynamicOptions('sensorsControls').map((sensor, index) => (
+                      <SelectItem key={`sensor-${index}-${sensor}`} value={sensor}>
+                        {sensor}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <label className="text-sm font-medium text-foreground">
+                  Mounting Type
+                </label>
+                <Select value={mountingFilter} onValueChange={setMountingFilter}>
+                  <SelectTrigger
+                    className={`h-9 transition-all hover:border-primary/50 hover:shadow-md focus-within:border-primary focus-within:shadow-lg focus-within:shadow-primary/20${
+                      mountingFilter !== 'all' ? ' border-primary/50 bg-primary/5 shadow-md' : ''
+                    }`}
+                  >
+                    <SelectValue placeholder="All Mounting" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Mounting</SelectItem>
+                    {getDynamicOptions('mounting').map((mount, index) => (
+                      <SelectItem key={`mounting-${index}-${mount}`} value={mount}>
+                        {mount}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <label className="text-sm font-medium text-foreground">
+                  Certifications
+                </label>
+                <Select value={certificationsFilter} onValueChange={setCertificationsFilter}>
+                  <SelectTrigger
+                    className={`h-9 transition-all hover:border-primary/50 hover:shadow-md focus-within:border-primary focus-within:shadow-lg focus-within:shadow-primary/20${
+                      certificationsFilter !== 'all' ? ' border-primary/50 bg-primary/5 shadow-md' : ''
+                    }`}
+                  >
+                    <SelectValue placeholder="All Certifications" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Certifications</SelectItem>
+                    {getDynamicOptions('certifications').map((cert, index) => (
+                      <SelectItem key={`cert-${index}-${cert}`} value={cert}>
+                        {cert}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <label className="text-sm font-medium text-foreground">
+                  Lead Time
+                </label>
+                <Select value={leadTimeFilter} onValueChange={setLeadTimeFilter}>
+                  <SelectTrigger
+                    className={`h-9 transition-all hover:border-primary/50 hover:shadow-md focus-within:border-primary focus-within:shadow-lg focus-within:shadow-primary/20${
+                      leadTimeFilter !== 'all' ? ' border-primary/50 bg-primary/5 shadow-md' : ''
+                    }`}
+                  >
+                    <SelectValue placeholder="All Lead Times" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Lead Times</SelectItem>
+                    {getDynamicOptions('leadTime').map((lead, index) => (
+                      <SelectItem key={`lead-${index}-${lead}`} value={lead}>
+                        {lead}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <label className="text-sm font-medium text-foreground">
+                  Warranty
+                </label>
+                <Select value={warrantyFilter} onValueChange={setWarrantyFilter}>
+                  <SelectTrigger
+                    className={`h-9 transition-all hover:border-primary/50 hover:shadow-md focus-within:border-primary focus-within:shadow-lg focus-within:shadow-primary/20${
+                      warrantyFilter !== 'all' ? ' border-primary/50 bg-primary/5 shadow-md' : ''
+                    }`}
+                  >
+                    <SelectValue placeholder="All Warranties" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Warranties</SelectItem>
+                    {getDynamicOptions('warranty').map((warranty, index) => (
+                      <SelectItem key={`warranty-${index}-${warranty}`} value={warranty}>
+                        {warranty}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <label className="text-sm font-medium text-foreground">
+                  MOQ
+                </label>
+                <Select value={moqFilter} onValueChange={setMoqFilter}>
+                  <SelectTrigger
+                    className={`h-9 transition-all hover:border-primary/50 hover:shadow-md focus-within:border-primary focus-within:shadow-lg focus-within:shadow-primary/20${
+                      moqFilter !== 'all' ? ' border-primary/50 bg-primary/5 shadow-md' : ''
+                    }`}
+                  >
+                    <SelectValue placeholder="All MOQs" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All MOQs</SelectItem>
+                    {getDynamicOptions('moq').map((moq, index) => (
+                      <SelectItem key={`moq-${index}-${moq}`} value={moq}>
+                        {moq}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
           </motion.div>
         </TabsContent>
@@ -1127,7 +1804,7 @@ export default function DataManagementPage() {
     if (!confirm(`Are you sure you want to delete ${product.model_number}?`)) return;
 
     try {
-      const result = await deleteProductClient(product.type, product.id);
+      const result = await deleteProductClientV2(product.type, product.id);
       if (result.error) throw result.error;
 
       // Update local state
@@ -1157,8 +1834,8 @@ export default function DataManagementPage() {
       }, {});
 
       // Delete from each table
-      for (const [table, ids] of Object.entries(byTable)) {
-        const result = await bulkDeleteProductsClient(table, ids);
+      for (const [type, ids] of Object.entries(byTable)) {
+        const result = await bulkDeleteProductsClientV2(type, ids);
         if (result.error) throw result.error;
       }
 
@@ -1189,8 +1866,8 @@ export default function DataManagementPage() {
       }, {});
 
       // Update category for each table
-      for (const [table, ids] of Object.entries(byTable)) {
-        const result = await bulkSetCategoryClient(table, ids, categoryValue);
+      for (const [type, ids] of Object.entries(byTable)) {
+        const result = await bulkSetCategoryClientV2(type, ids, categoryValue);
         if (result.error) throw result.error;
       }
 
@@ -1223,9 +1900,13 @@ export default function DataManagementPage() {
         return acc;
       }, {});
 
+      console.log('Bulk update - Selected rows:', selectedRows);
+      console.log('Bulk update - Grouped by table:', byTable);
+
       // Update each table
-      for (const [table, ids] of Object.entries(byTable)) {
-        const result = await bulkUpdateProductsClient(table, ids, updateData);
+      for (const [type, ids] of Object.entries(byTable)) {
+        console.log(`Bulk update - Updating ${type} with IDs:`, ids);
+        const result = await bulkUpdateProductsClientV2(type, ids, updateData);
         if (result.error) throw result.error;
       }
 

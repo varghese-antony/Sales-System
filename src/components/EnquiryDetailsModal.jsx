@@ -36,7 +36,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { format } from 'date-fns';
 import { formatEnquiryForExport, exportEnquiriesCustom } from '@/lib/utils/export';
 import { useToast } from '@/contexts/ToastContext';
-import { ProductDetailsModal } from '@/components/ProductDetailsModal';
+import Link from 'next/link';
 
 const STATUS_OPTIONS = [
   { value: 'new', label: 'New', color: 'warning' },
@@ -52,7 +52,6 @@ export function EnquiryDetailsModal({ isOpen, onClose, enquiry, onStatusUpdate, 
   const [newStatus, setNewStatus] = useState(enquiry?.status || 'new');
   const [notes, setNotes] = useState('');
   const [savingStatus, setSavingStatus] = useState(false);
-  const [productDetailsModal, setProductDetailsModal] = useState({ isOpen: false, productData: null, cartItem: null });
   const { toast } = useToast();
 
   // Move useEffect here, before any early returns
@@ -65,19 +64,6 @@ export function EnquiryDetailsModal({ isOpen, onClose, enquiry, onStatusUpdate, 
   }, [enquiry?.status, enquiry?.id]);
 
   if (!enquiry) return null;
-
-  const handleViewProduct = (cartItem) => {
-    const product = cartItem.product || cartItem || {};
-    setProductDetailsModal({
-      isOpen: true,
-      productData: product,
-      cartItem: cartItem
-    });
-  };
-
-  const closeProductDetailsModal = () => {
-    setProductDetailsModal({ isOpen: false, productData: null, cartItem: null });
-  };
 
   const handleStatusUpdate = async () => {
     if (!onStatusUpdate || savingStatus) return;
@@ -260,13 +246,6 @@ export function EnquiryDetailsModal({ isOpen, onClose, enquiry, onStatusUpdate, 
         product
       ];
 
-      const productType =
-        item.producttype ||
-        item.productType ||
-        product.producttype ||
-        product.productType ||
-        'Product';
-
       // Prioritize v2 field names (product_name, model_number)
       const productName =
         product.product_name ||
@@ -275,6 +254,16 @@ export function EnquiryDetailsModal({ isOpen, onClose, enquiry, onStatusUpdate, 
         product.ProductName ||
         item.name ||
         null;
+
+      // Determine product type / name (needed for URL and display)
+      const productType =
+        item.producttype ||
+        item.productType ||
+        product.producttype ||
+        product.productType ||
+        product.product_name || // v2 tables use product_name
+        productName || // fallback to productName we already derived
+        'Product';
 
       const modelNumber =
         product.model_number ||
@@ -287,10 +276,29 @@ export function EnquiryDetailsModal({ isOpen, onClose, enquiry, onStatusUpdate, 
 
       const tableRaw =
         item.table ||
+        item.type ||
         product.table ||
+        product.type ||
         (product.Indoor ? 'indoor' : null) ||
-        (product.Outdoor ? 'outdoor' : null);
-      const table = typeof tableRaw === 'string' ? tableRaw.toLowerCase() : tableRaw;
+        (product.Outdoor ? 'outdoor' : null) ||
+        // FINAL FALLBACK: if the modal is opened from /admin-dashboard/enquiry-management
+        // and we still have no table, assume indoor (most common case)
+        (typeof window !== 'undefined' && window.location.pathname.includes('enquiry-management')
+          ? 'indoor'
+          : null);
+      // Normalize table to 'indoor' or 'outdoor'
+      let table;
+      if (typeof tableRaw === 'string') {
+        if (tableRaw.toLowerCase().includes('indoor')) {
+          table = 'indoor';
+        } else if (tableRaw.toLowerCase().includes('outdoor')) {
+          table = 'outdoor';
+        } else {
+          table = tableRaw.toLowerCase();
+        }
+      } else {
+        table = tableRaw;
+      }
 
       const productId =
         item.productId ??
@@ -299,6 +307,20 @@ export function EnquiryDetailsModal({ isOpen, onClose, enquiry, onStatusUpdate, 
         product.id ??
         product.ID ??
         null;
+
+      // DEBUG LOGGING: Output key details for troubleshooting missing product links
+      if (typeof window !== 'undefined') {
+        // Group logs per cart item for clarity
+        console.groupCollapsed(
+          `%c[CartItemDebug] Item #${index + 1}`,
+          'color: #0fa; font-weight: bold;'
+        );
+        console.log('table', table);
+        console.log('productType', productType);
+        console.log('productId', productId);
+        console.log('raw item', item);
+        console.groupEnd();
+      }
 
       const specEntries = [];
       const usedLabels = new Set();
@@ -347,7 +369,11 @@ export function EnquiryDetailsModal({ isOpen, onClose, enquiry, onStatusUpdate, 
         });
       }
 
-      const hasProductLink = Boolean(table && productType && productId);
+      const hasProductLink = Boolean(table && productType);
+       const encodedType = productType ? encodeURIComponent(productType.toLowerCase()) : '';
+       const productLink = hasProductLink
+         ? `/${table}/${encodedType}${productId ? `?productId=${productId}` : ''}`
+         : '#';
 
       return (
         <div
@@ -362,7 +388,7 @@ export function EnquiryDetailsModal({ isOpen, onClose, enquiry, onStatusUpdate, 
               <div className="space-y-1">
                 <div className="flex flex-wrap items-center gap-2">
                   <p className="text-base font-semibold text-foreground">
-                    {productName || productType}
+                    {productName || productType || 'Product'}
                   </p>
                   {modelNumber && (
                     <Badge variant="secondary" className="text-xs font-mono">
@@ -385,23 +411,16 @@ export function EnquiryDetailsModal({ isOpen, onClose, enquiry, onStatusUpdate, 
               <Badge variant="outline" className="text-xs">
                 Qty: {quantity}
               </Badge>
-              {hasProductLink ? (
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => handleViewProduct(item)}
-                  className="text-xs h-9"
-                >
-                  <span className="flex items-center gap-2">
-                    <Eye className="h-4 w-4" />
-                    View Product
-                  </span>
-                </Button>
-              ) : (
-                <Badge variant="secondary" className="text-xs">
-                  Product link unavailable
-                </Badge>
-              )}
+              {hasProductLink && (
+                 <Link
+                   href={`/admin-dashboard/products/${productId}`}
+                   className="inline-flex items-center justify-center rounded-md bg-blue-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-blue-700"
+                 >
+                   View Product
+                 </Link>
+               )}
+               {/* old duplicate removed */}
+              
             </div>
           </div>
 
@@ -425,6 +444,12 @@ export function EnquiryDetailsModal({ isOpen, onClose, enquiry, onStatusUpdate, 
                 </div>
               ))}
             </div>
+          )}
+
+          {!specEntries.length && !product.description && (
+            <p className="text-sm text-muted-foreground">
+              No detailed specifications available for this product.
+            </p>
           )}
 
           {!hasProductLink && (
@@ -587,7 +612,7 @@ export function EnquiryDetailsModal({ isOpen, onClose, enquiry, onStatusUpdate, 
                   <div className="p-2 bg-muted/30 rounded">
                     {enquiry.delivery_method ? (
                       <Badge variant="outline">
-                        {enquiry.delivery_method === 'air' ? 'Air Shipping (30 days)' :
+                        {enquiry.delivery_method === 'air' ? 'Air Shipping (15 days)' :
                          enquiry.delivery_method === 'boat' ? 'Boat Shipping (35 days)' :
                          enquiry.delivery_method}
                       </Badge>
@@ -715,13 +740,7 @@ export function EnquiryDetailsModal({ isOpen, onClose, enquiry, onStatusUpdate, 
           </div>
         </div>
 
-        {/* Product Details Modal */}
-        <ProductDetailsModal
-          isOpen={productDetailsModal.isOpen}
-          onClose={closeProductDetailsModal}
-          productData={productDetailsModal.productData}
-          cartItem={productDetailsModal.cartItem}
-        />
+
       </DialogContent>
     </Dialog>
   );

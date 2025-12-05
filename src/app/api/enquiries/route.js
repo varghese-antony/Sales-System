@@ -1,8 +1,9 @@
 import { NextResponse } from 'next/server';
-import { supabase } from '@/lib/supabase';
+import { createDirectServerClient } from '@/lib/supabase-server';
 
 export async function POST(request) {
   try {
+    const server = createDirectServerClient();
     const body = await request.json();
     const { customerDetails, cartItems } = body;
 
@@ -15,7 +16,7 @@ export async function POST(request) {
     }
 
     // Insert enquiry into Supabase
-    const { data, error } = await supabase
+    const { data, error } = await server
       .from('enquiries')
       .insert([
         {
@@ -57,11 +58,12 @@ export async function POST(request) {
 
 export async function GET(request) {
   try {
+    const server = createDirectServerClient();
     const { searchParams } = new URL(request.url);
     const status = searchParams.get('status');
     const limit = searchParams.get('limit');
 
-    let query = supabase
+    let query = server
       .from('enquiries')
       .select('*')
       .order('created_at', { ascending: false });
@@ -100,6 +102,7 @@ export async function GET(request) {
 
 export async function DELETE(request) {
   try {
+    const server = createDirectServerClient();
     const { searchParams } = new URL(request.url);
     const id = searchParams.get('id');
 
@@ -111,7 +114,7 @@ export async function DELETE(request) {
     }
 
     // First delete related notes
-    const { error: notesError } = await supabase
+    const { error: notesError } = await server
       .from('enquiry_notes')
       .delete()
       .eq('enquiry_id', id);
@@ -122,7 +125,7 @@ export async function DELETE(request) {
     }
 
     // Then delete the enquiry
-    const { error } = await supabase
+    const { error } = await server
       .from('enquiries')
       .delete()
       .eq('id', id);
