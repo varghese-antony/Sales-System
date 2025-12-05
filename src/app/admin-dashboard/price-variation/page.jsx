@@ -54,7 +54,17 @@ export default function PriceVariationPage() {
     { key: 'material_finish', label: 'Material Finish', dbColumn: 'material_finish' },
     { key: 'mounting', label: 'Mounting', dbColumn: 'mounting' },
     { key: 'adjustment_dial', label: 'Adjustment Dial', dbColumn: 'adjustment_dial' },
-    { key: 'certifications', label: 'Certifications', dbColumn: 'certifications' }
+    { key: 'certifications', label: 'Certifications', dbColumn: 'certifications' },
+    { key: 'sensor_cost', label: 'Sensor Cost', dbColumn: 'sensor_cost' },
+    { key: 'sensor_price', label: 'Sensor Price', dbColumn: 'sensor_price' },
+    { key: 'remote_control_bluetooth_cost', label: 'Remote Control/Bluetooth Cost', dbColumn: 'remote_control_bluetooth_cost' },
+    { key: 'remote_control_bluetooth_price', label: 'Remote Control/Bluetooth Price', dbColumn: 'remote_control_bluetooth_price' },
+    { key: 'plugin_sensor_cost', label: 'Plugin Sensor Cost', dbColumn: 'plugin_sensor_cost' },
+    { key: 'plugin_sensor_price', label: 'Plugin Sensor Price', dbColumn: 'plugin_sensor_price' },
+    { key: 'emergency_backup_battery_cost', label: 'Emergency Backup Battery Cost', dbColumn: 'emergency_backup_battery_cost' },
+    { key: 'emergency_backup_battery_price', label: 'Emergency Backup Battery Price', dbColumn: 'emergency_backup_battery_price' },
+    { key: 'installation_kits_cost', label: 'Installation Kits Cost', dbColumn: 'installation_kits_cost' },
+    { key: 'installation_kits_price', label: 'Installation Kits Price', dbColumn: 'installation_kits_price' }
   ];
 
   // Initialize component

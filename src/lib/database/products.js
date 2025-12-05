@@ -64,6 +64,8 @@ export const fieldMapping = {
   efficacyLumenPerW: 'efficacy_lumen_per_w',
   efficacyLmw: 'efficacy_lumen_per_w',
   dimmingType: 'dimming_type',
+  ledType: 'led_type',
+  driverBrand: 'driver_brand',
   materialFinish: 'material_finish',
   sensorsAndControls: 'sensors_and_controls',
   occupancy: 'occupancy',
@@ -87,7 +89,18 @@ export const fieldMapping = {
   costChinaDdpUsa: 'cost_china_ddp_usa',
   costThailandVietnam: 'cost_thailand_vietnam',
   photo: 'photo',
-  ipRating: 'ip_rating'
+  ipRating: 'ip_rating',
+  ikRating: 'ik_rating',
+  sensorCost: 'sensor_cost',
+  sensorPrice: 'sensor_price',
+  remoteControlBluetoothCost: 'remote_control_bluetooth_cost',
+  remoteControlBluetoothPrice: 'remote_control_bluetooth_price',
+  pluginSensorCost: 'plugin_sensor_cost',
+  pluginSensorPrice: 'plugin_sensor_price',
+  emergencyBackupBatteryCost: 'emergency_backup_battery_cost',
+  emergencyBackupBatteryPrice: 'emergency_backup_battery_price',
+  installationKitsCost: 'installation_kits_cost',
+  installationKitsPrice: 'installation_kits_price'
 }
 
 // Note: Supabase tables mix snake_case with PascalCase + spaces (e.g. `Voltage`, `Dimming Type`).
@@ -187,6 +200,8 @@ export async function getProductTypesByCategory(type) {
       .not('product_name', 'is', null)
       .not('sub_category', 'is', null)
       .order('product_name', { ascending: true })
+
+    console.log(`[getProductTypesByCategory] Supabase query result for type ${type}:`, { data, error })
 
     if (error) throw error
 

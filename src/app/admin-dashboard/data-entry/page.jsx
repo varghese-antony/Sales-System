@@ -1,395 +1,293 @@
 "use client";
 
-import { useState, useEffect } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react'
 
-import { createProductsV2, fieldMappingV2 } from '@/lib/database/products-v2'
-import { Input } from '@/components/ui/input';
-import { Textarea } from '@/components/ui/textarea';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { LoadingSpinner } from '@/components/ui/loading';
+import { createProductsV2, sanitizeProductForInsert } from '@/lib/database/products-v2'
+import { validateProductDataV2 } from '@/lib/database/v2-validation'
+import { Input } from '@/components/ui/input'
+import { Textarea } from '@/components/ui/textarea'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { LoadingSpinner } from '@/components/ui/loading'
+import { Checkbox } from '@/components/ui/checkbox'
 
-const FORM_FIELD_KEYS = [
-  'type',
-  'productType',
-  'category',
-  'name',
-  'description',
+const TEXT_VARIATION_FIELDS = [
+  'subCategory',
+  'productName',
   'modelNumber',
-  'sizes',
+  'size',
   'mounting',
-  'voltage',
   'powerW',
+  'voltage',
   'cct',
   'criRa',
   'lumen',
-  'efficacyLmw',
-  'beamAngle',
-  'powerFactor',
+  'efficacyLumenPerW',
   'dimmingType',
-  'dimmable',
-  'emergencyBackupBattery',
-  'pluginSensor',
-  'sensorMicrowaveBluetooth',
-  'junctionCover',
-  'remoteControl',
-  'installationKits',
   'materialFinish',
-  'ledType',
-  'driverBrand',
+  'sensorsAndControls',
+  'pirMicrowaveBluetooth',
+  'installationKits',
   'adjustmentDial',
   'certifications',
   'leadTime',
   'warranty',
   'moq',
-  'pricePc',
+  'pricePerPiece',
   'costChinaDdpUsa',
   'costThailandVietnam',
   'photo',
-  'imageUrl',
   'cutSheet',
   'ipRating',
-  'ikRating',
-];
+  'sensorCost',
+  'sensorPrice',
+  'remoteControlBluetoothCost',
+  'remoteControlBluetoothPrice',
+  'pluginSensorCost',
+  'pluginSensorPrice',
+  'emergencyBackupBatteryCost',
+  'emergencyBackupBatteryPrice',
+  'installationKitsCost',
+  'installationKitsPrice'
+]
 
-const VARIATION_FIELD_KEYS = [
-  'sizes',
-  'mounting',
-  'voltage',
-  'powerW',
-  'cct',
-  'criRa',
-  'lumen',
-  'efficacyLmw',
-  'beamAngle',
-  'powerFactor',
-  'dimmingType',
-  'dimmable',
-  'emergencyBackupBattery',
-  'pluginSensor',
-  'sensorMicrowaveBluetooth',
-  'junctionCover',
+const BOOLEAN_VARIATION_FIELDS = [
+  'occupancy',
+  'biLevel',
   'remoteControl',
-  'installationKits',
-  'materialFinish',
-  'ledType',
-  'driverBrand',
-  'adjustmentDial',
-  'certifications',
-  'leadTime',
-  'warranty',
-  'moq',
-  'pricePc',
-  'costChinaDdpUsa',
-  'costThailandVietnam',
-  'photo',
-  'imageUrl',
-  'cutSheet',
-  'ipRating',
-  'ikRating',
-];
+  'pluginSensor',
+  'emergencyBackupBattery',
+  'junctionCover'
+]
+
+const INITIAL_STATE = {
+  type: 'indoor',
+  subCategory: '',
+  productName: '',
+  modelNumber: '',
+  description: '',
+  size: '',
+  mounting: '',
+  voltage: '',
+  powerW: '',
+  cct: '',
+  criRa: '',
+  lumen: '',
+  efficacyLumenPerW: '',
+  dimmingType: '',
+  materialFinish: '',
+  sensorsAndControls: '',
+  pirMicrowaveBluetooth: '',
+  installationKits: '',
+  adjustmentDial: '',
+  certifications: '',
+  leadTime: '',
+  warranty: '',
+  moq: '',
+  pricePerPiece: '',
+  costChinaDdpUsa: '',
+  costThailandVietnam: '',
+  photo: '',
+  cutSheet: '',
+  ipRating: '',
+  sensorCost: '',
+  sensorPrice: '',
+  remoteControlBluetoothCost: '',
+  remoteControlBluetoothPrice: '',
+  pluginSensorCost: '',
+  pluginSensorPrice: '',
+  emergencyBackupBatteryCost: '',
+  emergencyBackupBatteryPrice: '',
+  installationKitsCost: '',
+  installationKitsPrice: '',
+  occupancy: false,
+  biLevel: false,
+  remoteControl: false,
+  pluginSensor: false,
+  emergencyBackupBattery: false,
+  junctionCover: false
+}
+
+const VARIATION_FIELD_KEYS = [...TEXT_VARIATION_FIELDS]
+
 export default function DataEntryPage() {
-  const [type, setType] = useState('');
-  const [productType, setProductType] = useState('');
-  const [category, setCategory] = useState('');
-  const [name, setName] = useState('');
-  const [description, setDescription] = useState('');
-  const [modelNumber, setModelNumber] = useState('');
-  const [sizes, setSizes] = useState('');
-  const [mounting, setMounting] = useState('');
-  const [powerW, setPowerW] = useState('');
-  const [voltage, setVoltage] = useState('');
-  const [cct, setCct] = useState('');
-  const [criRa, setCriRa] = useState('');
-  const [lumen, setLumen] = useState('');
-  const [efficacyLmw, setEfficacyLmw] = useState('');
-  const [beamAngle, setBeamAngle] = useState('');
-  const [powerFactor, setPowerFactor] = useState('');
-  const [dimmingType, setDimmingType] = useState('');
-  const [dimmable, setDimmable] = useState('');
-  const [emergencyBackupBattery, setEmergencyBackupBattery] = useState('');
-  const [pluginSensor, setPluginSensor] = useState('');
-  const [sensorMicrowaveBluetooth, setSensorMicrowaveBluetooth] = useState('');
-  const [junctionCover, setJunctionCover] = useState('');
-  const [remoteControl, setRemoteControl] = useState('');
-  const [installationKits, setInstallationKits] = useState('');
-  const [adjustmentDial, setAdjustmentDial] = useState('');
-  const [materialFinish, setMaterialFinish] = useState('');
-  const [ledType, setLedType] = useState('');
-  const [driverBrand, setDriverBrand] = useState('');
-  const [certifications, setCertifications] = useState('');
-  const [leadTime, setLeadTime] = useState('');
-  const [warranty, setWarranty] = useState('');
-  const [moq, setMoq] = useState('');
-  const [pricePc, setPricePc] = useState('');
-  const [costChinaDdpUsa, setCostChinaDdpUsa] = useState('');
-  const [costThailandVietnam, setCostThailandVietnam] = useState('');
-  const [photo, setPhoto] = useState('');
-  const [cutSheet, setCutSheet] = useState('');
-  const [imageUrl, setImageUrl] = useState('');
-  const [ipRating, setIpRating] = useState('');
-  const [ikRating, setIkRating] = useState('');
-  const [message, setMessage] = useState('');
-  const [variationCount, setVariationCount] = useState(0);
-  const [loading, setLoading] = useState(true);
+  const [formState, setFormState] = useState(INITIAL_STATE)
+  const [message, setMessage] = useState('')
+  const [variationCount, setVariationCount] = useState(0)
+  const [loading, setLoading] = useState(true)
 
-  const buildFormState = () => ({
-    type,
-    productType,
-    category,
-    name,
-    description,
-    modelNumber,
-    sizes,
-    mounting,
-    voltage,
-    powerW,
-    cct,
-    criRa,
-    lumen,
-    efficacyLmw,
-    beamAngle,
-    powerFactor,
-    dimmingType,
-    dimmable,
-    emergencyBackupBattery,
-    pluginSensor,
-    sensorMicrowaveBluetooth,
-    junctionCover,
-    remoteControl,
-    installationKits,
-    materialFinish,
-    ledType,
-    driverBrand,
-    adjustmentDial,
-    certifications,
-    leadTime,
-    warranty,
-    moq,
-    pricePc,
-    costChinaDdpUsa,
-    costThailandVietnam,
-    photo,
-    imageUrl,
-    cutSheet,
-    ipRating,
-    ikRating,
-  });
+  const handleInputChange = useCallback((field) => (event) => {
+    const value = event?.target?.value ?? ''
+    setFormState((prev) => ({ ...prev, [field]: value }))
+  }, [])
 
-  const parseFieldValues = (value) => {
-    if (typeof value !== 'string') return [''];
+  const handleCheckboxChange = useCallback((field) => (checked) => {
+    setFormState((prev) => ({ ...prev, [field]: Boolean(checked) }))
+  }, [])
 
-    const trimmed = value.trim();
-    if (!trimmed) return [''];
+  const handleSelectChange = useCallback((field) => (value) => {
+    setFormState((prev) => ({ ...prev, [field]: value }))
+  }, [])
 
-    const values = trimmed.split(',').map((entry) => entry.trim()).filter(Boolean);
-    return values.length > 0 ? values : [''];
-  };
+  const parseFieldValues = useCallback((value) => {
+    if (typeof value !== 'string') return ['']
 
-  const calculateVariations = (formData) => {
-    if (!formData) return 0;
+    const trimmed = value.trim()
+    if (!trimmed) return ['']
 
-    const variationFields = VARIATION_FIELD_KEYS.map((name) => ({
+    const values = trimmed
+      .split(',')
+      .map((entry) => entry.trim())
+      .filter(Boolean)
+
+    return values.length > 0 ? values : ['']
+  }, [])
+
+  const variationFields = useMemo(() => {
+    return VARIATION_FIELD_KEYS.map((name) => ({
       name,
-      values: parseFieldValues(formData[name] ?? ''),
-    }));
+      values: parseFieldValues(formState[name] ?? '')
+    }))
+  }, [formState, parseFieldValues])
 
-    if (variationFields.length === 0) return 0;
+  useEffect(() => {
+    if (variationFields.length === 0) {
+      setVariationCount(0)
+      return
+    }
 
-    return variationFields.reduce((total, field) => total * field.values.length, 1);
-  };
+    const totalVariations = variationFields.reduce((total, field) => total * field.values.length, 1)
+    setVariationCount(totalVariations)
+  }, [variationFields])
 
-  const generateVariations = (formData) => {
-    if (!formData) return [];
+  const validateFormData = useCallback((state) => {
+    const errors = []
 
-    const variationFields = VARIATION_FIELD_KEYS.map((name) => ({
-      name,
-      values: parseFieldValues(formData[name] ?? ''),
-    }));
+    if (!state.type) {
+      errors.push('Product type (Indoor/Outdoor) is required')
+    }
 
-    const baseFields = FORM_FIELD_KEYS.filter((key) => !VARIATION_FIELD_KEYS.includes(key));
-    const baseProduct = baseFields.reduce((acc, key) => {
-      const value = formData[key];
-      acc[key] = typeof value === 'string' ? value.trim() : value ?? '';
-      return acc;
-    }, {});
+    if (!state.subCategory || state.subCategory.trim() === '') {
+      errors.push('Sub-category is required')
+    }
+
+    if (!state.productName || state.productName.trim() === '') {
+      errors.push('Product name is required')
+    }
+
+    if (!state.modelNumber || state.modelNumber.trim() === '') {
+      errors.push('Model number is required')
+    }
+
+    if (!state.size || state.size.trim() === '') {
+      errors.push('Size is required')
+    }
+
+    return errors
+  }, [])
+
+  const generateVariations = useCallback(() => {
+    if (variationFields.length === 0) return []
+
+    const baseFields = new Set(['type', 'subCategory', 'productName', 'modelNumber', 'description'])
+
+    const baseProduct = Array.from(baseFields).reduce((acc, key) => {
+      const value = formState[key]
+      acc[key] = typeof value === 'string' ? value.trim() : value ?? ''
+      return acc
+    }, {})
+
+    BOOLEAN_VARIATION_FIELDS.forEach((key) => {
+      baseProduct[key] = formState[key]
+    })
 
     const buildCombinations = (fields, index = 0) => {
       if (index >= fields.length) {
-        return [{}];
+        return [{}]
       }
 
-      const { name, values } = fields[index];
-      const restCombinations = buildCombinations(fields, index + 1);
-      const combinations = [];
+      const { name, values } = fields[index]
+      const restCombinations = buildCombinations(fields, index + 1)
+      const combinations = []
 
       values.forEach((value) => {
         restCombinations.forEach((combo) => {
           combinations.push({
             ...combo,
-            [name]: value,
-          });
-        });
-      });
+            [name]: value
+          })
+        })
+      })
 
-      return combinations;
-    };
-
-    const combinations = buildCombinations(variationFields);
-    return combinations.map((combo) => ({ ...baseProduct, ...combo }));
-  };
-
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    setMessage('Processing data...');
-
-    const formData = buildFormState();
-
-    // Ensure required fields are present
-    if (!formData.type || !formData.productType || !formData.modelNumber) {
-      setMessage('Please select type and fill in product type and model number.');
-      return;
+      return combinations
     }
 
-    const variations = generateVariations(formData);
+    const combinations = buildCombinations(variationFields)
+    return combinations.map((combo) => ({ ...baseProduct, ...combo }))
+  }, [formState, variationFields])
 
+  const resetForm = useCallback(() => {
+    setFormState(INITIAL_STATE)
+    setVariationCount(0)
+  }, [])
+
+  const handleSubmit = useCallback(async (event) => {
+    event.preventDefault()
+    setMessage('Processing data...')
+
+    const validationErrors = validateFormData(formState)
+    if (validationErrors.length > 0) {
+      setMessage(`Validation errors: ${validationErrors.join(', ')}`)
+      return
+    }
+
+    const variations = generateVariations()
     if (variations.length === 0) {
-      setMessage('Please enter at least some data.');
-      return;
+      setMessage('Please enter at least some data.')
+      return
+    }
+
+    const sanitizedVariations = variations.map((variation) => {
+      const { type, description, ...rest } = variation
+      const product = {
+        type,
+        description,
+        ...rest
+      }
+
+      const sanitized = sanitizeProductForInsert(product)
+      sanitized.sub_category = variation.subCategory
+      sanitized.product_name = variation.productName
+      sanitized.model_number = variation.modelNumber
+      if (variation.description) {
+        sanitized.description = variation.description
+      }
+
+      return sanitized
+    })
+
+    const variationValidationErrors = sanitizedVariations.flatMap((variation, index) => {
+      const errors = validateProductDataV2(formState.type, variation, 'create')
+      return errors.map((error) => `Variation ${index + 1}: ${error.message}`)
+    })
+
+    if (variationValidationErrors.length > 0) {
+      setMessage(`Validation errors: ${variationValidationErrors.join('; ')}`)
+      return
     }
 
     try {
-      const variationsWithType = variations.map(variation => {
-        const mappedVariation = {}
-        Object.entries(variation).forEach(([key, value]) => {
-          // Map frontend field names to v2 database column names
-          const dbColumn = fieldMappingV2[key] || key
-          mappedVariation[dbColumn] = value
-        })
-
-        // Map category to sub_category in v2 schema
-        if (formData.category) {
-          mappedVariation.sub_category = formData.category
-        }
-
-        // Map name to product_name in v2 schema
-        if (formData.name) {
-          mappedVariation.product_name = formData.name
-        }
-
-        // Note: description and producttype fields don't exist in v2 tables
-        // They are omitted from the insert
-
-        mappedVariation.model_number = formData.modelNumber
-
-        return mappedVariation
-      })
-
-      const { data, error } = await createProductsV2(formData.type, variationsWithType)
+      const { error } = await createProductsV2(formState.type, sanitizedVariations)
       if (error) {
         throw new Error(error)
       }
 
-      if (data) {
-        setMessage(`Data successfully created! Created ${variations.length} product variations.`)
-        // Reset form
-        setType('')
-        setProductType('')
-        setCategory('')
-        setName('')
-        setDescription('')
-        setModelNumber('')
-        setSizes('')
-        setMounting('')
-        setPowerW('')
-        setVoltage('')
-        setCct('')
-        setCriRa('')
-        setLumen('')
-        setEfficacyLmw('')
-        setBeamAngle('')
-        setPowerFactor('')
-        setDimmingType('')
-        setDimmable('')
-        setEmergencyBackupBattery('')
-        setPluginSensor('')
-        setSensorMicrowaveBluetooth('')
-        setJunctionCover('')
-        setRemoteControl('')
-        setInstallationKits('')
-        setMaterialFinish('')
-        setLedType('')
-        setDriverBrand('')
-        setAdjustmentDial('')
-        setCertifications('')
-        setLeadTime('')
-        setWarranty('')
-        setMoq('')
-        setPricePc('')
-        setCostChinaDdpUsa('')
-        setCostThailandVietnam('')
-        setPhoto('')
-        setImageUrl('')
-        setCutSheet('')
-        setIpRating('')
-        setIkRating('')
-        setVariationCount(0)
-      }
+      setMessage(`Data successfully created! Created ${sanitizedVariations.length} product variation${sanitizedVariations.length > 1 ? 's' : ''}.`)
+      resetForm()
     } catch (error) {
       setMessage(`Failed to create products: ${error.message}`)
     }
-  };
-
-  // Update variation count when form changes
-  const updateVariationCount = () => {
-    const formState = buildFormState();
-    setVariationCount(calculateVariations(formState));
-  };
-
-  useEffect(() => {
-    updateVariationCount();
-  }, [
-    type,
-    productType,
-    category,
-    name,
-    description,
-    modelNumber,
-    sizes,
-    mounting,
-    voltage,
-    powerW,
-    cct,
-    criRa,
-    lumen,
-    efficacyLmw,
-    beamAngle,
-    powerFactor,
-    dimmingType,
-    dimmable,
-    emergencyBackupBattery,
-    pluginSensor,
-    sensorMicrowaveBluetooth,
-    junctionCover,
-    remoteControl,
-    installationKits,
-    materialFinish,
-    ledType,
-    driverBrand,
-    adjustmentDial,
-    certifications,
-    leadTime,
-    warranty,
-    moq,
-    pricePc,
-    costChinaDdpUsa,
-    costThailandVietnam,
-    photo,
-    imageUrl,
-    cutSheet,
-    ipRating,
-    ikRating,
-  ]);
+  }, [formState, generateVariations, resetForm, validateFormData])
 
   // Initial loading effect
   useEffect(() => {
@@ -431,7 +329,7 @@ export default function DataEntryPage() {
             <p className="text-sm sm:text-base text-muted-foreground text-center">Add new lighting products to your catalog</p>
             <div className="text-center mt-3 sm:mt-4 space-y-2">
               <p className="text-xs sm:text-sm text-muted-foreground">
-                💡 <strong>Universal Variation System:</strong> Use commas to separate multiple values in ANY field to create product variations.
+                💡 <strong>Variation Builder:</strong> Use commas to list multiple values in text fields below. We'll create every combination automatically.
                 <br />
                 <span className="text-[10px] sm:text-xs">
                   Example: Voltage "220V, 240V" × Power "15W, 20W" × CCT "3000K, 4000K" = 8 variations
@@ -453,11 +351,11 @@ export default function DataEntryPage() {
                 <CardHeader className="p-4 sm:p-6">
                   <CardTitle className="text-base sm:text-lg text-foreground">Basic Information</CardTitle>
                 </CardHeader>
-                <CardContent className="p-4 sm:p-6 space-y-3 sm:space-y-4">
+                <CardContent className="p-4 sm:p-6 space-y-4">
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
                     <div className="space-y-1.5 sm:space-y-2">
                       <label htmlFor="type" className="text-xs sm:text-sm font-medium text-foreground">Indoor/Outdoor</label>
-                      <Select value={type} onValueChange={setType} required>
+                      <Select value={formState.type} onValueChange={handleSelectChange('type')} required>
                         <SelectTrigger className="bg-background border-border hover:border-primary/50 focus:border-primary dark:bg-background dark:border-border dark:hover:border-primary/50 dark:focus:border-primary">
                           <SelectValue placeholder="Select type" />
                         </SelectTrigger>
@@ -469,13 +367,13 @@ export default function DataEntryPage() {
                     </div>
 
                     <div className="space-y-1.5 sm:space-y-2">
-                      <label htmlFor="productType" className="text-xs sm:text-sm font-medium text-foreground">Product Type</label>
+                      <label htmlFor="subCategory" className="text-xs sm:text-sm font-medium text-foreground">Sub-category *</label>
                       <Input
-                        id="productType"
-                        value={productType}
-                        onChange={(e) => setProductType(e.target.value)}
-                        placeholder="e.g., Downlight, Track Light"
-                        className="bg-background border-border hover:border-primary/50 focus:border-primary dark:bg-background dark:border-border dark:hover:border-primary/50 dark:focus:border-primary"
+                        id="subCategory"
+                        value={formState.subCategory}
+                        onChange={handleInputChange('subCategory')}
+                        placeholder="e.g., Downlights"
+                        className="bg-background border-border"
                         required
                       />
                     </div>
@@ -483,49 +381,50 @@ export default function DataEntryPage() {
 
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
                     <div className="space-y-1.5 sm:space-y-2">
-                      <label htmlFor="modelNumber" className="text-xs sm:text-sm font-medium text-foreground">Model Number</label>
+                      <label htmlFor="productName" className="text-xs sm:text-sm font-medium text-foreground">Product Name *</label>
+                      <Input
+                        id="productName"
+                        value={formState.productName}
+                        onChange={handleInputChange('productName')}
+                        placeholder="e.g., Aurora LED Downlight"
+                        className="bg-background border-border"
+                        required
+                      />
+                    </div>
+
+                    <div className="space-y-1.5 sm:space-y-2">
+                      <label htmlFor="modelNumber" className="text-xs sm:text-sm font-medium text-foreground">Model Number *</label>
                       <Input
                         id="modelNumber"
-                        value={modelNumber}
-                        onChange={(e) => setModelNumber(e.target.value)}
+                        value={formState.modelNumber}
+                        onChange={handleInputChange('modelNumber')}
                         placeholder="e.g., DL-100"
                         className="bg-background border-border"
                         required
                       />
                     </div>
+                  </div>
 
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
                     <div className="space-y-1.5 sm:space-y-2">
-                      <label htmlFor="sizes" className="text-xs sm:text-sm font-medium text-foreground">Sizes (comma-separated)</label>
+                      <label htmlFor="size" className="text-xs sm:text-sm font-medium text-foreground">Size (comma-separated) *</label>
                       <Input
-                        id="sizes"
-                        value={sizes}
-                        onChange={(e) => setSizes(e.target.value)}
+                        id="size"
+                        value={formState.size}
+                        onChange={handleInputChange('size')}
                         placeholder="e.g., 4 inch, 6 inch, 8 inch"
                         className="bg-background border-border"
                         required
                       />
                     </div>
-                  </div>
-
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
-                    <div className="space-y-1.5 sm:space-y-2">
-                      <label htmlFor="category" className="text-xs sm:text-sm font-medium text-foreground">Category</label>
-                      <Input
-                        id="category"
-                        value={category}
-                        onChange={(e) => setCategory(e.target.value)}
-                        placeholder="e.g., Residential Lighting"
-                        className="bg-background border-border"
-                      />
-                    </div>
 
                     <div className="space-y-1.5 sm:space-y-2">
-                      <label htmlFor="name" className="text-xs sm:text-sm font-medium text-foreground">Product Name</label>
+                      <label htmlFor="mounting" className="text-xs sm:text-sm font-medium text-foreground">Mounting</label>
                       <Input
-                        id="name"
-                        value={name}
-                        onChange={(e) => setName(e.target.value)}
-                        placeholder="e.g., Aurora LED Downlight"
+                        id="mounting"
+                        value={formState.mounting}
+                        onChange={handleInputChange('mounting')}
+                        placeholder="e.g., Recessed, Surface"
                         className="bg-background border-border"
                       />
                     </div>
@@ -535,41 +434,30 @@ export default function DataEntryPage() {
                     <label htmlFor="description" className="text-xs sm:text-sm font-medium text-foreground">Description</label>
                     <Textarea
                       id="description"
-                      value={description}
-                      onChange={(e) => setDescription(e.target.value)}
+                      value={formState.description}
+                      onChange={handleInputChange('description')}
                       placeholder="Provide a brief description of the product"
                       className="bg-background border-border"
                       rows={4}
                     />
                   </div>
-
-                  <div className="space-y-1.5 sm:space-y-2">
-                    <label htmlFor="mounting" className="text-xs sm:text-sm font-medium text-foreground">Mounting</label>
-                    <Input
-                      id="mounting"
-                      value={mounting}
-                      onChange={(e) => setMounting(e.target.value)}
-                      placeholder="e.g., Recessed, Surface"
-                      className="bg-background border-border"
-                    />
-                  </div>
                 </CardContent>
               </Card>
 
-              {/* Technical Specifications */}
+              {/* Performance & Electrical */}
               <Card className="border border-border/50">
                 <CardHeader className="p-4 sm:p-6">
-                  <CardTitle className="text-base sm:text-lg text-foreground">Technical Specifications</CardTitle>
+                  <CardTitle className="text-base sm:text-lg text-foreground">Performance & Electrical</CardTitle>
                 </CardHeader>
-                <CardContent className="p-4 sm:p-6 space-y-3 sm:space-y-4">
+                <CardContent className="p-4 sm:p-6 space-y-4">
                   <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
                     <div className="space-y-1.5 sm:space-y-2">
                       <label htmlFor="powerW" className="text-xs sm:text-sm font-medium text-foreground">Power (W)</label>
                       <Input
                         id="powerW"
-                        value={powerW}
-                        onChange={(e) => setPowerW(e.target.value)}
-                        placeholder="e.g., 15W, 20W, 25W (comma-separated for variations)"
+                        value={formState.powerW}
+                        onChange={handleInputChange('powerW')}
+                        placeholder="e.g., 15W, 20W"
                         className="bg-background border-border"
                       />
                     </div>
@@ -578,9 +466,9 @@ export default function DataEntryPage() {
                       <label htmlFor="voltage" className="text-xs sm:text-sm font-medium text-foreground">Voltage</label>
                       <Input
                         id="voltage"
-                        value={voltage}
-                        onChange={(e) => setVoltage(e.target.value)}
-                        placeholder="e.g., 220V, 240V (comma-separated for variations)"
+                        value={formState.voltage}
+                        onChange={handleInputChange('voltage')}
+                        placeholder="e.g., 220V, 240V"
                         className="bg-background border-border"
                       />
                     </div>
@@ -589,9 +477,9 @@ export default function DataEntryPage() {
                       <label htmlFor="cct" className="text-xs sm:text-sm font-medium text-foreground">CCT (K)</label>
                       <Input
                         id="cct"
-                        value={cct}
-                        onChange={(e) => setCct(e.target.value)}
-                        placeholder="e.g., 3000K, 4000K, 6000K (comma-separated for variations)"
+                        value={formState.cct}
+                        onChange={handleInputChange('cct')}
+                        placeholder="e.g., 3000K, 4000K"
                         className="bg-background border-border"
                       />
                     </div>
@@ -600,9 +488,9 @@ export default function DataEntryPage() {
                       <label htmlFor="criRa" className="text-xs sm:text-sm font-medium text-foreground">CRI (Ra)</label>
                       <Input
                         id="criRa"
-                        value={criRa}
-                        onChange={(e) => setCriRa(e.target.value)}
-                        placeholder="e.g., 80, 90, 95 (comma-separated for variations)"
+                        value={formState.criRa}
+                        onChange={handleInputChange('criRa')}
+                        placeholder="e.g., 80, 90"
                         className="bg-background border-border"
                       />
                     </div>
@@ -611,42 +499,20 @@ export default function DataEntryPage() {
                       <label htmlFor="lumen" className="text-xs sm:text-sm font-medium text-foreground">Lumen</label>
                       <Input
                         id="lumen"
-                        value={lumen}
-                        onChange={(e) => setLumen(e.target.value)}
-                        placeholder="e.g., 1000, 1200, 1500 (comma-separated for variations)"
+                        value={formState.lumen}
+                        onChange={handleInputChange('lumen')}
+                        placeholder="e.g., 1000, 1500"
                         className="bg-background border-border"
                       />
                     </div>
 
                     <div className="space-y-1.5 sm:space-y-2">
-                      <label htmlFor="beamAngle" className="text-xs sm:text-sm font-medium text-foreground">Beam Angle</label>
+                      <label htmlFor="efficacyLumenPerW" className="text-xs sm:text-sm font-medium text-foreground">Efficacy (lm/W)</label>
                       <Input
-                        id="beamAngle"
-                        value={beamAngle}
-                        onChange={(e) => setBeamAngle(e.target.value)}
-                        placeholder="e.g., 30°, 60°, 90° (comma-separated for variations)"
-                        className="bg-background border-border"
-                      />
-                    </div>
-
-                    <div className="space-y-1.5 sm:space-y-2">
-                      <label htmlFor="efficacyLmw" className="text-xs sm:text-sm font-medium text-foreground">Efficacy (lm/W)</label>
-                      <Input
-                        id="efficacyLmw"
-                        value={efficacyLmw}
-                        onChange={(e) => setEfficacyLmw(e.target.value)}
-                        placeholder="e.g., 80, 95"
-                        className="bg-background border-border"
-                      />
-                    </div>
-
-                    <div className="space-y-1.5 sm:space-y-2">
-                      <label htmlFor="powerFactor" className="text-xs sm:text-sm font-medium text-foreground">Power Factor</label>
-                      <Input
-                        id="powerFactor"
-                        value={powerFactor}
-                        onChange={(e) => setPowerFactor(e.target.value)}
-                        placeholder="e.g., 0.9, 0.95, 0.98 (comma-separated for variations)"
+                        id="efficacyLumenPerW"
+                        value={formState.efficacyLumenPerW}
+                        onChange={handleInputChange('efficacyLumenPerW')}
+                        placeholder="e.g., 95"
                         className="bg-background border-border"
                       />
                     </div>
@@ -655,75 +521,31 @@ export default function DataEntryPage() {
                       <label htmlFor="dimmingType" className="text-xs sm:text-sm font-medium text-foreground">Dimming Type</label>
                       <Input
                         id="dimmingType"
-                        value={dimmingType}
-                        onChange={(e) => setDimmingType(e.target.value)}
+                        value={formState.dimmingType}
+                        onChange={handleInputChange('dimmingType')}
                         placeholder="e.g., 0-10V, DALI"
                         className="bg-background border-border"
                       />
                     </div>
 
                     <div className="space-y-1.5 sm:space-y-2">
-                      <label htmlFor="dimmable" className="text-xs sm:text-sm font-medium text-foreground">Dimmable</label>
+                      <label htmlFor="pirMicrowaveBluetooth" className="text-xs sm:text-sm font-medium text-foreground">PIR / Microwave / Bluetooth</label>
                       <Input
-                        id="dimmable"
-                        value={dimmable}
-                        onChange={(e) => setDimmable(e.target.value)}
-                        placeholder="e.g., Yes, No (comma-separated for variations)"
+                        id="pirMicrowaveBluetooth"
+                        value={formState.pirMicrowaveBluetooth}
+                        onChange={handleInputChange('pirMicrowaveBluetooth')}
+                        placeholder="e.g., PIR Sensor"
                         className="bg-background border-border"
                       />
                     </div>
 
                     <div className="space-y-1.5 sm:space-y-2">
-                      <label htmlFor="emergencyBackupBattery" className="text-xs sm:text-sm font-medium text-foreground">Emergency Backup Battery</label>
+                      <label htmlFor="sensorsAndControls" className="text-xs sm:text-sm font-medium text-foreground">Sensors & Controls</label>
                       <Input
-                        id="emergencyBackupBattery"
-                        value={emergencyBackupBattery}
-                        onChange={(e) => setEmergencyBackupBattery(e.target.value)}
-                        placeholder="e.g., Optional"
-                        className="bg-background border-border"
-                      />
-                    </div>
-
-                    <div className="space-y-1.5 sm:space-y-2">
-                      <label htmlFor="pluginSensor" className="text-xs sm:text-sm font-medium text-foreground">Plug-in Sensor</label>
-                      <Input
-                        id="pluginSensor"
-                        value={pluginSensor}
-                        onChange={(e) => setPluginSensor(e.target.value)}
-                        placeholder="e.g., Yes, No"
-                        className="bg-background border-border"
-                      />
-                    </div>
-
-                    <div className="space-y-1.5 sm:space-y-2">
-                      <label htmlFor="sensorMicrowaveBluetooth" className="text-xs sm:text-sm font-medium text-foreground">Sensor (Microwave/Bluetooth)</label>
-                      <Input
-                        id="sensorMicrowaveBluetooth"
-                        value={sensorMicrowaveBluetooth}
-                        onChange={(e) => setSensorMicrowaveBluetooth(e.target.value)}
-                        placeholder="e.g., Microwave, Bluetooth"
-                        className="bg-background border-border"
-                      />
-                    </div>
-
-                    <div className="space-y-1.5 sm:space-y-2">
-                      <label htmlFor="junctionCover" className="text-xs sm:text-sm font-medium text-foreground">Junction Cover</label>
-                      <Input
-                        id="junctionCover"
-                        value={junctionCover}
-                        onChange={(e) => setJunctionCover(e.target.value)}
-                        placeholder="e.g., Included"
-                        className="bg-background border-border"
-                      />
-                    </div>
-
-                    <div className="space-y-1.5 sm:space-y-2">
-                      <label htmlFor="remoteControl" className="text-xs sm:text-sm font-medium text-foreground">Remote Control</label>
-                      <Input
-                        id="remoteControl"
-                        value={remoteControl}
-                        onChange={(e) => setRemoteControl(e.target.value)}
-                        placeholder="e.g., Included"
+                        id="sensorsAndControls"
+                        value={formState.sensorsAndControls}
+                        onChange={handleInputChange('sensorsAndControls')}
+                        placeholder="e.g., Daylight Sensor"
                         className="bg-background border-border"
                       />
                     </div>
@@ -732,9 +554,42 @@ export default function DataEntryPage() {
                       <label htmlFor="installationKits" className="text-xs sm:text-sm font-medium text-foreground">Installation Kits</label>
                       <Input
                         id="installationKits"
-                        value={installationKits}
-                        onChange={(e) => setInstallationKits(e.target.value)}
+                        value={formState.installationKits}
+                        onChange={handleInputChange('installationKits')}
                         placeholder="e.g., Surface Mount Kit"
+                        className="bg-background border-border"
+                      />
+                    </div>
+
+                    <div className="space-y-1.5 sm:space-y-2">
+                      <label htmlFor="adjustmentDial" className="text-xs sm:text-sm font-medium text-foreground">Adjustment Dial</label>
+                      <Input
+                        id="adjustmentDial"
+                        value={formState.adjustmentDial}
+                        onChange={handleInputChange('adjustmentDial')}
+                        placeholder="e.g., CCT Switch"
+                        className="bg-background border-border"
+                      />
+                    </div>
+
+                    <div className="space-y-1.5 sm:space-y-2">
+                      <label htmlFor="materialFinish" className="text-xs sm:text-sm font-medium text-foreground">Material Finish</label>
+                      <Input
+                        id="materialFinish"
+                        value={formState.materialFinish}
+                        onChange={handleInputChange('materialFinish')}
+                        placeholder="e.g., White, Black"
+                        className="bg-background border-border"
+                      />
+                    </div>
+
+                    <div className="space-y-1.5 sm:space-y-2">
+                      <label htmlFor="certifications" className="text-xs sm:text-sm font-medium text-foreground">Certifications</label>
+                      <Input
+                        id="certifications"
+                        value={formState.certifications}
+                        onChange={handleInputChange('certifications')}
+                        placeholder="e.g., CE, RoHS"
                         className="bg-background border-border"
                       />
                     </div>
@@ -742,67 +597,38 @@ export default function DataEntryPage() {
                 </CardContent>
               </Card>
 
-              {/* LED & Driver Information */}
+              {/* Feature Toggles */}
               <Card className="border border-border/50">
                 <CardHeader className="p-4 sm:p-6">
-                  <CardTitle className="text-base sm:text-lg text-foreground">LED & Driver Information</CardTitle>
+                  <CardTitle className="text-base sm:text-lg text-foreground">Feature Toggles</CardTitle>
+                  <p className="text-xs text-muted-foreground">Toggle each option if it is included with the product.</p>
                 </CardHeader>
-                <CardContent className="p-4 sm:p-6 space-y-3 sm:space-y-4">
+                <CardContent className="p-4 sm:p-6">
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
-                    <div className="space-y-1.5 sm:space-y-2">
-                      <label htmlFor="ledType" className="text-xs sm:text-sm font-medium text-foreground">LED Type</label>
-                      <Input
-                        id="ledType"
-                        value={ledType}
-                        onChange={(e) => setLedType(e.target.value)}
-                        placeholder="e.g., COB, SMD, LED Chip (comma-separated for variations)"
-                        className="bg-background border-border"
-                      />
+                    <div className="flex items-center space-x-3 rounded-md border border-border/60 px-3 py-2">
+                      <Checkbox id="occupancy" checked={formState.occupancy} onCheckedChange={handleCheckboxChange('occupancy')} />
+                      <label htmlFor="occupancy" className="text-sm text-foreground flex-1">Occupancy Sensor</label>
                     </div>
-
-                    <div className="space-y-1.5 sm:space-y-2">
-                      <label htmlFor="driverBrand" className="text-xs sm:text-sm font-medium text-foreground">Driver Brand</label>
-                      <Input
-                        id="driverBrand"
-                        value={driverBrand}
-                        onChange={(e) => setDriverBrand(e.target.value)}
-                        placeholder="e.g., Mean Well, Philips (comma-separated for variations)"
-                        className="bg-background border-border"
-                      />
+                    <div className="flex items-center space-x-3 rounded-md border border-border/60 px-3 py-2">
+                      <Checkbox id="biLevel" checked={formState.biLevel} onCheckedChange={handleCheckboxChange('biLevel')} />
+                      <label htmlFor="biLevel" className="text-sm text-foreground flex-1">Bi-level Dimming</label>
                     </div>
-                  </div>
-
-                  <div className="space-y-1.5 sm:space-y-2">
-                    <label htmlFor="adjustmentDial" className="text-xs sm:text-sm font-medium text-foreground">Adjustment Dial</label>
-                    <Input
-                      id="adjustmentDial"
-                      value={adjustmentDial}
-                      onChange={(e) => setAdjustmentDial(e.target.value)}
-                      placeholder="e.g., Yes, 0-10V, DALI (comma-separated for variations)"
-                      className="bg-background border-border"
-                    />
-                  </div>
-
-                  <div className="space-y-1.5 sm:space-y-2">
-                    <label htmlFor="materialFinish" className="text-xs sm:text-sm font-medium text-foreground">Material Finish</label>
-                    <Input
-                      id="materialFinish"
-                      value={materialFinish}
-                      onChange={(e) => setMaterialFinish(e.target.value)}
-                      placeholder="e.g., White, Black, Chrome"
-                      className="bg-background border-border"
-                    />
-                  </div>
-
-                  <div className="space-y-1.5 sm:space-y-2">
-                    <label htmlFor="certifications" className="text-xs sm:text-sm font-medium text-foreground">Certifications</label>
-                    <Input
-                      id="certifications"
-                      value={certifications}
-                      onChange={(e) => setCertifications(e.target.value)}
-                      placeholder="e.g., CE, RoHS, UL, IP65 (comma-separated for variations)"
-                      className="bg-background border-border"
-                    />
+                    <div className="flex items-center space-x-3 rounded-md border border-border/60 px-3 py-2">
+                      <Checkbox id="remoteControl" checked={formState.remoteControl} onCheckedChange={handleCheckboxChange('remoteControl')} />
+                      <label htmlFor="remoteControl" className="text-sm text-foreground flex-1">Remote Control</label>
+                    </div>
+                    <div className="flex items-center space-x-3 rounded-md border border-border/60 px-3 py-2">
+                      <Checkbox id="pluginSensor" checked={formState.pluginSensor} onCheckedChange={handleCheckboxChange('pluginSensor')} />
+                      <label htmlFor="pluginSensor" className="text-sm text-foreground flex-1">Plug-in Sensor</label>
+                    </div>
+                    <div className="flex items-center space-x-3 rounded-md border border-border/60 px-3 py-2">
+                      <Checkbox id="emergencyBackupBattery" checked={formState.emergencyBackupBattery} onCheckedChange={handleCheckboxChange('emergencyBackupBattery')} />
+                      <label htmlFor="emergencyBackupBattery" className="text-sm text-foreground flex-1">Emergency Backup Battery</label>
+                    </div>
+                    <div className="flex items-center space-x-3 rounded-md border border-border/60 px-3 py-2">
+                      <Checkbox id="junctionCover" checked={formState.junctionCover} onCheckedChange={handleCheckboxChange('junctionCover')} />
+                      <label htmlFor="junctionCover" className="text-sm text-foreground flex-1">Junction Cover</label>
+                    </div>
                   </div>
                 </CardContent>
               </Card>
@@ -812,14 +638,14 @@ export default function DataEntryPage() {
                 <CardHeader className="p-4 sm:p-6">
                   <CardTitle className="text-base sm:text-lg text-foreground">Commercial Information</CardTitle>
                 </CardHeader>
-                <CardContent className="p-4 sm:p-6 space-y-3 sm:space-y-4">
-                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
+                <CardContent className="p-4 sm:p-6 space-y-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
                     <div className="space-y-1.5 sm:space-y-2">
                       <label htmlFor="leadTime" className="text-xs sm:text-sm font-medium text-foreground">Lead Time</label>
                       <Input
                         id="leadTime"
-                        value={leadTime}
-                        onChange={(e) => setLeadTime(e.target.value)}
+                        value={formState.leadTime}
+                        onChange={handleInputChange('leadTime')}
                         placeholder="e.g., 30 days"
                         className="bg-background border-border"
                       />
@@ -829,8 +655,8 @@ export default function DataEntryPage() {
                       <label htmlFor="warranty" className="text-xs sm:text-sm font-medium text-foreground">Warranty</label>
                       <Input
                         id="warranty"
-                        value={warranty}
-                        onChange={(e) => setWarranty(e.target.value)}
+                        value={formState.warranty}
+                        onChange={handleInputChange('warranty')}
                         placeholder="e.g., 3 years"
                         className="bg-background border-border"
                       />
@@ -840,21 +666,21 @@ export default function DataEntryPage() {
                       <label htmlFor="moq" className="text-xs sm:text-sm font-medium text-foreground">MOQ</label>
                       <Input
                         id="moq"
-                        value={moq}
-                        onChange={(e) => setMoq(e.target.value)}
+                        value={formState.moq}
+                        onChange={handleInputChange('moq')}
                         placeholder="e.g., 100 pcs"
                         className="bg-background border-border"
                       />
                     </div>
 
                     <div className="space-y-1.5 sm:space-y-2">
-                      <label htmlFor="pricePc" className="text-xs sm:text-sm font-medium text-foreground">Price per piece</label>
+                      <label htmlFor="pricePerPiece" className="text-xs sm:text-sm font-medium text-foreground">Price per piece</label>
                       <Input
-                        id="pricePc"
+                        id="pricePerPiece"
                         type="number"
                         step="0.01"
-                        value={pricePc}
-                        onChange={(e) => setPricePc(e.target.value)}
+                        value={formState.pricePerPiece}
+                        onChange={handleInputChange('pricePerPiece')}
                         placeholder="e.g., 25.50"
                         className="bg-background border-border"
                       />
@@ -866,8 +692,8 @@ export default function DataEntryPage() {
                         id="costChinaDdpUsa"
                         type="number"
                         step="0.01"
-                        value={costChinaDdpUsa}
-                        onChange={(e) => setCostChinaDdpUsa(e.target.value)}
+                        value={formState.costChinaDdpUsa}
+                        onChange={handleInputChange('costChinaDdpUsa')}
                         placeholder="e.g., 18.75"
                         className="bg-background border-border"
                       />
@@ -879,8 +705,8 @@ export default function DataEntryPage() {
                         id="costThailandVietnam"
                         type="number"
                         step="0.01"
-                        value={costThailandVietnam}
-                        onChange={(e) => setCostThailandVietnam(e.target.value)}
+                        value={formState.costThailandVietnam}
+                        onChange={handleInputChange('costThailandVietnam')}
                         placeholder="e.g., 17.25"
                         className="bg-background border-border"
                       />
@@ -894,40 +720,29 @@ export default function DataEntryPage() {
                 <CardHeader className="p-4 sm:p-6">
                   <CardTitle className="text-base sm:text-lg text-foreground">Media Assets</CardTitle>
                 </CardHeader>
-                <CardContent className="p-4 sm:p-6 space-y-3 sm:space-y-4">
+                <CardContent className="p-4 sm:p-6 space-y-4">
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
                     <div className="space-y-1.5 sm:space-y-2">
                       <label htmlFor="photo" className="text-xs sm:text-sm font-medium text-foreground">Photo URL</label>
                       <Input
                         id="photo"
-                        value={photo}
-                        onChange={(e) => setPhoto(e.target.value)}
+                        value={formState.photo}
+                        onChange={handleInputChange('photo')}
                         placeholder="e.g., https://"
                         className="bg-background border-border"
                       />
                     </div>
 
                     <div className="space-y-1.5 sm:space-y-2">
-                      <label htmlFor="imageUrl" className="text-xs sm:text-sm font-medium text-foreground">Image URL</label>
+                      <label htmlFor="cutSheet" className="text-xs sm:text-sm font-medium text-foreground">Cut Sheet URL</label>
                       <Input
-                        id="imageUrl"
-                        value={imageUrl}
-                        onChange={(e) => setImageUrl(e.target.value)}
+                        id="cutSheet"
+                        value={formState.cutSheet}
+                        onChange={handleInputChange('cutSheet')}
                         placeholder="e.g., https://"
                         className="bg-background border-border"
                       />
                     </div>
-                  </div>
-
-                  <div className="space-y-1.5 sm:space-y-2">
-                    <label htmlFor="cutSheet" className="text-xs sm:text-sm font-medium text-foreground">Cut Sheet URL</label>
-                    <Input
-                      id="cutSheet"
-                      value={cutSheet}
-                      onChange={(e) => setCutSheet(e.target.value)}
-                      placeholder="e.g., https://"
-                      className="bg-background border-border"
-                    />
                   </div>
                 </CardContent>
               </Card>
@@ -937,32 +752,20 @@ export default function DataEntryPage() {
                 <CardHeader className="p-4 sm:p-6">
                   <CardTitle className="text-base sm:text-lg text-foreground">Ratings</CardTitle>
                 </CardHeader>
-                <CardContent className="p-4 sm:p-6 space-y-3 sm:space-y-4">
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
-                    <div className="space-y-1.5 sm:space-y-2">
-                      <label htmlFor="ipRating" className="text-xs sm:text-sm font-medium text-foreground">IP Rating</label>
-                      <Input
-                        id="ipRating"
-                        value={ipRating}
-                        onChange={(e) => setIpRating(e.target.value)}
-                        placeholder="e.g., IP65"
-                        className="bg-background border-border"
-                      />
-                    </div>
-
-                    <div className="space-y-1.5 sm:space-y-2">
-                      <label htmlFor="ikRating" className="text-xs sm:text-sm font-medium text-foreground">IK Rating</label>
-                      <Input
-                        id="ikRating"
-                        value={ikRating}
-                        onChange={(e) => setIkRating(e.target.value)}
-                        placeholder="e.g., IK08"
-                        className="bg-background border-border"
-                      />
-                    </div>
+                <CardContent className="p-4 sm:p-6 space-y-4">
+                  <div className="space-y-1.5 sm:space-y-2">
+                    <label htmlFor="ipRating" className="text-xs sm:text-sm font-medium text-foreground">IP Rating</label>
+                    <Input
+                      id="ipRating"
+                      value={formState.ipRating}
+                      onChange={handleInputChange('ipRating')}
+                      placeholder="e.g., IP65"
+                      className="bg-background border-border"
+                    />
                   </div>
                 </CardContent>
               </Card>
+
               <div className="flex justify-center pt-3 sm:pt-4 px-3 sm:px-0">
                 <button
                   type="submit"

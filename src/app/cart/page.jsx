@@ -392,7 +392,7 @@ export default function CartPage() {
                         <div className="flex-1">
                           <div className="flex items-center justify-between">
                             <span className="text-sm font-medium">Air Shipping</span>
-                            <span className="text-sm text-muted-foreground">30 days</span>
+                            <span className="text-sm text-muted-foreground">15 days</span>
                           </div>
                         </div>
                       </label>

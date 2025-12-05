@@ -55,7 +55,7 @@ export function BulkUpdateModal({ selectedProducts, action, isOpen, onClose, onC
   const inputClass = 'glass-effect-subtle transition-all focus:border-primary focus:ring-2 focus:ring-primary/20 focus:shadow-lg focus:shadow-primary/10';
   const labelClass = 'text-sm font-medium text-foreground/90 flex items-center gap-2';
 
-  // Field groups for organization
+  // Field groups for organization - Updated with V2 schema fields
   const fieldGroups = {
     basic: [
       { key: 'productType', label: 'Product Type', type: 'text' },
@@ -64,6 +64,7 @@ export function BulkUpdateModal({ selectedProducts, action, isOpen, onClose, onC
       { key: 'description', label: 'Description', type: 'text' },
       { key: 'modelNumber', label: 'Model Number', type: 'text' },
       { key: 'sizes', label: 'Sizes', type: 'text' },
+      { key: 'size', label: 'Size', type: 'text' },
       { key: 'mounting', label: 'Mounting', type: 'text' }
     ],
     technical: [
@@ -76,6 +77,8 @@ export function BulkUpdateModal({ selectedProducts, action, isOpen, onClose, onC
       { key: 'beamAngle', label: 'Beam Angle', type: 'text' },
       { key: 'powerFactor', label: 'Power Factor', type: 'text' },
       { key: 'dimmingType', label: 'Dimming Type', type: 'text' },
+      { key: 'ledType', label: 'LED Type', type: 'text' },
+      { key: 'driverBrand', label: 'Driver Brand', type: 'text' },
       { key: 'emergencyBackupBattery', label: 'Emergency Backup Battery', type: 'text' },
       { key: 'pluginSensor', label: 'Plug-in Sensor', type: 'text' },
       { key: 'sensorMicrowaveBluetooth', label: 'Sensor (Microwave/Bluetooth)', type: 'text' },
@@ -84,12 +87,15 @@ export function BulkUpdateModal({ selectedProducts, action, isOpen, onClose, onC
       { key: 'installationKits', label: 'Installation Kits', type: 'text' },
       { key: 'adjustmentDial', label: 'Adjustment Dial', type: 'text' },
       { key: 'ipRating', label: 'IP Rating', type: 'text' },
-      { key: 'ikRating', label: 'IK Rating', type: 'text' }
+      { key: 'ikRating', label: 'IK Rating', type: 'text' },
+      { key: 'efficacyLumenPerW', label: 'Efficacy Lumen/W', type: 'text' }
     ],
     design: [
       { key: 'materialFinish', label: 'Material Finish', type: 'text' },
-      { key: 'ledType', label: 'LED Type', type: 'text' },
-      { key: 'driverBrand', label: 'Driver Brand', type: 'text' },
+      { key: 'sensorsAndControls', label: 'Sensors and Controls', type: 'text' },
+      { key: 'occupancy', label: 'Occupancy', type: 'text' },
+      { key: 'biLevel', label: 'Bi-level', type: 'text' },
+      { key: 'pirMicrowaveBluetooth', label: 'PIR Microwave Bluetooth', type: 'text' },
       { key: 'certifications', label: 'Certifications', type: 'text' }
     ],
     media: [
@@ -103,7 +109,17 @@ export function BulkUpdateModal({ selectedProducts, action, isOpen, onClose, onC
       { key: 'moq', label: 'MOQ', type: 'text' },
       { key: 'pricePc', label: 'Price per piece', type: 'number' },
       { key: 'costChinaDdpUsa', label: 'Cost China DDP USA', type: 'number' },
-      { key: 'costThailandVietnam', label: 'Cost Thailand/Vietnam', type: 'number' }
+      { key: 'costThailandVietnam', label: 'Cost Thailand/Vietnam', type: 'number' },
+      { key: 'sensorCost', label: 'Sensor Cost', type: 'number' },
+      { key: 'sensorPrice', label: 'Sensor Price', type: 'number' },
+      { key: 'remoteControlBluetoothCost', label: 'Remote Control/BT Cost', type: 'number' },
+      { key: 'remoteControlBluetoothPrice', label: 'Remote Control/BT Price', type: 'number' },
+      { key: 'pluginSensorCost', label: 'Plugin Sensor Cost', type: 'number' },
+      { key: 'pluginSensorPrice', label: 'Plugin Sensor Price', type: 'number' },
+      { key: 'emergencyBackupBatteryCost', label: 'Backup Battery Cost', type: 'number' },
+      { key: 'emergencyBackupBatteryPrice', label: 'Backup Battery Price', type: 'number' },
+      { key: 'installationKitsCost', label: 'Installation Kits Cost', type: 'number' },
+      { key: 'installationKitsPrice', label: 'Installation Kits Price', type: 'number' }
     ]
   };
 

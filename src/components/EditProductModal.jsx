@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { motion } from 'framer-motion';
 import {
   Dialog,
@@ -15,8 +15,9 @@ import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { updateProduct, deleteProduct } from '@/lib/database/products';
-import { fieldMapping } from '@/lib/database/products';
+import { Checkbox } from '@/components/ui/checkbox';
+import { updateProductClientV2, deleteProductClientV2 } from '@/lib/database/products-client';
+import { sanitizeProductForInsert, getReverseFieldMappingV2 } from '@/lib/database/products-v2';
 import { Info, Zap, Palette, DollarSign, Image, Shield, Tag, Check } from 'lucide-react';
 
 const gridContainerVariants = {
@@ -33,8 +34,124 @@ const gridItemVariants = {
   visible: { opacity: 1, y: 0 }
 };
 
+const TRUTHY_BOOLEAN_VALUES = new Set(['true', 'yes', '1', 'included', 'optional']);
+
+const BOOLEAN_FIELD_KEYS = ['occupancy', 'biLevel', 'remoteControl', 'pluginSensor', 'emergencyBackupBattery', 'junctionCover'];
+
+const FORM_FIELD_KEYS = [
+  'subCategory',
+  'productName',
+  'modelNumber',
+  'description',
+  'size',
+  'mounting',
+  'powerW',
+  'voltage',
+  'cct',
+  'criRa',
+  'lumen',
+  'efficacyLumenPerW',
+  'dimmingType',
+  'sensorsAndControls',
+  'pirMicrowaveBluetooth',
+  'installationKits',
+  'adjustmentDial',
+  'materialFinish',
+  'certifications',
+  'leadTime',
+  'warranty',
+  'moq',
+  'pricePerPiece',
+  'costChinaDdpUsa',
+  'costThailandVietnam',
+  'photo',
+  'cutSheet',
+  'ipRating',
+  'occupancy',
+  'biLevel',
+  'remoteControl',
+  'pluginSensor',
+  'emergencyBackupBattery',
+  'junctionCover',
+  'sensorCost',
+  'sensorPrice',
+  'remoteControlBluetoothCost',
+  'remoteControlBluetoothPrice',
+  'pluginSensorCost',
+  'pluginSensorPrice',
+  'emergencyBackupBatteryCost',
+  'emergencyBackupBatteryPrice',
+  'installationKitsCost',
+  'installationKitsPrice'
+];
+
+function createEmptyFormState(type = 'indoor') {
+  const state = { type };
+  FORM_FIELD_KEYS.forEach((key) => {
+    state[key] = BOOLEAN_FIELD_KEYS.includes(key) ? false : '';
+  });
+  return state;
+}
+
+function parseBooleanValue(value) {
+  if (typeof value === 'boolean') return value;
+  if (value === null || value === undefined) return false;
+  const normalized = String(value).trim().toLowerCase();
+  if (normalized === '') return false;
+  if (['false', 'no', '0'].includes(normalized)) return false;
+  return TRUTHY_BOOLEAN_VALUES.has(normalized);
+}
+
+function normalizeFieldValue(field, value) {
+  if (BOOLEAN_FIELD_KEYS.includes(field)) {
+    return parseBooleanValue(value);
+  }
+  if (value === null || value === undefined) {
+    return '';
+  }
+  return String(value);
+}
+
+function mapProductToFormData(product = {}, reverseMapping) {
+  const type = product.type || 'indoor';
+  const state = createEmptyFormState(type);
+
+  Object.entries(product).forEach(([dbKey, value]) => {
+    const frontendKey = reverseMapping[dbKey];
+    if (!frontendKey) return;
+    state[frontendKey] = normalizeFieldValue(frontendKey, value);
+  });
+
+  // Ensure description comes through even if stored under description key
+  if (product.description && state.description === '') {
+    state.description = String(product.description);
+  }
+
+  state.type = type;
+  return state;
+}
+
+function mapFormToRequestPayload(type, formData) {
+  const payload = { type };
+  Object.entries(formData).forEach(([key, value]) => {
+    if (key === 'type') return;
+    if (BOOLEAN_FIELD_KEYS.includes(key)) {
+      payload[key] = Boolean(value);
+      return;
+    }
+    const trimmed = typeof value === 'string' ? value.trim() : value;
+    if (trimmed === '' || trimmed === undefined || trimmed === null) {
+      return;
+    }
+    payload[key] = trimmed;
+  });
+
+  return payload;
+}
+
 export function EditProductModal({ product, isOpen, onClose, onSave, isCreate = false }) {
-  const [formData, setFormData] = useState({});
+  const reverseFieldMapping = useMemo(() => getReverseFieldMappingV2(), []);
+  const [formData, setFormData] = useState(() => createEmptyFormState(product?.type || 'indoor'));
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const initialFormDataRef = useRef({});
@@ -48,141 +165,81 @@ export function EditProductModal({ product, isOpen, onClose, onSave, isCreate = 
   const selectTriggerClass = 'transition-all hover:border-primary/50 hover:shadow-md focus-within:border-primary focus-within:shadow-lg focus-within:shadow-primary/20';
   const readOnlyFieldClass = 'p-2 bg-gradient-to-r from-muted/50 to-muted rounded-md text-sm border border-border/50';
   const technicalFields = [
-    { key: 'powerW', label: 'Power (W)', placeholder: 'e.g., 15W, 20W' },
-    { key: 'voltage', label: 'Voltage', placeholder: 'e.g., 220V, 240V' },
-    { key: 'cct', label: 'CCT (K)', placeholder: 'e.g., 3000K, 4000K' },
-    { key: 'criRa', label: 'CRI (Ra)', placeholder: 'e.g., 80, 90, 95' },
-    { key: 'lumen', label: 'Lumen', placeholder: 'e.g., 1000, 1200' },
-    { key: 'efficacyLmw', label: 'Efficacy (lm/W)', placeholder: 'e.g., 90, 110' },
-    { key: 'beamAngle', label: 'Beam Angle', placeholder: 'e.g., 30°, 60°' },
-    { key: 'powerFactor', label: 'Power Factor', placeholder: 'e.g., 0.9, 0.95' },
-    { key: 'dimmingType', label: 'Dimming Type', placeholder: 'e.g., 0-10V, DALI' },
-    { key: 'emergencyBackupBattery', label: 'Emergency Backup Battery', placeholder: 'e.g., Optional' },
-    { key: 'pluginSensor', label: 'Plug-in Sensor', placeholder: 'e.g., Yes, No' },
-    { key: 'sensorMicrowaveBluetooth', label: 'Sensor (Microwave/Bluetooth)', placeholder: 'e.g., Microwave, Bluetooth' },
-    { key: 'junctionCover', label: 'Junction Cover', placeholder: 'e.g., Included' },
-    { key: 'remoteControl', label: 'Remote Control', placeholder: 'e.g., Optional' },
-    { key: 'installationKits', label: 'Installation Kits', placeholder: 'e.g., Surface Mount Kit' },
-    { key: 'materialFinish', label: 'Material Finish', placeholder: 'e.g., White, Black, Chrome' }
+    { key: 'powerW', label: 'Power (W)', placeholder: 'e.g., 15W' },
+    { key: 'voltage', label: 'Voltage', placeholder: 'e.g., 220V' },
+    { key: 'cct', label: 'CCT (K)', placeholder: 'e.g., 3000K' },
+    { key: 'criRa', label: 'CRI (Ra)', placeholder: 'e.g., 80' },
+    { key: 'lumen', label: 'Lumen', placeholder: 'e.g., 1200' },
+    { key: 'efficacyLumenPerW', label: 'Efficacy (lm/W)', placeholder: 'e.g., 95' },
+    { key: 'dimmingType', label: 'Dimming Type', placeholder: 'e.g., 0-10V' }
   ];
+
   const designFields = [
-    { key: 'ledType', label: 'LED Type', placeholder: 'e.g., COB, SMD' },
-    { key: 'driverBrand', label: 'Driver Brand', placeholder: 'e.g., Mean Well, Philips' },
-    { key: 'adjustmentDial', label: 'Adjustment Dial', placeholder: 'e.g., Yes, 0-10V, DALI' },
-    { key: 'certifications', label: 'Certifications', placeholder: 'e.g., CE, RoHS, UL' }
+    { key: 'materialFinish', label: 'Material Finish', placeholder: 'e.g., White, Black' },
+    { key: 'sensorsAndControls', label: 'Sensors & Controls', placeholder: 'e.g., Daylight Sensor' },
+    { key: 'pirMicrowaveBluetooth', label: 'PIR / Microwave / Bluetooth', placeholder: 'e.g., PIR Sensor' },
+    { key: 'installationKits', label: 'Installation Kits', placeholder: 'e.g., Surface Mount Kit' },
+    { key: 'adjustmentDial', label: 'Adjustment Dial', placeholder: 'e.g., CCT Switch' },
+    { key: 'certifications', label: 'Certifications', placeholder: 'e.g., CE, RoHS' }
   ];
+
   const logisticsFields = [
     { key: 'leadTime', label: 'Lead Time', placeholder: 'e.g., 30 days' },
-    { key: 'warranty', label: 'Warranty', placeholder: 'e.g., 5 years' },
-    { key: 'moq', label: 'MOQ', placeholder: 'e.g., 100' },
-    { key: 'pricePc', label: 'Price per Piece', placeholder: 'e.g., 25.50', type: 'number', step: '0.01' },
-    { key: 'costChinaDdpUsa', label: 'Cost (China DDP USA)', placeholder: 'e.g., 18.75', type: 'number', step: '0.01' },
-    { key: 'costThailandVietnam', label: 'Cost (Thailand/Vietnam)', placeholder: 'e.g., 19.50', type: 'number', step: '0.01' }
+    { key: 'warranty', label: 'Warranty', placeholder: 'e.g., 3 years' },
+    { key: 'moq', label: 'MOQ', placeholder: 'e.g., 100 pcs' },
+    { key: 'pricePerPiece', label: 'Price per piece', placeholder: 'e.g., 25.50', type: 'number', step: '0.01' },
+    { key: 'costChinaDdpUsa', label: 'Cost China DDP USA', placeholder: 'e.g., 18.75', type: 'number', step: '0.01' },
+    { key: 'costThailandVietnam', label: 'Cost Thailand/Vietnam', placeholder: 'e.g., 17.25', type: 'number', step: '0.01' }
   ];
+
+  const addonFields = [
+    { key: 'sensorCost', label: 'Sensor Cost', placeholder: 'e.g., 5.00', type: 'number', step: '0.01' },
+    { key: 'sensorPrice', label: 'Sensor Price', placeholder: 'e.g., 12.50', type: 'number', step: '0.01' },
+    { key: 'remoteControlBluetoothCost', label: 'Remote Control/Bluetooth Cost', placeholder: 'e.g., 3.50', type: 'number', step: '0.01' },
+    { key: 'remoteControlBluetoothPrice', label: 'Remote Control/Bluetooth Price', placeholder: 'e.g., 8.99', type: 'number', step: '0.01' },
+    { key: 'pluginSensorCost', label: 'Plugin Sensor Cost', placeholder: 'e.g., 4.00', type: 'number', step: '0.01' },
+    { key: 'pluginSensorPrice', label: 'Plugin Sensor Price', placeholder: 'e.g., 9.99', type: 'number', step: '0.01' },
+    { key: 'emergencyBackupBatteryCost', label: 'Emergency Backup Battery Cost', placeholder: 'e.g., 6.00', type: 'number', step: '0.01' },
+    { key: 'emergencyBackupBatteryPrice', label: 'Emergency Backup Battery Price', placeholder: 'e.g., 14.99', type: 'number', step: '0.01' },
+    { key: 'installationKitsCost', label: 'Installation Kits Cost', placeholder: 'e.g., 2.50', type: 'number', step: '0.01' },
+    { key: 'installationKitsPrice', label: 'Installation Kits Price', placeholder: 'e.g., 6.99', type: 'number', step: '0.01' }
+  ];
+
   const mediaFields = [
     { key: 'photo', label: 'Photo URL', placeholder: 'https://...' },
-    { key: 'imageUrl', label: 'Image URL', placeholder: 'https://...' },
     { key: 'cutSheet', label: 'Cut Sheet URL', placeholder: 'https://...' }
   ];
+
   const outdoorFields = [
-    { key: 'ipRating', label: 'IP Rating', placeholder: 'e.g., IP65' },
-    { key: 'ikRating', label: 'IK Rating', placeholder: 'e.g., IK08' }
+    { key: 'ipRating', label: 'IP Rating', placeholder: 'e.g., IP65' }
   ];
 
-  const reverseFieldMapping = useMemo(() => {
-    const mapping = {};
-    Object.entries(fieldMapping).forEach(([frontend, db]) => {
-      mapping[db] = frontend;
-    });
-    return mapping;
-  }, []);
-
-  const allFieldKeys = useMemo(() => {
-    const keys = new Set(Object.keys(fieldMapping));
-    keys.add('type');
-    keys.add('category');
-    keys.add('modelNumber');
-    keys.add('productType');
-    keys.add('name');
-    keys.add('description');
-    return Array.from(keys);
-  }, []);
-
-  const buildInitialFormData = useCallback((productData = {}) => {
-    const initial = {};
-    allFieldKeys.forEach((key) => {
-      initial[key] = '';
-    });
-
-    const inferredType = productData.type || (isCreate ? 'indoor' : initial.type);
-    initial.type = inferredType || 'indoor';
-
-    Object.entries(productData).forEach(([key, value]) => {
-      if (key === 'Indoor' || key === 'Outdoor') {
-        if (!initial.category && value) {
-          initial.category = value || '';
-        }
-        return;
-      }
-
-      const frontendKey = reverseFieldMapping[key] || key;
-      if (frontendKey in initial) {
-        initial[frontendKey] = value ?? '';
-      }
-    });
-
-    if (!initial.category && productData.type) {
-      // V2 tables use 'sub_category' column
-      initial.category = productData.sub_category || '';
-    }
-
-    return initial;
-  }, [allFieldKeys, isCreate, reverseFieldMapping]);
-
-  // Initialize form data when product changes
   useEffect(() => {
+    if (!isOpen) return;
+
     if (product) {
-      const initial = buildInitialFormData(product);
+      const initial = mapProductToFormData(product, reverseFieldMapping);
       initialFormDataRef.current = initial;
       setFormData(initial);
     } else if (isCreate) {
-      const initial = buildInitialFormData({ type: 'indoor' });
+      const initial = createEmptyFormState('indoor');
       initialFormDataRef.current = initial;
       setFormData(initial);
     }
-  }, [buildInitialFormData, isCreate, product]);
+  }, [isCreate, isOpen, product, reverseFieldMapping]);
 
-  const handleInputChange = (field, value) => {
-    setFormData(prev => ({
+  const handleInputChange = useCallback((field, value) => {
+    setFormData((prev) => ({
       ...prev,
       [field]: value
     }));
-  };
+  }, []);
 
-  const mapFormDataToDbColumns = useCallback((data) => {
-    const mapped = {};
-
-    Object.entries(data).forEach(([key, value]) => {
-      if (value === '' || value === null || value === undefined) {
-        return;
-      }
-
-      if (key === 'type' || key === 'category') {
-        return;
-      }
-
-      const dbColumn = fieldMapping[key] || key;
-      mapped[dbColumn] = value;
-    });
-
-    if (data.category) {
-      // V2 tables use 'sub_category' column
-      mapped.sub_category = data.category;
-    }
-
-    mapped.type = data.type || 'indoor';
-
-    return mapped;
+  const handleBooleanChange = useCallback((field, checked) => {
+    setFormData((prev) => ({
+      ...prev,
+      [field]: Boolean(checked)
+    }));
   }, []);
 
   const triggerSuccessClose = useCallback(() => {
@@ -201,36 +258,33 @@ export function EditProductModal({ product, isOpen, onClose, onSave, isCreate = 
 
     setSaving(true);
     try {
+      const type = isCreate ? (formData.type || 'indoor') : product.type;
+      const payload = mapFormToRequestPayload(type, formData);
+      const sanitized = sanitizeProductForInsert(payload, { fillBooleanDefaults: false });
+
+      if (!sanitized.model_number) {
+        throw new Error('Model number is required.');
+      }
+
+      if (!sanitized.sub_category && sanitized.product_name) {
+        console.warn('Missing sub-category for product update');
+      }
+
       if (isCreate) {
-        const payload = mapFormDataToDbColumns(formData);
-
-        if (!payload.producttype || !payload.model_number) {
-          throw new Error('Product type and model number are required.');
-        }
-
-        onSave(payload);
+        onSave(sanitized);
         triggerSuccessClose();
         return;
       }
 
-      const updateData = { ...formData };
-      delete updateData.type;
-      delete updateData.category;
+      const { data, error } = await updateProductClientV2(type, product.id, sanitized);
+      if (error) {
+        throw new Error(error);
+      }
 
-      Object.keys(updateData).forEach((key) => {
-        if (updateData[key] === '' || updateData[key] === null || updateData[key] === undefined) {
-          delete updateData[key];
-        }
-      });
-
-      const result = await updateProduct(product.type, product.id, updateData);
-      if (result.error) throw result.error;
-
-      const updatedProduct = { ...product };
-      Object.entries(updateData).forEach(([key, value]) => {
-        const dbColumn = fieldMapping[key] || key;
-        updatedProduct[dbColumn] = value;
-      });
+      const updatedRow = Array.isArray(data?.data) ? data.data[0] : data?.data || data;
+      const updatedProduct = updatedRow
+        ? { ...product, ...updatedRow }
+        : { ...product, ...sanitized };
 
       onSave(updatedProduct);
       triggerSuccessClose();
@@ -251,10 +305,10 @@ export function EditProductModal({ product, isOpen, onClose, onSave, isCreate = 
 
     setLoading(true);
     try {
-      const result = await deleteProduct(product.type, product.id);
-      if (result.error) throw result.error;
+      const result = await deleteProductClientV2(product.type, product.id);
+      if (result.error) throw new Error(result.error);
 
-      onSave(null); // Signal deletion
+      onSave(null);
       onClose();
     } catch (error) {
       console.error('Error deleting product:', error);
@@ -266,7 +320,7 @@ export function EditProductModal({ product, isOpen, onClose, onSave, isCreate = 
 
   const handleReset = () => {
     if (!product && !isCreate) return;
-    const initial = initialFormDataRef.current || buildInitialFormData(product || { type: 'indoor' });
+    const initial = initialFormDataRef.current || createEmptyFormState(product?.type || 'indoor');
     setFormData(initial);
   };
 
@@ -362,26 +416,6 @@ export function EditProductModal({ product, isOpen, onClose, onSave, isCreate = 
                 </motion.div>
                 <motion.div className="space-y-1.5 sm:space-y-2" variants={gridItemVariants}>
                   <label className={labelClass}>
-                    Product Type <span className="text-destructive">*</span>
-                  </label>
-                  <Input
-                    value={formData.productType || ''}
-                    onChange={(e) => handleInputChange('productType', e.target.value)}
-                    placeholder="e.g., Downlight, Track Light"
-                    required
-                    className={inputClass}
-                  />
-                </motion.div>
-              </motion.div>
-
-              <motion.div
-                className="grid grid-cols-1 sm:grid-cols-2 gap-4"
-                variants={gridContainerVariants}
-                initial="hidden"
-                animate="visible"
-              >
-                <motion.div className="space-y-1.5 sm:space-y-2" variants={gridItemVariants}>
-                  <label className={labelClass}>
                     Model Number <span className="text-destructive">*</span>
                   </label>
                   <Input
@@ -395,8 +429,8 @@ export function EditProductModal({ product, isOpen, onClose, onSave, isCreate = 
                 <motion.div className="space-y-1.5 sm:space-y-2" variants={gridItemVariants}>
                   <label className={labelClass}>Product Name</label>
                   <Input
-                    value={formData.name || ''}
-                    onChange={(e) => handleInputChange('name', e.target.value)}
+                    value={formData.productName || ''}
+                    onChange={(e) => handleInputChange('productName', e.target.value)}
                     placeholder="e.g., Aurora LED Downlight"
                     className={inputClass}
                   />
@@ -421,11 +455,11 @@ export function EditProductModal({ product, isOpen, onClose, onSave, isCreate = 
                 animate="visible"
               >
                 <motion.div className="space-y-1.5 sm:space-y-2" variants={gridItemVariants}>
-                  <label className={labelClass}>Sizes</label>
+                  <label className={labelClass}>Size</label>
                   <Input
-                    value={formData.sizes || ''}
-                    onChange={(e) => handleInputChange('sizes', e.target.value)}
-                    placeholder="e.g., 4 inch, 6 inch, 8 inch"
+                    value={formData.size || ''}
+                    onChange={(e) => handleInputChange('size', e.target.value)}
+                    placeholder="e.g., 4 inch"
                     className={inputClass}
                   />
                 </motion.div>
@@ -482,12 +516,27 @@ export function EditProductModal({ product, isOpen, onClose, onSave, isCreate = 
             </CardHeader>
             <CardContent className="p-3 sm:p-4 lg:p-6 space-y-3 sm:space-y-4">
               <motion.div
+                className="space-y-1.5 sm:space-y-2"
+                variants={gridItemVariants}
+                initial="hidden"
+                animate="visible"
+              >
+                <label className={labelClass}>Description</label>
+                <Textarea
+                  value={formData.description || ''}
+                  onChange={(e) => handleInputChange('description', e.target.value)}
+                  placeholder="Provide a brief description of the product"
+                  rows={4}
+                  className={`${inputClass} resize-none`}
+                />
+              </motion.div>
+              <motion.div
                 className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4"
                 variants={gridContainerVariants}
                 initial="hidden"
                 animate="visible"
               >
-                {designFields.slice(0, 2).map((field) => (
+                {designFields.map((field) => (
                   <motion.div key={field.key} className="space-y-1.5 sm:space-y-2" variants={gridItemVariants}>
                     <label className={labelClass}>{field.label}</label>
                     <Input
@@ -499,17 +548,6 @@ export function EditProductModal({ product, isOpen, onClose, onSave, isCreate = 
                   </motion.div>
                 ))}
               </motion.div>
-              {designFields.slice(2).map((field) => (
-                <motion.div key={field.key} className="space-y-1.5 sm:space-y-2" variants={gridItemVariants} initial="hidden" animate="visible">
-                  <label className={labelClass}>{field.label}</label>
-                  <Input
-                    value={formData[field.key] || ''}
-                    onChange={(e) => handleInputChange(field.key, e.target.value)}
-                    placeholder={field.placeholder}
-                    className={inputClass}
-                  />
-                </motion.div>
-              ))}
             </CardContent>
           </Card>
 
@@ -545,6 +583,41 @@ export function EditProductModal({ product, isOpen, onClose, onSave, isCreate = 
             </CardContent>
           </Card>
 
+          {/* Add-on Pricing */}
+          <Card className="transition-all duration-300 hover:shadow-xl hover:shadow-primary/5 hover:border-primary/30 hover-lift">
+            <CardHeader className="bg-gradient-to-r from-transparent via-primary/5 to-transparent">
+              <CardTitle className="text-lg font-semibold text-gradient flex items-center gap-2">
+                <DollarSign className="h-5 w-5 text-primary" />
+                Add-on Pricing (Cost & Price)
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <p className="text-sm text-muted-foreground mb-4">
+                Note: Users will only see prices, not costs. Costs are for internal tracking only.
+              </p>
+              <motion.div
+                className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4"
+                variants={gridContainerVariants}
+                initial="hidden"
+                animate="visible"
+              >
+                {addonFields.map((field) => (
+                  <motion.div key={field.key} className="space-y-1.5 sm:space-y-2" variants={gridItemVariants}>
+                    <label className={labelClass}>{field.label}</label>
+                    <Input
+                      type={field.type || 'text'}
+                      step={field.step}
+                      value={formData[field.key] || ''}
+                      onChange={(e) => handleInputChange(field.key, e.target.value)}
+                      placeholder={field.placeholder}
+                      className={inputClass}
+                    />
+                  </motion.div>
+                ))}
+              </motion.div>
+            </CardContent>
+          </Card>
+
           {/* Media & Documentation */}
           <Card className="transition-all duration-300 hover:shadow-xl hover:shadow-primary/5 hover:border-primary/30 hover-lift">
             <CardHeader className="p-3 sm:p-4 lg:p-6 bg-gradient-to-r from-transparent via-primary/5 to-transparent">
@@ -560,7 +633,7 @@ export function EditProductModal({ product, isOpen, onClose, onSave, isCreate = 
                 initial="hidden"
                 animate="visible"
               >
-                {mediaFields.slice(0, 2).map((field) => (
+                {mediaFields.map((field) => (
                   <motion.div key={field.key} className="space-y-1.5 sm:space-y-2" variants={gridItemVariants}>
                     <label className={labelClass}>{field.label}</label>
                     <Input
@@ -572,17 +645,44 @@ export function EditProductModal({ product, isOpen, onClose, onSave, isCreate = 
                   </motion.div>
                 ))}
               </motion.div>
-              {mediaFields.slice(2).map((field) => (
-                <motion.div key={field.key} className="space-y-1.5 sm:space-y-2" variants={gridItemVariants} initial="hidden" animate="visible">
-                  <label className={labelClass}>{field.label}</label>
-                  <Input
-                    value={formData[field.key] || ''}
-                    onChange={(e) => handleInputChange(field.key, e.target.value)}
-                    placeholder={field.placeholder}
-                    className={inputClass}
-                  />
-                </motion.div>
-              ))}
+            </CardContent>
+          </Card>
+
+          {/* Feature Toggles */}
+          <Card className="transition-all duration-300 hover:shadow-xl hover:shadow-primary/5 hover:border-primary/30 hover-lift">
+            <CardHeader className="bg-gradient-to-r from-transparent via-primary/5 to-transparent">
+              <CardTitle className="text-lg font-semibold text-gradient flex items-center gap-2">
+                <Shield className="h-5 w-5 text-primary" />
+                Feature Toggles
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <motion.div
+                className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4"
+                variants={gridContainerVariants}
+                initial="hidden"
+                animate="visible"
+              >
+                {[
+                  { key: 'occupancy', label: 'Occupancy Sensor' },
+                  { key: 'biLevel', label: 'Bi-level Dimming' },
+                  { key: 'remoteControl', label: 'Remote Control' },
+                  { key: 'pluginSensor', label: 'Plug-in Sensor' },
+                  { key: 'emergencyBackupBattery', label: 'Emergency Backup Battery' },
+                  { key: 'junctionCover', label: 'Junction Cover' }
+                ].map(({ key, label }) => (
+                  <motion.div key={key} className="flex items-center space-x-3 rounded-md border border-border/60 px-3 py-2" variants={gridItemVariants}>
+                    <Checkbox
+                      id={key}
+                      checked={Boolean(formData[key])}
+                      onCheckedChange={(checked) => handleBooleanChange(key, checked)}
+                    />
+                    <label htmlFor={key} className="text-sm text-foreground flex-1">
+                      {label}
+                    </label>
+                  </motion.div>
+                ))}
+              </motion.div>
             </CardContent>
           </Card>
 
@@ -629,23 +729,12 @@ export function EditProductModal({ product, isOpen, onClose, onSave, isCreate = 
             <CardContent className="p-3 sm:p-4 lg:p-6">
               <div className="space-y-1.5 sm:space-y-2">
                 <label className={labelClass}>Indoor/Outdoor Category</label>
-                {isCreate ? (
-                  <Input
-                    value={formData.category || ''}
-                    onChange={(e) => handleInputChange('category', e.target.value)}
-                    placeholder="e.g., Residential Lighting"
-                    className={inputClass}
-                  />
-                ) : (
-                  <div className={readOnlyFieldClass}>
-                    {product?.[modalType === 'indoor' ? 'Indoor' : 'Outdoor'] || 'Not categorized'}
-                  </div>
-                )}
-                {!isCreate && (
-                  <p className="text-xs text-muted-foreground">
-                    Category is managed through bulk operations in the data management page
-                  </p>
-                )}
+                <Input
+                  value={formData.subCategory || ''}
+                  onChange={(e) => handleInputChange('subCategory', e.target.value)}
+                  placeholder="e.g., Residential Lighting"
+                  className={inputClass}
+                />
               </div>
             </CardContent>
           </Card>

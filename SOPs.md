@@ -369,7 +369,7 @@ Each cart item shows:
 **Shipping & Manufacturing Section:**
 - **Manufacturing Time:** Always 30 days (standard lead time)
 - **Shipping Options:**
-  - **Air Shipping:** 30 days total delivery (30 manufacturing + 30 shipping)
+  - **Air Shipping:** 15 days total delivery (30 manufacturing + 15 shipping)
   - **Boat Shipping:** 35 days total delivery (30 manufacturing + 35 shipping)
 - **Selection Method:** Radio buttons for shipping preference
 - **Total Display:** Shows combined manufacturing + shipping time
@@ -2108,7 +2108,7 @@ Ready to submit enquiry message
 Submit enquiry button at bottom
 
 #### Using Shipping Options
-Choose between air shipping (30 days)
+Choose between air shipping (15 days)
 Or boat shipping (35 days)
 Total delivery time calculated automatically
 Manufacturing time (30 days) added to shipping

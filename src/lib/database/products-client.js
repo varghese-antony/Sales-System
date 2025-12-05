@@ -501,8 +501,9 @@ export async function createProductsClientV2(products) {
 }
 
 // Update product (V2)
-export async function updateProductClientV2(table, id, updateData) {
+export async function updateProductClientV2(type, id, updateData) {
   try {
+    const normalizedType = type || updateData?.type || 'indoor';
     const response = await fetch(API_BASE_V2, {
       method: 'POST',
       headers: {
@@ -510,7 +511,7 @@ export async function updateProductClientV2(table, id, updateData) {
       },
       body: JSON.stringify({
         action: 'update',
-        table,
+        type: normalizedType,
         id,
         updateData
       }),
@@ -525,7 +526,7 @@ export async function updateProductClientV2(table, id, updateData) {
     }
 
     // Invalidate caches for the affected table
-    invalidateProductCaches(table);
+    invalidateProductCaches(normalizedType);
 
     return { data, error: null };
   } catch (error) {
@@ -535,8 +536,9 @@ export async function updateProductClientV2(table, id, updateData) {
 }
 
 // Delete product (V2)
-export async function deleteProductClientV2(table, id) {
+export async function deleteProductClientV2(type, id) {
   try {
+    const normalizedType = type || 'indoor';
     const response = await fetch(API_BASE_V2, {
       method: 'POST',
       headers: {
@@ -544,7 +546,7 @@ export async function deleteProductClientV2(table, id) {
       },
       body: JSON.stringify({
         action: 'delete',
-        table,
+        type: normalizedType,
         id
       }),
     });
@@ -558,7 +560,7 @@ export async function deleteProductClientV2(table, id) {
     }
 
     // Invalidate caches for the affected table
-    invalidateProductCaches(table);
+    invalidateProductCaches(normalizedType);
 
     return { data, error: null };
   } catch (error) {
@@ -568,8 +570,9 @@ export async function deleteProductClientV2(table, id) {
 }
 
 // Bulk delete products (V2)
-export async function bulkDeleteProductsClientV2(table, ids) {
+export async function bulkDeleteProductsClientV2(type, ids) {
   try {
+    const normalizedType = type || 'indoor';
     const response = await fetch(API_BASE_V2, {
       method: 'POST',
       headers: {
@@ -577,7 +580,7 @@ export async function bulkDeleteProductsClientV2(table, ids) {
       },
       body: JSON.stringify({
         action: 'bulkDelete',
-        table,
+        type: normalizedType,
         ids
       }),
     });
@@ -591,7 +594,7 @@ export async function bulkDeleteProductsClientV2(table, ids) {
     }
 
     // Invalidate caches for the affected table
-    invalidateProductCaches(table);
+    invalidateProductCaches(normalizedType);
 
     return { data, error: null };
   } catch (error) {
@@ -634,8 +637,10 @@ export async function updateProductPricesClientV2(priceUpdates) {
 }
 
 // Bulk update products (V2)
-export async function bulkUpdateProductsClientV2(table, ids, updateData) {
+export async function bulkUpdateProductsClientV2(type, ids, updateData) {
   try {
+    const normalizedType = type || 'indoor';
+    console.log('Products client - bulkUpdate called with:', { type: normalizedType, ids, updateData });
     const response = await fetch(API_BASE_V2, {
       method: 'POST',
       headers: {
@@ -643,7 +648,7 @@ export async function bulkUpdateProductsClientV2(table, ids, updateData) {
       },
       body: JSON.stringify({
         action: 'bulkUpdate',
-        table,
+        type: normalizedType,
         ids,
         updateData
       }),
@@ -658,7 +663,7 @@ export async function bulkUpdateProductsClientV2(table, ids, updateData) {
     }
 
     // Invalidate caches for the affected table
-    invalidateProductCaches(table);
+    invalidateProductCaches(normalizedType);
 
     return { data, error: null };
   } catch (error) {
