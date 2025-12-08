@@ -105,17 +105,21 @@ export function DynamicSensorSelector({
   }, [selectedControl, selectedSensor, hasRemote, hasEmergencyBackup, hasPluginSensor, onSelectionChange])
 
   const handleControlChange = (controlType) => {
+    console.log("############# handleControlChange ", controlType)
     setSelectedControl(controlType)
     setSelectedSensor('')
     
     // Find the selected control option
     const controlOption = sensorOptions.find(opt => opt.controlType === controlType)
-    
+    console.log("############# controlOption ", controlOption)
+
     // Auto-select sensor if only one option
     if (controlOption && controlOption.sensorTypes.length === 1) {
       setSelectedSensor(controlOption.sensorTypes[0])
     }
-    
+    console.log("############# hasRemote ", controlOption?.hasRemoteControl)
+    console.log("############# hasEmergencyBackup ", controlOption?.hasEmergencyBackup)
+    console.log("############# hasPluginSensor ", controlOption?.hasPluginSensor)
     // Reset features based on availability
     if (!controlOption?.hasRemoteControl) setHasRemote(false)
     if (!controlOption?.hasEmergencyBackup) setHasEmergencyBackup(false)
@@ -153,6 +157,8 @@ export function DynamicSensorSelector({
     )
   }
 
+  console.log("############# sensorOptions ", JSON.stringify(sensorOptions, null, 2))
+  console.log("############# selectedControl ", selectedControl)
   return (
     <div className={`space-y-6 ${className}`}>
       {/* Control Type Selection */}
@@ -167,8 +173,8 @@ export function DynamicSensorSelector({
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <RadioGroup value={selectedControl} onValueChange={handleControlChange}>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <RadioGroup value={selectedControl} onValueChange={(e)=>handleControlChange(e)}>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               {sensorOptions.map((option) => (
                 <div key={option.controlType} className="flex items-center space-x-2">
                   <RadioGroupItem value={option.controlType} id={option.controlType} />
