@@ -57,7 +57,7 @@ function generateSQL(data, tableName) {
       material_finish: cleanValue(row['Material_Finish']),
       sensors_and_controls: cleanValue(row['Sensors_and_Controls']),
       pir_microwave_bluetooth: parseSensorType(cleanValue(row['PIR_Microwave_Bluetooth'])),
-      remote_control: cleanValue(row['Remote Control']),
+      remote_control_bluetooth: cleanValue(row['Remote Control']),
       plugin_sensor: cleanValue(row['Plugin _Sensor']),
       emergency_backup_battery: cleanValue(row['Emergency_Backup_Battery']),
       junction_cover: cleanValue(row['Junction_Cover']),

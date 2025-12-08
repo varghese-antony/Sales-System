@@ -72,7 +72,7 @@ export const fieldMapping = {
   biLevel: 'bi_level',
   pirMicrowaveBluetooth: 'pir_microwave',
   sensorMicrowaveBluetooth: 'pir_microwave',
-  remoteControl: 'remote_control',
+  remoteControl: 'remote_control_bluetooth',
   pluginSensor: 'plugin_sensor',
   emergencyBackupBattery: 'emergency_backup_battery',
   junctionCover: 'junction_cover',

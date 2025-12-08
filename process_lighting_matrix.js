@@ -87,7 +87,7 @@ function generateProductVariations(row, type, products) {
               occupancy: controlType === 'Occupancy',
               bi_level: controlType === 'Bi-Level',
               pir_microwave_bluetooth: sensorType !== 'None' ? sensorType : null,
-              remote_control: hasRemote && sensorType !== 'None',
+              remote_control_bluetooth: hasRemote && sensorType !== 'None',
               plugin_sensor: hasPlugin,
               emergency_backup_battery: hasEmergency,
               junction_cover: Math.random() > 0.5, // Random for variety
@@ -106,7 +106,7 @@ function generateInsertStatements(indoorProducts, outdoorProducts) {
   let indoorSQL = 'INSERT INTO public.indoor_products_v3 (\n';
   indoorSQL += '  sub_category, product_name, model_number, size, power_w, voltage, cct, cri_ra,\n';
   indoorSQL += '  lumen, efficacy_lumen_per_w, dimming_type, material_finish, sensors_and_controls,\n';
-  indoorSQL += '  occupancy, bi_level, pir_microwave_bluetooth, remote_control, plugin_sensor,\n';
+  indoorSQL += '  occupancy, bi_level, pir_microwave_bluetooth, remote_control_bluetooth, plugin_sensor,\n';
   indoorSQL += '  emergency_backup_battery, junction_cover, mounting, installation_kits,\n';
   indoorSQL += '  adjustment_dial, certifications, price_per_piece, lead_time, cut_sheet,\n';
   indoorSQL += '  warranty, moq, cost_china_ddp_usa, cost_thailand_vietnam, photo, ip_rating\n';
@@ -130,7 +130,7 @@ function generateInsertStatements(indoorProducts, outdoorProducts) {
       product.occupancy,
       product.bi_level,
       product.pir_microwave_bluetooth ? `'${escapeSql(product.pir_microwave_bluetooth)}'` : 'NULL',
-      product.remote_control,
+      product.remote_control_bluetooth,
       product.plugin_sensor,
       product.emergency_backup_battery,
       product.junction_cover,
@@ -156,7 +156,7 @@ function generateInsertStatements(indoorProducts, outdoorProducts) {
   let outdoorSQL = 'INSERT INTO public.outdoor_products_v2 (\n';
   outdoorSQL += '  sub_category, product_name, model_number, size, power_w, voltage, cct, cri_ra,\n';
   outdoorSQL += '  lumen, efficacy_lumen_per_w, dimming_type, material_finish, sensors_and_controls,\n';
-  outdoorSQL += '  occupancy, bi_level, pir_microwave_bluetooth, remote_control, plugin_sensor,\n';
+  outdoorSQL += '  occupancy, bi_level, pir_microwave_bluetooth, remote_control_bluetooth, plugin_sensor,\n';
   outdoorSQL += '  emergency_backup_battery, junction_cover, mounting, installation_kits,\n';
   outdoorSQL += '  adjustment_dial, certifications, price_per_piece, lead_time, cut_sheet,\n';
   outdoorSQL += '  warranty, moq, cost_china_ddp_usa, cost_thailand_vietnam, photo, ip_rating\n';
@@ -180,7 +180,7 @@ function generateInsertStatements(indoorProducts, outdoorProducts) {
       product.occupancy,
       product.bi_level,
       product.pir_microwave_bluetooth ? `'${escapeSql(product.pir_microwave_bluetooth)}'` : 'NULL',
-      product.remote_control,
+      product.remote_control_bluetooth,
       product.plugin_sensor,
       product.emergency_backup_battery,
       product.junction_cover,

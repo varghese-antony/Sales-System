@@ -19,7 +19,7 @@ COLUMNS = [
     ('occupancy', 'bool'),
     ('bi_level', 'bool'),
     ('pir_microwave_bluetooth', 'text'),
-    ('remote_control', 'bool'),
+    ('remote_control_bluetooth', 'bool'),
     ('plugin_sensor', 'bool'),
     ('emergency_backup_battery', 'bool'),
     ('junction_cover', 'bool'),

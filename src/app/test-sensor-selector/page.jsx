@@ -174,7 +174,7 @@ export default function TestSensorSelector() {
                       </div>
                     )}
                     <div>
-                      <span className="font-medium">remote_control:</span> 
+                      <span className="font-medium">remote_control_bluetooth:</span> 
                       <code className="ml-2 bg-muted px-2 py-1 rounded">
                         {sensorSelection.remoteControl.toString()}
                       </code>

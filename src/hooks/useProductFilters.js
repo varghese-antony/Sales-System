@@ -19,7 +19,7 @@ const columnMapping = {
   'Plug-in Sensor': 'plugin_sensor',  // FIXED: was 'plug_in_sensor'
   'Emergency Backup': 'emergency_backup_battery', // FIXED: was 'emergency_backup'
   'Junction Cover': 'junction_cover',
-  'Remote Control': 'remote_control',
+  'Remote Control': 'remote_control_bluetooth',
   'Installation Kits': 'installation_kits',
   'Adjustment Dial': 'adjustment_dial'
 };

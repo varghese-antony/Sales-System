@@ -26,7 +26,7 @@ const fieldMappingV2 = {
   biLevel: 'bi_level',
   pirMicrowaveBluetooth: 'pir_microwave',
   sensorMicrowaveBluetooth: 'pir_microwave',
-  remoteControl: 'remote_control',
+  remoteControl: 'remote_control_bluetooth',
   pluginSensor: 'plugin_sensor',
   emergencyBackupBattery: 'emergency_backup_battery',
   junctionCover: 'junction_cover',
@@ -68,7 +68,7 @@ export const V2_SCHEMA = {
     occupancy: { maxLength: 50 },
     bi_level: { maxLength: 50 },
     pir_microwave: { maxLength: 100 },
-    remote_control: { maxLength: 50 },
+    remote_control_bluetooth: { maxLength: 50 },
     plugin_sensor: { maxLength: 50 },
     emergency_backup_battery: { maxLength: 50 },
     junction_cover: { maxLength: 50 },
@@ -100,7 +100,7 @@ export const V2_SCHEMA = {
   urlFields: ['photo', 'cut_sheet'],
   
   // Fields that should be boolean values
-  booleanFields: ['dimmable', 'emergency_backup_battery', 'plugin_sensor', 'remote_control', 'junction_cover'],
+  booleanFields: ['dimmable', 'emergency_backup_battery', 'plugin_sensor', 'remote_control_bluetooth', 'junction_cover'],
   
   // Indoor-only fields
   indoorOnlyFields: [],
@@ -115,7 +115,7 @@ export const V2_SCHEMA = {
     certifications: ['CE', 'RoHS', 'UL', 'ETL', 'Energy Star', 'DLC', 'SAA', 'CB', 'FCC', 'IP65', 'IP66', 'IP67'],
     emergency_backup_battery: ['Yes', 'No', 'Optional', 'True', 'False'],
     plugin_sensor: ['Yes', 'No', 'Optional', 'True', 'False'],
-    remote_control: ['Yes', 'No', 'Optional', 'True', 'False'],
+    remote_control_bluetooth: ['Yes', 'No', 'Optional', 'True', 'False'],
     junction_cover: ['Yes', 'No', 'Included', 'True', 'False']
   }
 }

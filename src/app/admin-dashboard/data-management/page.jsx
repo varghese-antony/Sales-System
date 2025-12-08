@@ -110,7 +110,7 @@ const FALLBACK_EXPORT_PRODUCT = {
   plugin_sensor: '',
   sensor_microwave_bluetooth: '',
   junction_cover: '',
-  remote_control: '',
+  remote_control_bluetooth: '',
   installation_kits: '',
   adjustment_dial: '',
   'Material Finish': '',
@@ -542,7 +542,7 @@ export default function DataManagementPage() {
       }
     },
     {
-      key: 'remote_control',
+      key: 'remote_control_bluetooth',
       label: 'Remote Control',
       sortable: true,
       render: (value) => {
@@ -766,7 +766,7 @@ export default function DataManagementPage() {
       emergency_backup_battery: 'Emergency Backup',
       plugin_sensor: 'Plug-in Sensor',
       junction_cover: 'Junction Cover',
-      remote_control: 'Remote Control',
+      remote_control_bluetooth: 'Remote Control',
       installation_kits: 'Installation Kits',
       adjustment_dial: 'Adjustment Dial',
       certifications: 'Certifications',

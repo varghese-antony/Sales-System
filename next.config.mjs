@@ -1,7 +1,6 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   // Performance optimizations
-  swcMinify: true,
   compress: true,
 
   // Experimental features for better performance
@@ -150,13 +149,15 @@ const nextConfig = {
     ignoreDuringBuilds: false,
   },
 
-  // Output configuration
-  output: 'standalone',
+  // Output configuration - only for production builds
+  ...(process.env.NODE_ENV === 'production' && {
+    output: 'standalone',
+  }),
 
-  // Performance monitoring
+  // Performance monitoring - better for development hot reloading
   onDemandEntries: {
-    maxInactiveAge: 25 * 1000,
-    pagesBufferLength: 2,
+    maxInactiveAge: 60 * 1000, // Keep pages in memory longer for faster reloads
+    pagesBufferLength: 5, // Buffer more pages for faster navigation
   },
 };
 

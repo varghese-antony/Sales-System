@@ -4,12 +4,15 @@
   "private": true,
   "scripts": {
     "dev": "next dev --turbopack",
+    "dev:no-turbo": "next dev",
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
+    "lint:fix": "eslint --fix",
     "analyze": "ANALYZE=true next build",
     "performance": "next build && npx @next/bundle-analyzer",
-    "test:performance": "npx vitest run --config vitest.performance.config.mjs"
+    "test:performance": "npx vitest run --config vitest.performance.config.mjs",
+    "clean": "rm -rf .next out"
   },
   "dependencies": {
     "@radix-ui/react-accordion": "^1.2.12",

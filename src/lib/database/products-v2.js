@@ -189,7 +189,7 @@ const V2_ALLOWED_COLUMNS = new Set([
   'occupancy',
   'bi_level',
   'pir_microwave',
-  'remote_control',
+  'remote_control_bluetooth',
   'plugin_sensor',
   'emergency_backup_battery',
   'junction_cover',
@@ -221,7 +221,7 @@ const V2_ALLOWED_COLUMNS = new Set([
 const V2_BOOLEAN_COLUMNS = new Set([
   'occupancy',
   'bi_level',
-  'remote_control',
+  'remote_control_bluetooth',
   'plugin_sensor',
   'emergency_backup_battery',
   'junction_cover'
