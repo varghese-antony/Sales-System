@@ -1,6 +1,6 @@
 import { notFound } from 'next/navigation';
 import { getProductByIdV2 } from '@/lib/database/products-v2';
-import ProductDetails from '@/components/ProductDetails';
+import { ProductDetails } from '@/components/ProductDetails';
 
 export default async function ProductPage({ params, searchParams }) {
   const { id } = params;

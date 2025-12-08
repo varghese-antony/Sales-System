@@ -167,7 +167,7 @@ export default function TestSensorSelector() {
                     </div>
                     {sensorSelection.sensorType && (
                       <div>
-                        <span className="font-medium">pir_microwave_bluetooth:</span> 
+                        <span className="font-medium">pir_microwave:</span> 
                         <code className="ml-2 bg-muted px-2 py-1 rounded">
                           "{sensorSelection.sensorType}"
                         </code>

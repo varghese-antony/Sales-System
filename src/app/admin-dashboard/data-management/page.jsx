@@ -507,7 +507,7 @@ export default function DataManagementPage() {
       render: (value) => value || '-'
     },
     {
-      key: 'pir_microwave_bluetooth',
+      key: 'pir_microwave',
       label: 'Sensor Type',
       sortable: true,
       render: (value) => value || '-'
@@ -762,7 +762,7 @@ export default function DataManagementPage() {
       dimming_type: 'Dimming Type',
       material_finish: 'Material Finish',
       sensors_and_controls: 'Sensors & Controls',
-      pir_microwave_bluetooth: 'Sensor Type',
+      pir_microwave: 'Sensor Type',
       emergency_backup_battery: 'Emergency Backup',
       plugin_sensor: 'Plug-in Sensor',
       junction_cover: 'Junction Cover',

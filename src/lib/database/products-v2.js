@@ -145,7 +145,7 @@ export const fieldMappingV2 = {
   dimmingType: 'dimming_type',
   materialFinish: 'material_finish',
   sensorsAndControls: 'sensors_and_controls',
-  pirMicrowaveBluetooth: 'pir_microwave_bluetooth',
+  pirMicrowaveBluetooth: 'pir_microwave',
   mounting: 'mounting',
   installationKits: 'installation_kits',
   adjustmentDial: 'adjustment_dial',
@@ -188,7 +188,7 @@ const V2_ALLOWED_COLUMNS = new Set([
   'sensors_and_controls',
   'occupancy',
   'bi_level',
-  'pir_microwave_bluetooth',
+  'pir_microwave',
   'remote_control',
   'plugin_sensor',
   'emergency_backup_battery',
@@ -392,7 +392,6 @@ export async function getDistinctCategoriesV2(type) {
   try {
     validateTableType(type)
     const table = getTableNameV2(type)
-    console.log('[getDistinctCategoriesV2] Fetching from table:', table)
     
     const { data, error } = await supabase
       .from(table)
@@ -406,7 +405,6 @@ export async function getDistinctCategoriesV2(type) {
     }
 
     const uniqueValues = [...new Set(data.map(item => item.sub_category).filter(Boolean))]
-    console.log('[getDistinctCategoriesV2] Found', uniqueValues.length, 'categories')
     
     return { data: uniqueValues.map(value => ({ sub_category: value })), error: null }
   } catch (error) {
@@ -442,7 +440,6 @@ export async function getDistinctProductNamesV2(type) {
 export async function getProductNamesByCategoryV2(type) {
   try {
     const table = getTableNameV2(type)
-    console.log("################# table ", table)
     const { data, error } = await supabase
       .from(table)
       .select('sub_category, product_name')
@@ -450,7 +447,6 @@ export async function getProductNamesByCategoryV2(type) {
       .not('sub_category', 'is', null)
       .order('product_name', { ascending: true })
 
-    console.log("################# data ", data)
 
     if (error) throw error
 
@@ -582,7 +578,7 @@ export async function getProductsWithSensorFiltersV2(type, filters = {}) {
         if (key === 'sensorsAndControls') {
           query = query.eq('sensors_and_controls', value)
         } else if (key === 'sensorType') {
-          query = query.eq('pir_microwave_bluetooth', value)
+          query = query.eq('pir_microwave', value)
         } else {
           query = query.eq(formatColumnName(dbColumn), value)
         }
@@ -608,7 +604,7 @@ export async function getDistinctSensorOptionsV2(type) {
     const table = getTableNameV2(type)
     const { data, error } = await supabase
       .from(table)
-      .select('sensors_and_controls, pir_microwave_bluetooth')
+      .select('sensors_and_controls, pir_microwave')
       .not('sensors_and_controls', 'is', null)
 
     if (error) throw error
@@ -616,7 +612,7 @@ export async function getDistinctSensorOptionsV2(type) {
     // Group sensor types by control type
     const sensorOptions = data.reduce((acc, item) => {
       const controlType = item.sensors_and_controls
-      const sensorType = item.pir_microwave_bluetooth
+      const sensorType = item.pir_microwave
       
       if (!acc[controlType]) {
         acc[controlType] = new Set()
@@ -930,13 +926,6 @@ export async function bulkUpdateProductsV2(type, ids, updateData) {
       return { data: null, error: notFoundError.message, errorDetails: notFoundError }
     }
 
-    console.log('[bulkUpdateProductsV2] resolved targets', {
-      type,
-      table,
-      originalIds: ids,
-      idsForQuery,
-      updateColumns: Object.keys(mappedData)
-    })
 
     const { data: existingRecords, error: existingError } = await supabase
       .from(table)
@@ -946,7 +935,6 @@ export async function bulkUpdateProductsV2(type, ids, updateData) {
     if (existingError) {
       console.error('[bulkUpdateProductsV2] preflight select error', existingError)
     } else {
-      console.log('[bulkUpdateProductsV2] matches before update', existingRecords?.length || 0, existingRecords)
     }
 
     const { data, error } = await supabase

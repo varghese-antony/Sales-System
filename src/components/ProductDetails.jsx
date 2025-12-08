@@ -113,7 +113,7 @@ export function ProductDetails({ product, onBack }) {
   const getKeyCategory = (key) => {
     const powerKeys = ['power_w', 'voltage', 'efficacy_lumen_per_w', 'lumen']
     const designKeys = ['model_number', 'size', 'material_finish', 'mounting', 'cct', 'cri_ra', 'sub_category', 'product_name', 'ip_rating']
-    const sensorKeys = ['sensors_and_controls', 'pir_microwave_bluetooth', 'remote_control', 'emergency_backup_battery', 'plugin_sensor']
+    const sensorKeys = ['sensors_and_controls', 'pir_microwave', 'remote_control', 'emergency_backup_battery', 'plugin_sensor']
     const featureKeys = ['dimming_type', 'junction_cover', 'adjustment_dial', 'installation_kits']
     const certKeys = ['certifications']
     // Only show prices to users, not costs (costs are in excludedKeys)

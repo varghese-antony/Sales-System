@@ -142,6 +142,7 @@ export default function Indoor() {
           )
         )
 
+        setCategoriesWithProducts(productNamesWithImages)
       } catch (error) {
         console.error('[Indoor Page] Error fetching indoor data:', error)
         console.error('[Indoor Page] Error stack:', error.stack)
