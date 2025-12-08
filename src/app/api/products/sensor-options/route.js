@@ -20,7 +20,7 @@ export async function GET(request) {
     // Include products with NULL sensors (means "None" - no sensors)
     const { data, error } = await supabase
       .from(table)
-      .select('sensors_and_controls, pir_microwave, remote_control_bluetooth, emergency_backup_battery, plugin_sensor')
+      .select('sensors_and_controls,occupancy,bi_level, pir_microwave, remote_control_bluetooth, emergency_backup_battery, plugin_sensor')
       .eq('product_name', productName)
 
     if (error) {
@@ -38,13 +38,30 @@ export async function GET(request) {
       )
     }
 
+
     // Group by sensors_and_controls and collect available sensor types
     // NULL sensors_and_controls means "None" (no sensors)
     const sensorOptionsMap = {}
 
     data.forEach(row => {
-      const controlType = row.sensors_and_controls || 'None'
-      
+      const has_sensors_and_controls = row.sensors_and_controls;
+      let controlType = '';
+
+
+
+      if (has_sensors_and_controls) {
+     
+        if (row.occupancy) {
+          controlType = 'Occupancy'
+        } else if (row.bi_level) {
+          controlType = 'Bi-Level'
+        }
+      } else {
+        controlType = 'None'
+      }
+
+
+
       if (!sensorOptionsMap[controlType]) {
         sensorOptionsMap[controlType] = {
           controlType,
@@ -57,11 +74,8 @@ export async function GET(request) {
 
       // Only add sensor type if it exists (NULL means no sensor)
       if (row.pir_microwave) {
-        sensorOptionsMap[controlType].sensorTypes.add(row.pir_microwave)
-      } else if (controlType === 'None') {
-        // For "None" control type, add "None" as the sensor type
-        sensorOptionsMap[controlType].sensorTypes.add('None')
-      }
+        sensorOptionsMap[controlType].sensorTypes.add("PIR, Microwave")
+      } 
 
       // Track if any variant has these features
       if (row.remote_control_bluetooth) sensorOptionsMap[controlType].hasRemoteControl = true
@@ -77,6 +91,8 @@ export async function GET(request) {
       hasEmergencyBackup: option.hasEmergencyBackup,
       hasPluginSensor: option.hasPluginSensor
     }))
+
+    console.log("################# sensorOptions ", sensorOptions)
 
     return NextResponse.json({ sensorOptions })
 
