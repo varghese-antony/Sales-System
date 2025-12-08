@@ -11,6 +11,8 @@ import { Alert, AlertDescription } from "@/components/ui/alert"
 import { motion } from 'framer-motion'
 import { CategoryNavigation } from "@/components/CategoryNavigation"
 
+console.log('[Indoor Page] Module loaded - All imports completed')
+
 const containerVariants = {
   hidden: { opacity: 0 },
   visible: {
@@ -35,6 +37,8 @@ const itemVariants = {
 }
 
 export default function Indoor() {
+  console.log('[Indoor Page] Component rendering...')
+  
   const [categories, setCategories] = useState([])
   const [categoriesWithProducts, setCategoriesWithProducts] = useState([])
   const [loading, setLoading] = useState(true)
@@ -43,107 +47,48 @@ export default function Indoor() {
   const [currentCategory, setCurrentCategory] = useState('')
   const [activeSection, setActiveSection] = useState('')
 
+  // Handle hash-based category navigation
   useEffect(() => {
-    // Function to get current category from hash
+    console.log('[Indoor Page] Hash useEffect running...')
     const getCurrentCategory = () => {
-      if (typeof window !== 'undefined') {
-        const hash = window.location.hash
-        if (hash) {
-          // Convert hash back to category name
-          const categoryFromHash = decodeURIComponent(hash.substring(1)).replace(/-/g, ' ')
-          return categoryFromHash
-        }
-      }
-      return ''
+      if (typeof window === 'undefined') return ''
+      const hash = window.location.hash
+      return hash ? decodeURIComponent(hash.substring(1)).replace(/-/g, ' ') : ''
     }
 
     setCurrentCategory(getCurrentCategory())
-
-    // Listen for hash changes
-    const handleHashChange = () => {
-      setCurrentCategory(getCurrentCategory())
-    }
-
+    const handleHashChange = () => setCurrentCategory(getCurrentCategory())
     window.addEventListener('hashchange', handleHashChange)
     return () => window.removeEventListener('hashchange', handleHashChange)
   }, [])
 
-  // Intersection Observer for scroll-based section detection
+  // Scroll-based active section detection
   useEffect(() => {
-    if (categories.length === 0) return
-
-    const observerOptions = {
-      root: null,
-      rootMargin: '-20% 0px -60% 0px', // Trigger when section is 20% from top and 60% from bottom
-      threshold: 0.1
-    }
-
-    const observerCallback = (entries) => {
-      entries.forEach((entry) => {
-        if (entry.isIntersecting && entry.intersectionRatio > 0.1) {
-          const sectionId = entry.target.id
-          if (sectionId && sectionId !== 'indoor-grid') {
-            // Convert id back to category name
-            const categoryName = decodeURIComponent(sectionId).replace(/-/g, ' ')
-            setActiveSection(categoryName)
-          }
-        }
-      })
-    }
-
-    const observer = new IntersectionObserver(observerCallback, observerOptions)
-
-    // Observe all category sections
-    const sections = document.querySelectorAll('[id]')
-    sections.forEach((section) => {
-      if (section.id && section.id !== 'indoor-grid') { // Exclude background pattern
-        observer.observe(section)
-      }
-    })
-
-    return () => {
-      sections.forEach((section) => {
-        if (section.id && section.id !== 'indoor-grid') {
-          observer.unobserve(section)
-        }
-      })
-    }
-  }, [categories]) // Only re-run when categories change
-
-  // Scroll Event Listener approach as alternative
-  useEffect(() => {
+    console.log('[Indoor Page] Scroll useEffect running, categories:', categories.length)
     if (categories.length === 0) return
 
     const handleScroll = () => {
-      const scrollPosition = window.scrollY + window.innerHeight * 0.3 // 30% from top
-
-      // Find the section that's currently in view
+      const scrollPosition = window.scrollY + window.innerHeight * 0.3
       let currentActiveSection = ''
 
       categories.forEach((category) => {
-        const categoryName = category['sub_category']
-        const elementId = categoryName.toLowerCase().replace(/\s+/g, '-')
+        const elementId = category.sub_category.toLowerCase().replace(/\s+/g, '-')
         const element = document.getElementById(elementId)
-
         if (element) {
           const rect = element.getBoundingClientRect()
           const elementTop = rect.top + window.scrollY
           const elementBottom = elementTop + rect.height
-
-          // Check if scroll position is within the element bounds
           if (scrollPosition >= elementTop && scrollPosition <= elementBottom) {
-            currentActiveSection = categoryName
+            currentActiveSection = category.sub_category
           }
         }
       })
 
-      // Only update if we found a section and it's different from current
       if (currentActiveSection && currentActiveSection !== activeSection) {
         setActiveSection(currentActiveSection)
       }
     }
 
-    // Throttle scroll events for better performance
     let ticking = false
     const handleScrollThrottled = () => {
       if (!ticking) {
@@ -156,83 +101,80 @@ export default function Indoor() {
     }
 
     window.addEventListener('scroll', handleScrollThrottled, { passive: true })
-
-    // Initial check
     handleScroll()
+    return () => window.removeEventListener('scroll', handleScrollThrottled)
+  }, [categories, activeSection])
 
-    return () => {
-      window.removeEventListener('scroll', handleScrollThrottled)
-    }
-  }, [categories, activeSection]) // Include activeSection to prevent infinite loops
-
+  // Fetch categories and products
   useEffect(() => {
-    async function fetchCategoriesAndProducts() {
+    console.log('[Indoor Page] ===== DATA FETCH useEffect RUNNING =====')
+    console.log('[Indoor Page] useEffect dependencies:', [])
+    
+    async function fetchData() {
+      console.log("################# fetchData function called")
       try {
+        console.log('[Indoor Page] Starting fetchData...')
         setLoading(true)
 
-        // First fetch: Get distinct categories from v2 table
+        // Fetch categories
+        console.log('[Indoor Page] Fetching categories...')
         const { data: categoriesData, error: categoriesError } = await getDistinctCategoriesV2('indoor')
+        console.log('[Indoor Page] Categories response:', { data: categoriesData, error: categoriesError })
+        
         if (categoriesError) {
+          console.error('[Indoor Page] Categories error:', categoriesError)
           throw new Error(`Failed to fetch categories: ${categoriesError}`)
         }
-        const categories = categoriesData || []
+        setCategories(categoriesData || [])
+        console.log('[Indoor Page] Categories set:', categoriesData?.length)
 
-        // Set categories immediately for UI
-        setCategories(categories)
-
-        // Second fetch: Get distinct product names for each category with sample images
+        // Fetch product names by category
+        console.log('[Indoor Page] Fetching product names...')
         const { data: productNamesData, error: productNamesError } = await getProductNamesByCategoryV2('indoor')
+        console.log('[Indoor Page] Product names response:', { data: productNamesData, error: productNamesError })
+        
         if (productNamesError) {
-          throw new Error(`Failed to fetch product names by category: ${productNamesError}`)
+          console.error('[Indoor Page] Product names error:', productNamesError)
+          throw new Error(`Failed to fetch product names: ${productNamesError}`)
         }
-        const productNames = productNamesData || []
 
-        // Fetch sample images for each product name
+        console.log("################# productNamesData ", productNamesData)
+        console.log('[Indoor Page] Product names data type:', typeof productNamesData)
+        console.log('[Indoor Page] Product names data length:', productNamesData?.length)
+        
+        // Fetch sample images for each product
+        console.log('[Indoor Page] Starting to fetch sample images...')
         const productNamesWithImages = await Promise.all(
-          productNames.flatMap(categoryData => 
+          productNamesData.flatMap(categoryData =>
             categoryData.product_names.map(async (productName) => {
-              try {
-                const { data: sampleProducts, error: sampleError } = await getProductsByCategoryV2('indoor', categoryData.sub_category, { 
-                  limit: 1,
-                  filters: { productName: productName }
-                })
-                if (sampleError) {
-                  console.error('Error fetching sample product:', sampleError)
-                  return {
-                    sub_category: categoryData.sub_category,
-                    product_name: productName,
-                    sampleImage: null
-                  }
-                }
-                const sampleProduct = sampleProducts?.[0]
-                return {
-                  sub_category: categoryData.sub_category,
-                  product_name: productName,
-                  sampleImage: sampleProduct?.photo || null
-                }
-              } catch (error) {
-                console.error('Error fetching sample image:', error)
-                return {
-                  sub_category: categoryData.sub_category,
-                  product_name: productName,
-                  sampleImage: null
-                }
+              const { data: sampleProducts } = await getProductsByCategoryV2('indoor', categoryData.sub_category, {
+                limit: 1,
+                filters: { productName }
+              })
+              return {
+                sub_category: categoryData.sub_category,
+                product_name: productName,
+                sampleImage: sampleProducts?.[0]?.photo || null
               }
             })
           )
         )
 
-        // Combine categories with their product names
+        console.log('[Indoor Page] Sample images fetched, setting categoriesWithProducts...')
         setCategoriesWithProducts(productNamesWithImages)
+        console.log('[Indoor Page] Data fetch completed successfully!')
       } catch (error) {
-        console.error('Error fetching indoor data:', error)
+        console.error('[Indoor Page] Error fetching indoor data:', error)
+        console.error('[Indoor Page] Error stack:', error.stack)
         setError('Failed to load indoor products. Please try again later.')
       } finally {
+        console.log('[Indoor Page] Setting loading to false')
         setLoading(false)
       }
     }
 
-    fetchCategoriesAndProducts()
+    console.log('[Indoor Page] useEffect triggered, calling fetchData...')
+    fetchData()
   }, [])
 
   if (loading) {
@@ -365,7 +307,7 @@ export default function Indoor() {
                   </div>
                   <div>
                     <h2
-                      id={category['sub_category'].toLowerCase().replace(/\s+/g, '-')}
+                      id={category.sub_category.toLowerCase().replace(/\s+/g, '-')}
                       className="text-3xl md:text-4xl font-bold text-foreground group-hover:text-primary transition-colors duration-300"
                     >
                       {category.sub_category}
@@ -380,38 +322,44 @@ export default function Indoor() {
                 <div className="h-px bg-gradient-to-r from-transparent via-border to-transparent mb-8" />
 
                 {/* Products Grid */}
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 xl:grid-cols-3 gap-6">
-                  {categoriesWithProducts
-                    .filter(productType => productType.sub_category === category.sub_category)
-                    .map((productType, typeIndex) => (
-                      <motion.div
-                        key={typeIndex}
-                        initial={{ opacity: 0, scale: 0.9 }}
-                        animate={{ opacity: 1, scale: 1 }}
-                        transition={{ delay: typeIndex * 0.1 }}
-                      >
-                        <ProductCard
-                          title={productType['product_name']}
-                          description={`Explore our ${productType['product_name'].toLowerCase()} options`}
-                          link={`/indoor/${encodeURIComponent(productType['product_name'])}`}
-                          icon={<Lightbulb className="w-6 h-6" />}
-                          gradient="from-blue-500 to-purple-600"
-                          image={productType.sampleImage}
-                        />
-                      </motion.div>
-                    ))
+                {(() => {
+                  const categoryProducts = categoriesWithProducts.filter(
+                    productType => productType.sub_category === category.sub_category
+                  )
+                  
+                  if (categoryProducts.length === 0) {
+                    return (
+                      <div className="text-center py-12">
+                        <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-muted flex items-center justify-center">
+                          <Lightbulb className="w-8 h-8 text-muted-foreground" />
+                        </div>
+                        <p className="text-muted-foreground">No products available in this category yet.</p>
+                      </div>
+                    )
                   }
-                </div>
 
-                {/* Empty State */}
-                {categoriesWithProducts.filter(productType => productType.sub_category === category.sub_category).length === 0 && (
-                  <div className="text-center py-12">
-                    <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-muted flex items-center justify-center">
-                      <Lightbulb className="w-8 h-8 text-muted-foreground" />
+                  return (
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 xl:grid-cols-3 gap-6">
+                      {categoryProducts.map((productType, typeIndex) => (
+                        <motion.div
+                          key={typeIndex}
+                          initial={{ opacity: 0, scale: 0.9 }}
+                          animate={{ opacity: 1, scale: 1 }}
+                          transition={{ delay: typeIndex * 0.1 }}
+                        >
+                          <ProductCard
+                            title={productType.product_name}
+                            description={`Explore our ${productType.product_name.toLowerCase()} options`}
+                            link={`/indoor/${encodeURIComponent(productType.product_name)}`}
+                            icon={<Lightbulb className="w-6 h-6" />}
+                            gradient="from-blue-500 to-purple-600"
+                            image={productType.sampleImage}
+                          />
+                        </motion.div>
+                      ))}
                     </div>
-                    <p className="text-muted-foreground">No products available in this category yet.</p>
-                  </div>
-                )}
+                  )
+                })()}
               </div>
             </motion.div>
           ))}

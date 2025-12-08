@@ -14,7 +14,7 @@ export async function GET(request) {
       )
     }
 
-    const table = type === 'indoor' ? 'indoor_products_v2' : 'outdoor_products_v2'
+    const table = type === 'indoor' ? 'indoor_products_v3' : 'outdoor_products_v3'
 
     // Get all unique sensor configurations for this product
     // Include products with NULL sensors (means "None" - no sensors)

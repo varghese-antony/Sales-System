@@ -2,7 +2,7 @@
  * V2 Tables Validation and Error Handling Module
  * 
  * This module provides comprehensive validation and error handling
- * for operations on indoor_products_v2 and outdoor_products_v2 tables.
+ * for operations on indoor_products_v3 and outdoor_products_v3 tables.
  */
 
 // Field mapping for v2 tables (duplicated here to avoid circular dependency)
@@ -143,7 +143,7 @@ export function createV2Error(type, message, details = {}) {
   return {
     type,
     message,
-    table: table ? `${table}_products_v2` : 'v2 tables',
+    table: table ? `${table}_products_v3` : 'v2 tables',
     timestamp: new Date().toISOString(),
     ...otherDetails
   }
@@ -399,7 +399,7 @@ export function validateTableSpecificFields(type, data) {
           createV2Error(
             V2_ERROR_TYPES.INVALID_FIELD_VALUE,
             `Field "${field}" is only valid for outdoor products`,
-            { field, table: 'indoor_products_v2' }
+            { field, table: 'indoor_products_v3' }
           )
         )
       }
@@ -414,7 +414,7 @@ export function validateTableSpecificFields(type, data) {
           createV2Error(
             V2_ERROR_TYPES.INVALID_FIELD_VALUE,
             `Field "${field}" is only valid for indoor products`,
-            { field, table: 'outdoor_products_v2' }
+            { field, table: 'outdoor_products_v3' }
           )
         )
       }
@@ -489,7 +489,7 @@ export function validateBulkOperationV2(type, ids, data = null) {
       createV2Error(
         V2_ERROR_TYPES.INVALID_FIELD_VALUE,
         'IDs array cannot be empty',
-        { table: `${type}_products_v2` }
+        { table: `${type}_products_v3` }
       )
     )
     return errors
@@ -520,7 +520,7 @@ export function validateBulkOperationV2(type, ids, data = null) {
  * Format database error for v2 operations
  */
 export function formatDatabaseErrorV2(error, operation, table) {
-  const tableName = table ? `${table}_products_v2` : 'v2 tables'
+  const tableName = table ? `${table}_products_v3` : 'v2 tables'
   
   // Check for common Supabase/PostgreSQL errors
   if (error.code === '23505') {

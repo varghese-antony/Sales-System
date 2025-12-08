@@ -103,7 +103,7 @@ function generateProductVariations(row, type, products) {
 }
 
 function generateInsertStatements(indoorProducts, outdoorProducts) {
-  let indoorSQL = 'INSERT INTO public.indoor_products_v2 (\n';
+  let indoorSQL = 'INSERT INTO public.indoor_products_v3 (\n';
   indoorSQL += '  sub_category, product_name, model_number, size, power_w, voltage, cct, cri_ra,\n';
   indoorSQL += '  lumen, efficacy_lumen_per_w, dimming_type, material_finish, sensors_and_controls,\n';
   indoorSQL += '  occupancy, bi_level, pir_microwave_bluetooth, remote_control, plugin_sensor,\n';

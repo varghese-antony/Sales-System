@@ -33,12 +33,12 @@ export async function GET() {
     // Get recent products from v2 tables (last 5 from both tables)
     const [recentIndoor, recentOutdoor] = await Promise.all([
       supabase
-        .from('indoor_products_v2')
+        .from('indoor_products_v3')
         .select('id, model_number, product_name, sub_category, created_at')
         .order('created_at', { ascending: false })
         .limit(3),
       supabase
-        .from('outdoor_products_v2')
+        .from('outdoor_products_v3')
         .select('id, model_number, product_name, sub_category, created_at')
         .order('created_at', { ascending: false })
         .limit(3)

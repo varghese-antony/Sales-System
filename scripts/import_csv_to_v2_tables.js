@@ -98,15 +98,15 @@ function generateSQL(data, tableName) {
 try {
   console.log('Processing Indoor CSV...');
   const indoorData = parseCSV(path.join(__dirname, '../Lighting Matrix 101825(Indoor).csv'));
-  const indoorSQL = generateSQL(indoorData, 'indoor_products_v2');
+  const indoorSQL = generateSQL(indoorData, 'indoor_products_v3');
   
   console.log('Processing Outdoor CSV...');
   const outdoorData = parseCSV(path.join(__dirname, '../Lighting Matrix 101825(Outdoor).csv'));
-  const outdoorSQL = generateSQL(outdoorData, 'outdoor_products_v2');
+  const outdoorSQL = generateSQL(outdoorData, 'outdoor_products_v3');
   
   // Write SQL files
-  const indoorSQLFile = path.join(__dirname, 'insert_indoor_products_v2.sql');
-  const outdoorSQLFile = path.join(__dirname, 'insert_outdoor_products_v2.sql');
+  const indoorSQLFile = path.join(__dirname, 'insert_indoor_products_v3.sql');
+  const outdoorSQLFile = path.join(__dirname, 'insert_outdoor_products_v3.sql');
   
   fs.writeFileSync(indoorSQLFile, indoorSQL.join('\n\n'));
   fs.writeFileSync(outdoorSQLFile, outdoorSQL.join('\n\n'));

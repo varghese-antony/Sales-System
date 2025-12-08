@@ -89,8 +89,8 @@ function getSupabaseClient() {
 
 // Helper function to get the correct table name (v2 tables)
 function getTableName(table) {
-  if (table === 'indoor') return 'indoor_products_v2'
-  if (table === 'outdoor') return 'outdoor_products_v2'
+  if (table === 'indoor') return 'indoor_products_v3'
+  if (table === 'outdoor') return 'outdoor_products_v3'
   if (table === 'both') return 'both' // Special case handled separately
   return table // Return as-is if already a full table name
 }

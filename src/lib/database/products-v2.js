@@ -299,7 +299,7 @@ export function getReverseFieldMappingV2() {
 
 // Get table name for v2 tables
 function getTableNameV2(type) {
-  return type === 'indoor' ? 'indoor_products_v2' : 'outdoor_products_v2'
+  return type === 'indoor' ? 'indoor_products_v3' : 'outdoor_products_v3'
 }
 
 export async function getProductByIdV2(type, id) {
@@ -390,10 +390,10 @@ export async function getProductsByIdsV2(references = []) {
 // Get distinct categories from v2 tables
 export async function getDistinctCategoriesV2(type) {
   try {
-    // Validate table type
     validateTableType(type)
-    
     const table = getTableNameV2(type)
+    console.log('[getDistinctCategoriesV2] Fetching from table:', table)
+    
     const { data, error } = await supabase
       .from(table)
       .select('sub_category')
@@ -401,16 +401,16 @@ export async function getDistinctCategoriesV2(type) {
       .order('sub_category', { ascending: true })
 
     if (error) {
-      console.error('Database error in getDistinctCategoriesV2:', error)
+      console.error('[getDistinctCategoriesV2] Database error:', error)
       throw error
     }
 
-    // Get unique values manually since Supabase doesn't support DISTINCT
     const uniqueValues = [...new Set(data.map(item => item.sub_category).filter(Boolean))]
+    console.log('[getDistinctCategoriesV2] Found', uniqueValues.length, 'categories')
     
     return { data: uniqueValues.map(value => ({ sub_category: value })), error: null }
   } catch (error) {
-    console.error('Error fetching categories from v2 tables:', error)
+    console.error('[getDistinctCategoriesV2] Error:', error)
     const formattedError = formatDatabaseErrorV2(error, 'read', type)
     return { data: null, error: formattedError.message, errorDetails: formattedError }
   }
@@ -442,12 +442,15 @@ export async function getDistinctProductNamesV2(type) {
 export async function getProductNamesByCategoryV2(type) {
   try {
     const table = getTableNameV2(type)
+    console.log("################# table ", table)
     const { data, error } = await supabase
       .from(table)
       .select('sub_category, product_name')
       .not('product_name', 'is', null)
       .not('sub_category', 'is', null)
       .order('product_name', { ascending: true })
+
+    console.log("################# data ", data)
 
     if (error) throw error
 

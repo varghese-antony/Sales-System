@@ -20,8 +20,8 @@ export async function GET() {
 
     // Get total products count from both v2 tables
     const [indoorProducts, outdoorProducts] = await Promise.all([
-      supabase.from('indoor_products_v2').select('*', { count: 'exact', head: true }),
-      supabase.from('outdoor_products_v2').select('*', { count: 'exact', head: true })
+      supabase.from('indoor_products_v3').select('*', { count: 'exact', head: true }),
+      supabase.from('outdoor_products_v3').select('*', { count: 'exact', head: true })
     ])
 
     if (indoorProducts.error) {
@@ -51,11 +51,11 @@ export async function GET() {
     // Get products without prices from v2 tables (price_per_piece field)
     const [indoorUnpriced, outdoorUnpriced] = await Promise.all([
       supabase
-        .from('indoor_products_v2')
+        .from('indoor_products_v3')
         .select('*', { count: 'exact', head: true })
         .or('price_per_piece.is.null,price_per_piece.eq.'),
       supabase
-        .from('outdoor_products_v2')
+        .from('outdoor_products_v3')
         .select('*', { count: 'exact', head: true })
         .or('price_per_piece.is.null,price_per_piece.eq.')
     ])
@@ -106,11 +106,11 @@ export async function GET() {
 
     const [recentIndoor, recentOutdoor] = await Promise.all([
       supabase
-        .from('indoor_products_v2')
+        .from('indoor_products_v3')
         .select('*', { count: 'exact', head: true })
         .gte('created_at', sevenDaysAgo.toISOString()),
       supabase
-        .from('outdoor_products_v2')
+        .from('outdoor_products_v3')
         .select('*', { count: 'exact', head: true })
         .gte('created_at', sevenDaysAgo.toISOString())
     ])
