@@ -11,7 +11,6 @@ import { Alert, AlertDescription } from "@/components/ui/alert"
 import { motion } from 'framer-motion'
 import { CategoryNavigation } from "@/components/CategoryNavigation"
 
-console.log('[Indoor Page] Module loaded - All imports completed')
 
 const containerVariants = {
   hidden: { opacity: 0 },
@@ -37,7 +36,6 @@ const itemVariants = {
 }
 
 export default function Indoor() {
-  console.log('[Indoor Page] Component rendering...')
   
   const [categories, setCategories] = useState([])
   const [categoriesWithProducts, setCategoriesWithProducts] = useState([])
@@ -49,7 +47,6 @@ export default function Indoor() {
 
   // Handle hash-based category navigation
   useEffect(() => {
-    console.log('[Indoor Page] Hash useEffect running...')
     const getCurrentCategory = () => {
       if (typeof window === 'undefined') return ''
       const hash = window.location.hash
@@ -64,7 +61,6 @@ export default function Indoor() {
 
   // Scroll-based active section detection
   useEffect(() => {
-    console.log('[Indoor Page] Scroll useEffect running, categories:', categories.length)
     if (categories.length === 0) return
 
     const handleScroll = () => {
@@ -107,43 +103,29 @@ export default function Indoor() {
 
   // Fetch categories and products
   useEffect(() => {
-    console.log('[Indoor Page] ===== DATA FETCH useEffect RUNNING =====')
-    console.log('[Indoor Page] useEffect dependencies:', [])
     
     async function fetchData() {
-      console.log("################# fetchData function called")
       try {
-        console.log('[Indoor Page] Starting fetchData...')
         setLoading(true)
 
         // Fetch categories
-        console.log('[Indoor Page] Fetching categories...')
         const { data: categoriesData, error: categoriesError } = await getDistinctCategoriesV2('indoor')
-        console.log('[Indoor Page] Categories response:', { data: categoriesData, error: categoriesError })
         
         if (categoriesError) {
           console.error('[Indoor Page] Categories error:', categoriesError)
           throw new Error(`Failed to fetch categories: ${categoriesError}`)
         }
         setCategories(categoriesData || [])
-        console.log('[Indoor Page] Categories set:', categoriesData?.length)
 
         // Fetch product names by category
-        console.log('[Indoor Page] Fetching product names...')
         const { data: productNamesData, error: productNamesError } = await getProductNamesByCategoryV2('indoor')
-        console.log('[Indoor Page] Product names response:', { data: productNamesData, error: productNamesError })
         
         if (productNamesError) {
           console.error('[Indoor Page] Product names error:', productNamesError)
           throw new Error(`Failed to fetch product names: ${productNamesError}`)
         }
 
-        console.log("################# productNamesData ", productNamesData)
-        console.log('[Indoor Page] Product names data type:', typeof productNamesData)
-        console.log('[Indoor Page] Product names data length:', productNamesData?.length)
-        
         // Fetch sample images for each product
-        console.log('[Indoor Page] Starting to fetch sample images...')
         const productNamesWithImages = await Promise.all(
           productNamesData.flatMap(categoryData =>
             categoryData.product_names.map(async (productName) => {
@@ -160,20 +142,15 @@ export default function Indoor() {
           )
         )
 
-        console.log('[Indoor Page] Sample images fetched, setting categoriesWithProducts...')
-        setCategoriesWithProducts(productNamesWithImages)
-        console.log('[Indoor Page] Data fetch completed successfully!')
       } catch (error) {
         console.error('[Indoor Page] Error fetching indoor data:', error)
         console.error('[Indoor Page] Error stack:', error.stack)
         setError('Failed to load indoor products. Please try again later.')
       } finally {
-        console.log('[Indoor Page] Setting loading to false')
         setLoading(false)
       }
     }
 
-    console.log('[Indoor Page] useEffect triggered, calling fetchData...')
     fetchData()
   }, [])
 
