@@ -37,30 +37,47 @@ export default function OutdoorProductPage({ params }) {
     setIsLoading(true)
     setError(null)
 
+    console.log("S#############ensor Selection inside handleSensorSelection", selection)
+
     try {
       const filters = {
         productName: productType
       }
 
-      // Only filter by sensors if user selected actual sensor types (not "None")
-      if (selection.sensorsAndControls !== 'None') {
-        filters.sensorsAndControls = selection.sensorsAndControls
+      // Map control type to boolean columns based on SQL schema
+      // sensors_and_controls, occupancy, bi_level are all boolean fields
+      // Use frontend field names that will be mapped via fieldMappingV2
+      if (selection.sensorsAndControls === 'Occupancy') {
+        filters.occupancy = true // Maps to 'occupancy' column
+        filters.sensorsAndControls = true // Maps to 'sensors_and_controls' column
+      } else if (selection.sensorsAndControls === 'Bi-Level') {
+        filters.biLevel = true // Maps to 'bi_level' column
+        filters.sensorsAndControls = true // Maps to 'sensors_and_controls' column
+      } else if (selection.sensorsAndControls === 'None') {
+        filters.sensorsAndControls = false // Maps to 'sensors_and_controls' column
       }
-      if (selection.sensorType !== 'None') {
-        filters.pirMicrowave = selection.sensorType
+
+      // Map sensor type to boolean column
+      // pir_microwave is boolean/nullable in the database
+      if (selection.sensorType && selection.sensorType !== 'None') {
+        // If sensorType is "PIR, Microwave" or similar, set pir_microwave to true
+        filters.pirMicrowave = true // Maps to 'pir_microwave' column via fieldMappingV2
+      } else {
+        filters.pirMicrowave = false
       }
 
       // Only add optional features if they are explicitly true
-      if (selection.remoteControl) {
-        filters.remoteControl = selection.remoteControl
+      if (selection.remoteControl === true) {
+        filters.remoteControl = true // Maps to 'remote_control_bluetooth' column
       }
-      if (selection.emergencyBackupBattery) {
-        filters.emergencyBackupBattery = selection.emergencyBackupBattery
+      if (selection.emergencyBackupBattery === true) {
+        filters.emergencyBackupBattery = true // Maps to 'emergency_backup_battery' column
       }
-      if (selection.pluginSensor) {
-        filters.pluginSensor = selection.pluginSensor
+      if (selection.pluginSensor === true) {
+        filters.pluginSensor = true // Maps to 'plugin_sensor' column
       }
 
+      console.log('handleSensorSelection filters:', filters)
       const { data, error: fetchError } = await getAllProductsV2('outdoor', filters)
       
       if (fetchError) throw new Error(fetchError)
@@ -90,23 +107,32 @@ export default function OutdoorProductPage({ params }) {
         ...newFilters
       }
 
-      // Only filter by sensors if user selected actual sensor types (not "None")
-      if (sensorSelection.sensorsAndControls !== 'None') {
-        allFilters.sensorsAndControls = sensorSelection.sensorsAndControls
+      // Map control type to boolean columns based on SQL schema
+      // Use frontend field names that will be mapped via fieldMappingV2
+      if (sensorSelection.sensorsAndControls === 'Occupancy') {
+        allFilters.occupancy = true // Maps to 'occupancy' column
+        allFilters.sensorsAndControls = true // Maps to 'sensors_and_controls' column
+      } else if (sensorSelection.sensorsAndControls === 'Bi-Level') {
+        allFilters.biLevel = true // Maps to 'bi_level' column
+        allFilters.sensorsAndControls = true // Maps to 'sensors_and_controls' column
+      } else if (sensorSelection.sensorsAndControls === 'None') {
+        allFilters.sensorsAndControls = false // Maps to 'sensors_and_controls' column
       }
-      if (sensorSelection.sensorType !== 'None') {
-        allFilters.pirMicrowave = sensorSelection.sensorType
+
+      // Map sensor type to boolean column
+      if (sensorSelection.sensorType && sensorSelection.sensorType !== 'None') {
+        allFilters.pirMicrowave = true // Maps to 'pir_microwave' column via fieldMappingV2
       }
 
       // Only add optional features if they are explicitly true
-      if (sensorSelection.remoteControl) {
-        allFilters.remoteControl = sensorSelection.remoteControl
+      if (sensorSelection.remoteControl === true) {
+        allFilters.remoteControl = true // Maps to 'remote_control_bluetooth' column
       }
-      if (sensorSelection.emergencyBackupBattery) {
-        allFilters.emergencyBackupBattery = sensorSelection.emergencyBackupBattery
+      if (sensorSelection.emergencyBackupBattery === true) {
+        allFilters.emergencyBackupBattery = true // Maps to 'emergency_backup_battery' column
       }
-      if (sensorSelection.pluginSensor) {
-        allFilters.pluginSensor = sensorSelection.pluginSensor
+      if (sensorSelection.pluginSensor === true) {
+        allFilters.pluginSensor = true // Maps to 'plugin_sensor' column
       }
 
       const { data, error: fetchError } = await getAllProductsV2('outdoor', allFilters)
@@ -116,8 +142,16 @@ export default function OutdoorProductPage({ params }) {
       if (data && data.length === 1) {
         setFinalProduct(data[0])
       } else if (data && data.length > 0) {
-        setProducts(data)
-        setCurrentStep(prev => prev + 1)
+        // Check if we have more filters to apply
+        const nextStep = currentStep + 1
+        if (nextStep < desiredKeys.length) {
+          // If we have more filters, move to the next step
+          setProducts(data)
+          setCurrentStep(nextStep)
+        } else {
+          // If no more filters, show the first product
+          setFinalProduct(data[0])
+        }
       } else {
         setError('No products match your selection. Please try different options.')
         setProducts([])
@@ -161,6 +195,8 @@ export default function OutdoorProductPage({ params }) {
     }
   }
 
+  console.log("*********** finalProduct", JSON.stringify(finalProduct))
+
   if (finalProduct) {
     return <ProductDetails product={finalProduct} onBack={goBack} />
   }
@@ -183,6 +219,9 @@ export default function OutdoorProductPage({ params }) {
         return value === null || value === undefined ? 'N/A' : value
       }))].filter(v => v?.toString().trim())
     : []
+
+    console.log("################## cureent key", currentKey)
+    console.log("###################current value", currentValues)
 
   return (
     <div className='min-h-screen bg-gradient-to-br from-green-50/50 via-teal-50/30 to-emerald-50/50 dark:from-green-950/20 dark:via-teal-950/10 dark:to-emerald-950/20'>
