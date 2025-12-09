@@ -562,35 +562,14 @@ export async function getProductsByCategoryV2(type, category, options = {}) {
 // Get all products with optional filters
 export async function getAllProductsV2(type, filters = {}) {
   try {
+
     console.log("#### getAllProductsV2 filters", filters)
     console.log("#### getAllProductsV2 type", type)
-
-    // Normalize any legacy/string sensor filters to booleans before validation
-    const normalizedFilters = { ...filters }
-
-    if (typeof normalizedFilters.sensorsAndControls === 'string') {
-      const val = normalizedFilters.sensorsAndControls.trim().toLowerCase()
-      if (val === 'none') {
-        normalizedFilters.sensorsAndControls = false
-      } else if (val === 'occupancy') {
-        normalizedFilters.sensorsAndControls = true
-        normalizedFilters.occupancy = true
-      } else if (val === 'bi-level' || val === 'b-level') {
-        normalizedFilters.sensorsAndControls = true
-        normalizedFilters.biLevel = true
-      }
-    }
-
-    if (typeof normalizedFilters.pirMicrowave === 'string' || typeof normalizedFilters.pirMicrowave === 'string') {
-      normalizedFilters.pirMicrowave = true
-      delete normalizedFilters.pirMicrowave
-    }
-
     // Validate table type
     validateTableType(type)
     
     // Validate and sanitize filters
-    const { errors: filterErrors, filters: sanitizedFilters } = validateFiltersV2(normalizedFilters)
+    const { errors: filterErrors, filters: sanitizedFilters } = validateFiltersV2(filters)
     if (filterErrors.length > 0) {
       console.warn('Filter validation warnings:', filterErrors)
       // Continue with sanitized filters instead of failing

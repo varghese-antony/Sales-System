@@ -201,6 +201,8 @@ export default function IndoorProductPage({ params }) {
     }
   }
 
+  console.log("*********** finalProduct", JSON.stringify(finalProduct))
+
   if (finalProduct) {
     return <ProductDetails product={finalProduct} onBack={goBack} />
   }

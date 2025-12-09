@@ -13,6 +13,30 @@ import { getOptimizedImageUrl } from "@/lib/image-utils"
 import { ImageWithLoading } from "@/components/ui/image-with-loading"
 import { fieldMapping } from '@/lib/database/products'
 
+const addonCostFields = [
+  { key: 'sensor_cost', label: 'Sensor' },
+  { key: 'remote_control_bluetooth_cost', label: 'Remote Control / Bluetooth' },
+  { key: 'plugin_sensor_cost', label: 'Plugin Sensor' },
+  { key: 'emergency_backup_battery_cost', label: 'Emergency Backup Battery' },
+  { key: 'installation_kits_cost', label: 'Installation Kits' }
+]
+
+const parseCostValue = (value) => {
+  if (value === null || value === undefined) return 0
+  if (typeof value === 'number') {
+    return Number.isFinite(value) ? value : 0
+  }
+  if (typeof value !== 'string') return 0
+  const cleaned = value.replace(/[^\d.]/g, '')
+  const parsed = parseFloat(cleaned)
+  return Number.isFinite(parsed) ? parsed : 0
+}
+
+const formatCurrency = (value) => {
+  const numeric = Number.isFinite(value) ? value : 0
+  return `$${numeric.toFixed(2)}`
+}
+
 export function ProductDetails({ product, onBack }) {
   const { addToCart, items } = useCart()
   const [isAdded, setIsAdded] = useState(false)
@@ -36,6 +60,30 @@ export function ProductDetails({ product, onBack }) {
     })
     return mapped
   }, [product, reverseFieldMapping])
+
+  const baseCost = useMemo(() => {
+    const rawBase = product.cost_china_ddp_usa ?? product.cost_thailand_vietnam ?? 0
+    return parseCostValue(rawBase)
+  }, [product.cost_china_ddp_usa, product.cost_thailand_vietnam])
+
+  const addonCostData = useMemo(() => {
+    const entries = addonCostFields.map(({ key, label }) => {
+      const value = parseCostValue(product[key])
+      return { key, label, value }
+    })
+    const totalAddons = entries.reduce((sum, entry) => sum + entry.value, 0)
+    return { entries, totalAddons }
+  }, [product])
+
+  const totalCostWithAddons = useMemo(
+    () => baseCost + addonCostData.totalAddons,
+    [baseCost, addonCostData.totalAddons]
+  )
+
+  const hasAddonData = useMemo(
+    () => baseCost > 0 || addonCostData.entries.some((entry) => entry.value > 0),
+    [baseCost, addonCostData.entries]
+  )
 
   const optimizedImageUrl = useMemo(() => {
     // Check for image fields in order of priority (v2 tables use 'photo')
@@ -103,10 +151,12 @@ export function ProductDetails({ product, onBack }) {
   const highlightedSpecs = keySpecs.filter(key => product[key]).slice(0, 6)
   
   const getKeyIcon = (key) => {
-    if (key.toLowerCase().includes('power') || key.toLowerCase().includes('watt') || key.toLowerCase().includes('voltage')) return <Zap className="w-4 h-4" />
-    if (key.toLowerCase().includes('certification')) return <Award className="w-4 h-4" />
-    if (key.toLowerCase().includes('warranty') || key.toLowerCase().includes('backup')) return <Shield className="w-4 h-4" />
-    if (key.toLowerCase().includes('dimming') || key.toLowerCase().includes('sensor') || key.toLowerCase().includes('remote') || key.toLowerCase().includes('control')) return <Settings className="w-4 h-4" />
+    if (!key) return <Info className="w-4 h-4" />
+    const lowerKey = key.toLowerCase()
+    if (lowerKey.includes('power') || lowerKey.includes('watt') || lowerKey.includes('voltage')) return <Zap className="w-4 h-4" />
+    if (lowerKey.includes('certification')) return <Award className="w-4 h-4" />
+    if (lowerKey.includes('warranty') || lowerKey.includes('backup')) return <Shield className="w-4 h-4" />
+    if (lowerKey.includes('dimming') || lowerKey.includes('sensor') || lowerKey.includes('remote') || lowerKey.includes('control')) return <Settings className="w-4 h-4" />
     return <Info className="w-4 h-4" />
   }
 
@@ -135,6 +185,10 @@ export function ProductDetails({ product, onBack }) {
     acc[category].push(key)
     return acc
   }, {})
+
+  if (hasAddonData && !groupedKeys.addons) {
+    groupedKeys.addons = []
+  }
 
   const categoryTitles = {
     power: 'Power & Performance',
@@ -311,32 +365,52 @@ export function ProductDetails({ product, onBack }) {
               <Card key={category}>
                 <CardHeader className="pb-3">
                   <CardTitle className="text-lg flex items-center gap-2">
-                    {getKeyIcon(keys[0])}
+                    {getKeyIcon(keys[0] || (category === 'addons' ? 'addons' : ''))}
                     {categoryTitles[category]}
                     <Badge variant="outline" className="ml-auto">
-                      {keys.length} specs
+                      {category === 'addons' ? addonCostData.entries.length : keys.length} specs
                     </Badge>
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    {keys.map((key) => (
-                      <div key={key} className="flex flex-col space-y-1">
-                        <span className="text-sm font-medium text-muted-foreground">{formatFieldName(key)}</span>
-                        <span className="text-sm font-semibold">
-                          {product[key] !== null && product[key] !== undefined && product[key] !== '' ? (
-                            typeof product[key] === 'boolean' ? (
-                              product[key] ? 'Yes' : 'No'
-                            ) : (
-                              product[key].toString()
-                            )
-                          ) : (
-                            <span className="text-muted-foreground italic">Not specified</span>
-                          )}
-                        </span>
+                  {category === 'addons' && (
+                    <div className="space-y-3 mb-4">
+                      <div className="flex flex-wrap gap-2">
+                        <Badge variant="outline">Base: {formatCurrency(baseCost)}</Badge>
+                        <Badge variant="outline">Add-ons: {formatCurrency(addonCostData.totalAddons)}</Badge>
+                        <Badge variant="default">Total: {formatCurrency(totalCostWithAddons)}</Badge>
                       </div>
-                    ))}
-                  </div>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                        {addonCostData.entries.map(({ key, label, value }) => (
+                          <div key={key} className="flex items-center justify-between rounded-lg border border-border/60 bg-muted/40 px-3 py-2">
+                            <span className="text-sm font-medium text-muted-foreground">{label}</span>
+                            <span className="text-sm font-semibold">{formatCurrency(value)}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {(category !== 'addons' || keys.length > 0) && (
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      {keys.map((key) => (
+                        <div key={key} className="flex flex-col space-y-1">
+                          <span className="text-sm font-medium text-muted-foreground">{formatFieldName(key)}</span>
+                          <span className="text-sm font-semibold">
+                            {product[key] !== null && product[key] !== undefined && product[key] !== '' ? (
+                              typeof product[key] === 'boolean' ? (
+                                product[key] ? 'Yes' : 'No'
+                              ) : (
+                                product[key].toString()
+                              )
+                            ) : (
+                              <span className="text-muted-foreground italic">Not specified</span>
+                            )}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </CardContent>
               </Card>
             ))}
