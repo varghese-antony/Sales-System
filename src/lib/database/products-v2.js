@@ -592,13 +592,19 @@ export async function getAllProductsV2(type, filters = {}) {
       
       // Handle boolean columns - normalize to boolean
       if (V2_BOOLEAN_COLUMNS.has(dbColumn)) {
+        const column = formatColumnName(dbColumn)
         // Handle null explicitly for nullable boolean fields (like pir_microwave)
         if (value === null) {
-          query = query.is(formatColumnName(dbColumn), null)
+          query = query.is(column, null)
         } else {
           // Convert to boolean
           const boolValue = normalizeBooleanInput(value)
-          query = query.eq(formatColumnName(dbColumn), boolValue)
+          if (boolValue === true) {
+            query = query.eq(column, true)
+          } else {
+            // When filtering for false, include nulls as well
+            query = query.or(`${dbColumn}.is.null,${dbColumn}.eq.false`)
+          }
         }
       } 
       // Handle integer columns
