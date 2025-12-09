@@ -13,6 +13,8 @@ import { getOptimizedImageUrl } from "@/lib/image-utils"
 import { ImageWithLoading } from "@/components/ui/image-with-loading"
 import { fieldMapping } from '@/lib/database/products'
 
+const MARKUP_FLAT = 10
+
 const addonCostFields = [
   { key: 'sensor_cost', label: 'Sensor' },
   { key: 'remote_control_bluetooth_cost', label: 'Remote Control / Bluetooth' },
@@ -76,7 +78,7 @@ export function ProductDetails({ product, onBack }) {
   }, [product])
 
   const totalCostWithAddons = useMemo(
-    () => baseCost + addonCostData.totalAddons,
+    () => baseCost + addonCostData.totalAddons + MARKUP_FLAT,
     [baseCost, addonCostData.totalAddons]
   )
 
@@ -378,6 +380,7 @@ export function ProductDetails({ product, onBack }) {
                       <div className="flex flex-wrap gap-2">
                         <Badge variant="outline">Base: {formatCurrency(baseCost)}</Badge>
                         <Badge variant="outline">Add-ons: {formatCurrency(addonCostData.totalAddons)}</Badge>
+                        <Badge variant="outline">Markup: {formatCurrency(MARKUP_FLAT)}</Badge>
                         <Badge variant="default">Total: {formatCurrency(totalCostWithAddons)}</Badge>
                       </div>
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
