@@ -93,7 +93,7 @@ export function DynamicSensorSelector({
 
   // Update parent component when selection changes
   useEffect(() => {
-    if (onSelectionChange && selectedControl && selectedSensor) {
+    if (onSelectionChange && selectedControl) {
       onSelectionChange({
         sensorsAndControls: selectedControl,
         sensorType: selectedSensor,
@@ -103,6 +103,8 @@ export function DynamicSensorSelector({
       })
     }
   }, [selectedControl, selectedSensor, hasRemote, hasEmergencyBackup, hasPluginSensor, onSelectionChange])
+
+  console.log("$$$$$$$$$$$$$$$$$$$ SELETCED SENSORS $$$$$$$$$$$, s",selectedSensor)
 
   const handleControlChange = (controlType) => {
     console.log("############# handleControlChange ", controlType)

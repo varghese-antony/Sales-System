@@ -44,6 +44,8 @@ export default function IndoorProductPage({ params }) {
     setIsLoading(true)
     setError(null)
 
+    console.log("S#############ensor Selection inside handleSensorSelection",selection)
+
     try {
       const filters = {
         productName: productName
@@ -67,6 +69,8 @@ export default function IndoorProductPage({ params }) {
       if (selection.sensorType && selection.sensorType !== 'None') {
         // If sensorType is "PIR, Microwave" or similar, set pir_microwave to true
         filters.pirMicrowave = true // Maps to 'pir_microwave' column via fieldMappingV2
+      }else{
+        filters.pirMicrowave = false
       }
 
       // Map boolean features to their database column names using fieldMappingV2
@@ -225,6 +229,9 @@ export default function IndoorProductPage({ params }) {
         return value === null || value === undefined ? 'N/A' : value
       }))].filter(v => v?.toString().trim())
     : []
+
+    console.log("################## cureent key", currentKey)
+    console.log("###################current value", currentValues)
 
   return (
     <div className='min-h-screen bg-gradient-to-br from-blue-50/50 via-indigo-50/30 to-purple-50/50 dark:from-blue-950/20 dark:via-indigo-950/10 dark:to-purple-950/20'>
