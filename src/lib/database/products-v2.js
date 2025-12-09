@@ -145,7 +145,13 @@ export const fieldMappingV2 = {
   dimmingType: 'dimming_type',
   materialFinish: 'material_finish',
   sensorsAndControls: 'sensors_and_controls',
-  pirMicrowaveBluetooth: 'pir_microwave',
+  occupancy: 'occupancy',
+  biLevel: 'bi_level',
+  pirMicrowave: 'pir_microwave',
+  remoteControl: 'remote_control_bluetooth',
+  pluginSensor: 'plugin_sensor',
+  emergencyBackupBattery: 'emergency_backup_battery',
+  junctionCover: 'junction_cover',
   mounting: 'mounting',
   installationKits: 'installation_kits',
   adjustmentDial: 'adjustment_dial',
@@ -219,8 +225,10 @@ const V2_ALLOWED_COLUMNS = new Set([
 ])
 
 const V2_BOOLEAN_COLUMNS = new Set([
+  'sensors_and_controls',
   'occupancy',
   'bi_level',
+  'pir_microwave',
   'remote_control_bluetooth',
   'plugin_sensor',
   'emergency_backup_battery',
@@ -492,13 +500,48 @@ export async function getProductsByCategoryV2(type, category, options = {}) {
     // Apply filters
     if (filterObj) {
       Object.entries(filterObj).forEach(([key, value]) => {
-        if (value !== null && value !== undefined && value !== '') {
-          // Map frontend field names to database column names
-          const dbColumn = fieldMappingV2[key] || key
+        // Skip empty values
+        if (value === undefined || value === '') {
+          return
+        }
+        
+        // Map frontend field names to database column names
+        const dbColumn = fieldMappingV2[key] || key
+        
+        // Handle boolean columns - normalize to boolean
+        if (V2_BOOLEAN_COLUMNS.has(dbColumn)) {
+          // Handle null explicitly for nullable boolean fields (like pir_microwave)
+          if (value === null) {
+            query = query.is(formatColumnName(dbColumn), null)
+          } else {
+            // Convert to boolean
+            const boolValue = normalizeBooleanInput(value)
+            query = query.eq(formatColumnName(dbColumn), boolValue)
+          }
+        } 
+        // Handle integer columns
+        else if (V2_INTEGER_COLUMNS.has(dbColumn)) {
+          if (value === null) {
+            query = query.is(formatColumnName(dbColumn), null)
+          } else {
+            const intValue = normalizeIntegerInput(value)
+            if (intValue !== null) {
+              query = query.eq(formatColumnName(dbColumn), intValue)
+            }
+          }
+        }
+        // Handle null values explicitly for other fields
+        else if (value === null) {
+          query = query.is(formatColumnName(dbColumn), null)
+        } 
+        // Handle text/numeric fields
+        else {
           query = query.eq(formatColumnName(dbColumn), value)
         }
       })
     }
+
+    console.log("#################### query",query)
     
     if (limit) {
       query = query.limit(limit)
@@ -519,11 +562,35 @@ export async function getProductsByCategoryV2(type, category, options = {}) {
 // Get all products with optional filters
 export async function getAllProductsV2(type, filters = {}) {
   try {
+    console.log("#### getAllProductsV2 filters", filters)
+    console.log("#### getAllProductsV2 type", type)
+
+    // Normalize any legacy/string sensor filters to booleans before validation
+    const normalizedFilters = { ...filters }
+
+    if (typeof normalizedFilters.sensorsAndControls === 'string') {
+      const val = normalizedFilters.sensorsAndControls.trim().toLowerCase()
+      if (val === 'none') {
+        normalizedFilters.sensorsAndControls = false
+      } else if (val === 'occupancy') {
+        normalizedFilters.sensorsAndControls = true
+        normalizedFilters.occupancy = true
+      } else if (val === 'bi-level' || val === 'b-level') {
+        normalizedFilters.sensorsAndControls = true
+        normalizedFilters.biLevel = true
+      }
+    }
+
+    if (typeof normalizedFilters.pirMicrowave === 'string' || typeof normalizedFilters.pirMicrowave === 'string') {
+      normalizedFilters.pirMicrowave = true
+      delete normalizedFilters.pirMicrowave
+    }
+
     // Validate table type
     validateTableType(type)
     
     // Validate and sanitize filters
-    const { errors: filterErrors, filters: sanitizedFilters } = validateFiltersV2(filters)
+    const { errors: filterErrors, filters: sanitizedFilters } = validateFiltersV2(normalizedFilters)
     if (filterErrors.length > 0) {
       console.warn('Filter validation warnings:', filterErrors)
       // Continue with sanitized filters instead of failing
@@ -539,10 +606,39 @@ export async function getAllProductsV2(type, filters = {}) {
       // Map frontend field names to database column names
       const dbColumn = fieldMappingV2[key] || key
       
-      // Handle null values explicitly (for "None" sensor options)
-      if (value === null) {
+      // Skip empty values
+      if (value === undefined || value === '') {
+        return
+      }
+      
+      // Handle boolean columns - normalize to boolean
+      if (V2_BOOLEAN_COLUMNS.has(dbColumn)) {
+        // Handle null explicitly for nullable boolean fields (like pir_microwave)
+        if (value === null) {
+          query = query.is(formatColumnName(dbColumn), null)
+        } else {
+          // Convert to boolean
+          const boolValue = normalizeBooleanInput(value)
+          query = query.eq(formatColumnName(dbColumn), boolValue)
+        }
+      } 
+      // Handle integer columns
+      else if (V2_INTEGER_COLUMNS.has(dbColumn)) {
+        if (value === null) {
+          query = query.is(formatColumnName(dbColumn), null)
+        } else {
+          const intValue = normalizeIntegerInput(value)
+          if (intValue !== null) {
+            query = query.eq(formatColumnName(dbColumn), intValue)
+          }
+        }
+      }
+      // Handle null values explicitly for other fields
+      else if (value === null) {
         query = query.is(formatColumnName(dbColumn), null)
-      } else if (value !== undefined && value !== '') {
+      } 
+      // Handle text/numeric fields
+      else {
         query = query.eq(formatColumnName(dbColumn), value)
       }
     })
@@ -571,17 +667,60 @@ export async function getProductsWithSensorFiltersV2(type, filters = {}) {
 
     // Apply standard filters
     Object.entries(filters).forEach(([key, value]) => {
-      if (value !== null && value !== undefined && value !== '') {
-        const dbColumn = fieldMappingV2[key] || key
-        
-        // Special handling for sensor-related filters
-        if (key === 'sensorsAndControls') {
-          query = query.eq('sensors_and_controls', value)
-        } else if (key === 'sensorType') {
-          query = query.eq('pir_microwave', value)
+      // Skip empty values
+      if (value === undefined || value === '') {
+        return
+      }
+      
+      const dbColumn = fieldMappingV2[key] || key
+      
+      // Special handling for sensor-related filters (legacy support)
+      if (key === 'sensorsAndControls') {
+        // Handle boolean conversion
+        if (value === null) {
+          query = query.is('sensors_and_controls', null)
         } else {
-          query = query.eq(formatColumnName(dbColumn), value)
+          const boolValue = normalizeBooleanInput(value)
+          query = query.eq('sensors_and_controls', boolValue)
         }
+      } else if (key === 'sensorType') {
+        // Handle boolean/nullable field
+        if (value === null) {
+          query = query.is('pir_microwave', null)
+        } else {
+          const boolValue = normalizeBooleanInput(value)
+          query = query.eq('pir_microwave', boolValue)
+        }
+      } 
+      // Handle boolean columns - normalize to boolean
+      else if (V2_BOOLEAN_COLUMNS.has(dbColumn)) {
+        // Handle null explicitly for nullable boolean fields (like pir_microwave)
+        if (value === null) {
+          query = query.is(formatColumnName(dbColumn), null)
+        } else {
+          // Convert to boolean
+          const boolValue = normalizeBooleanInput(value)
+          query = query.eq(formatColumnName(dbColumn), boolValue)
+        }
+      } 
+      // Handle integer columns
+      else if (V2_INTEGER_COLUMNS.has(dbColumn)) {
+        if (value === null) {
+          query = query.is(formatColumnName(dbColumn), null)
+        } else {
+          const intValue = normalizeIntegerInput(value)
+          if (intValue !== null) {
+            query = query.eq(formatColumnName(dbColumn), intValue)
+          }
+        }
+      }
+      // Handle null values explicitly for other fields
+      else if (value === null) {
+        query = query.is(formatColumnName(dbColumn), null)
+      } 
+      // Handle text/numeric fields
+      else {
+        query = query.eq(formatColumnName(dbColumn), value)
       }
     })
 
@@ -701,9 +840,42 @@ export async function getProductsWithPaginationV2(type, filters = {}, pagination
 
     // Apply filters
     Object.entries(sanitizedFilters).forEach(([key, value]) => {
-      if (value !== null && value !== undefined && value !== '') {
-        // Map frontend field names to database column names
-        const dbColumn = fieldMappingV2[key] || key
+      // Skip empty values
+      if (value === undefined || value === '') {
+        return
+      }
+      
+      // Map frontend field names to database column names
+      const dbColumn = fieldMappingV2[key] || key
+      
+      // Handle boolean columns - normalize to boolean
+      if (V2_BOOLEAN_COLUMNS.has(dbColumn)) {
+        // Handle null explicitly for nullable boolean fields (like pir_microwave)
+        if (value === null) {
+          query = query.is(formatColumnName(dbColumn), null)
+        } else {
+          // Convert to boolean
+          const boolValue = normalizeBooleanInput(value)
+          query = query.eq(formatColumnName(dbColumn), boolValue)
+        }
+      } 
+      // Handle integer columns
+      else if (V2_INTEGER_COLUMNS.has(dbColumn)) {
+        if (value === null) {
+          query = query.is(formatColumnName(dbColumn), null)
+        } else {
+          const intValue = normalizeIntegerInput(value)
+          if (intValue !== null) {
+            query = query.eq(formatColumnName(dbColumn), intValue)
+          }
+        }
+      }
+      // Handle null values explicitly for other fields
+      else if (value === null) {
+        query = query.is(formatColumnName(dbColumn), null)
+      } 
+      // Handle text/numeric fields
+      else {
         query = query.eq(formatColumnName(dbColumn), value)
       }
     })
@@ -1055,8 +1227,41 @@ export async function getProductCountV2(type, filters = {}) {
 
     // Apply filters
     Object.entries(filters).forEach(([key, value]) => {
-      if (value !== null && value !== undefined && value !== '') {
-        const dbColumn = fieldMappingV2[key] || key
+      // Skip empty values
+      if (value === undefined || value === '') {
+        return
+      }
+      
+      const dbColumn = fieldMappingV2[key] || key
+      
+      // Handle boolean columns - normalize to boolean
+      if (V2_BOOLEAN_COLUMNS.has(dbColumn)) {
+        // Handle null explicitly for nullable boolean fields (like pir_microwave)
+        if (value === null) {
+          query = query.is(formatColumnName(dbColumn), null)
+        } else {
+          // Convert to boolean
+          const boolValue = normalizeBooleanInput(value)
+          query = query.eq(formatColumnName(dbColumn), boolValue)
+        }
+      } 
+      // Handle integer columns
+      else if (V2_INTEGER_COLUMNS.has(dbColumn)) {
+        if (value === null) {
+          query = query.is(formatColumnName(dbColumn), null)
+        } else {
+          const intValue = normalizeIntegerInput(value)
+          if (intValue !== null) {
+            query = query.eq(formatColumnName(dbColumn), intValue)
+          }
+        }
+      }
+      // Handle null values explicitly for other fields
+      else if (value === null) {
+        query = query.is(formatColumnName(dbColumn), null)
+      } 
+      // Handle text/numeric fields
+      else {
         query = query.eq(formatColumnName(dbColumn), value)
       }
     })

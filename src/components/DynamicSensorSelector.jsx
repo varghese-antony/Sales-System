@@ -117,13 +117,10 @@ export function DynamicSensorSelector({
     if (controlOption && controlOption.sensorTypes.length === 1) {
       setSelectedSensor(controlOption.sensorTypes[0])
     }
-    console.log("############# hasRemote ", controlOption?.hasRemoteControl)
-    console.log("############# hasEmergencyBackup ", controlOption?.hasEmergencyBackup)
-    console.log("############# hasPluginSensor ", controlOption?.hasPluginSensor)
     // Reset features based on availability
-    if (!controlOption?.hasRemoteControl) setHasRemote(false)
-    if (!controlOption?.hasEmergencyBackup) setHasEmergencyBackup(false)
-    if (!controlOption?.hasPluginSensor) setHasPluginSensor(false)
+    if (controlOption?.hasRemoteControl) setHasRemote(true)
+    if (controlOption?.hasEmergencyBackup) setHasEmergencyBackup(true)
+    if (controlOption?.hasPluginSensor) setHasPluginSensor(true)
   }
 
   const currentControlOption = sensorOptions.find(opt => opt.controlType === selectedControl)
@@ -157,8 +154,9 @@ export function DynamicSensorSelector({
     )
   }
 
-  console.log("############# sensorOptions ", JSON.stringify(sensorOptions, null, 2))
   console.log("############# selectedControl ", selectedControl)
+  console.log("################# currentControlOption",currentControlOption)
+  
   return (
     <div className={`space-y-6 ${className}`}>
       {/* Control Type Selection */}

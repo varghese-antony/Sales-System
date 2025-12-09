@@ -26,7 +26,7 @@ const TEXT_VARIATION_FIELDS = [
   'dimmingType',
   'materialFinish',
   'sensorsAndControls',
-  'pirMicrowaveBluetooth',
+  'pirMicrowave',
   'installationKits',
   'adjustmentDial',
   'certifications',
@@ -77,7 +77,7 @@ const INITIAL_STATE = {
   dimmingType: '',
   materialFinish: '',
   sensorsAndControls: '',
-  pirMicrowaveBluetooth: '',
+  pirMicrowave: '',
   installationKits: '',
   adjustmentDial: '',
   certifications: '',
@@ -529,11 +529,11 @@ export default function DataEntryPage() {
                     </div>
 
                     <div className="space-y-1.5 sm:space-y-2">
-                      <label htmlFor="pirMicrowaveBluetooth" className="text-xs sm:text-sm font-medium text-foreground">PIR / Microwave / Bluetooth</label>
+                      <label htmlFor="pirMicrowave" className="text-xs sm:text-sm font-medium text-foreground">PIR / Microwave / Bluetooth</label>
                       <Input
-                        id="pirMicrowaveBluetooth"
-                        value={formState.pirMicrowaveBluetooth}
-                        onChange={handleInputChange('pirMicrowaveBluetooth')}
+                        id="pirMicrowave"
+                        value={formState.pirMicrowave}
+                        onChange={handleInputChange('pirMicrowave')}
                         placeholder="e.g., PIR Sensor"
                         className="bg-background border-border"
                       />

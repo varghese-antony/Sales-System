@@ -95,7 +95,7 @@ export function BulkUpdateModal({ selectedProducts, action, isOpen, onClose, onC
       { key: 'sensorsAndControls', label: 'Sensors and Controls', type: 'text' },
       { key: 'occupancy', label: 'Occupancy', type: 'text' },
       { key: 'biLevel', label: 'Bi-level', type: 'text' },
-      { key: 'pirMicrowaveBluetooth', label: 'PIR Microwave Bluetooth', type: 'text' },
+      { key: 'pirMicrowave', label: 'PIR Microwave', type: 'text' },
       { key: 'certifications', label: 'Certifications', type: 'text' }
     ],
     media: [

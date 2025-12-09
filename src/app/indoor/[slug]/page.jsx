@@ -49,25 +49,39 @@ export default function IndoorProductPage({ params }) {
         productName: productName
       }
 
-      // Only filter by sensors if user selected actual sensor types (not "None")
-      if (selection.sensorsAndControls !== 'None') {
-        filters.sensorsAndControls = selection.sensorsAndControls
-      }
-      if (selection.sensorType !== 'None') {
-        filters.pirMicrowaveBluetooth = selection.sensorType
-      }
-
-      // Only add optional features if they are explicitly true
-      if (selection.remoteControl) {
-        filters.remoteControl = selection.remoteControl
-      }
-      if (selection.emergencyBackupBattery) {
-        filters.emergencyBackupBattery = selection.emergencyBackupBattery
-      }
-      if (selection.pluginSensor) {
-        filters.pluginSensor = selection.pluginSensor
+      // Map control type to boolean columns based on SQL schema
+      // sensors_and_controls, occupancy, bi_level are all boolean fields
+      // Use frontend field names that will be mapped via fieldMappingV2
+      if (selection.sensorsAndControls === 'Occupancy') {
+        filters.occupancy = true // Maps to 'occupancy' column
+        filters.sensorsAndControls = true // Maps to 'sensors_and_controls' column
+      } else if (selection.sensorsAndControls === 'Bi-Level') {
+        filters.biLevel = true // Maps to 'bi_level' column
+        filters.sensorsAndControls = true // Maps to 'sensors_and_controls' column
+      } else if (selection.sensorsAndControls === 'None') {
+        filters.sensorsAndControls = false // Maps to 'sensors_and_controls' column
       }
 
+      // Map sensor type to boolean column
+      // pir_microwave is boolean/nullable in the database
+      if (selection.sensorType && selection.sensorType !== 'None') {
+        // If sensorType is "PIR, Microwave" or similar, set pir_microwave to true
+        filters.pirMicrowave = true // Maps to 'pir_microwave' column via fieldMappingV2
+      }
+
+      // Map boolean features to their database column names using fieldMappingV2
+      // These are already booleans, so pass them as true/false
+      if (selection.remoteControl === true) {
+        filters.remoteControl = true // Maps to 'remote_control_bluetooth' column
+      }
+      if (selection.emergencyBackupBattery === true) {
+        filters.emergencyBackupBattery = true // Maps to 'emergency_backup_battery' column
+      }
+      if (selection.pluginSensor === true) {
+        filters.pluginSensor = true // Maps to 'plugin_sensor' column
+      }
+
+      console.log('handleSensorSelection filters:', filters)
       const { data, error: fetchError } = await getAllProductsV2('indoor', filters)
       
       if (fetchError) throw new Error(fetchError)
@@ -97,23 +111,32 @@ export default function IndoorProductPage({ params }) {
         ...newFilters
       }
 
-      // Only filter by sensors if user selected actual sensor types (not "None")
-      if (sensorSelection.sensorsAndControls !== 'None') {
-        allFilters.sensorsAndControls = sensorSelection.sensorsAndControls
-      }
-      if (sensorSelection.sensorType !== 'None') {
-        allFilters.pirMicrowaveBluetooth = sensorSelection.sensorType
+      // Map control type to boolean columns based on SQL schema
+      // Use frontend field names that will be mapped via fieldMappingV2
+      if (sensorSelection.sensorsAndControls === 'Occupancy') {
+        allFilters.occupancy = true // Maps to 'occupancy' column
+        allFilters.sensorsAndControls = true // Maps to 'sensors_and_controls' column
+      } else if (sensorSelection.sensorsAndControls === 'Bi-Level') {
+        allFilters.biLevel = true // Maps to 'bi_level' column
+        allFilters.sensorsAndControls = true // Maps to 'sensors_and_controls' column
+      } else if (sensorSelection.sensorsAndControls === 'None') {
+        allFilters.sensorsAndControls = false // Maps to 'sensors_and_controls' column
       }
 
-      // Only add optional features if they are explicitly true
-      if (sensorSelection.remoteControl) {
-        allFilters.remoteControl = sensorSelection.remoteControl
+      // Map sensor type to boolean column
+      if (sensorSelection.sensorType && sensorSelection.sensorType !== 'None') {
+        allFilters.pirMicrowave = true // Maps to 'pir_microwave' column via fieldMappingV2
       }
-      if (sensorSelection.emergencyBackupBattery) {
-        allFilters.emergencyBackupBattery = sensorSelection.emergencyBackupBattery
+
+      // Map boolean features to their database column names using fieldMappingV2
+      if (sensorSelection.remoteControl === true) {
+        allFilters.remoteControl = true // Maps to 'remote_control_bluetooth' column
       }
-      if (sensorSelection.pluginSensor) {
-        allFilters.pluginSensor = sensorSelection.pluginSensor
+      if (sensorSelection.emergencyBackupBattery === true) {
+        allFilters.emergencyBackupBattery = true // Maps to 'emergency_backup_battery' column
+      }
+      if (sensorSelection.pluginSensor === true) {
+        allFilters.pluginSensor = true // Maps to 'plugin_sensor' column
       }
 
       const { data, error: fetchError } = await getAllProductsV2('indoor', allFilters)

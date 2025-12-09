@@ -70,7 +70,7 @@ export const fieldMapping = {
   sensorsAndControls: 'sensors_and_controls',
   occupancy: 'occupancy',
   biLevel: 'bi_level',
-  pirMicrowaveBluetooth: 'pir_microwave',
+  pirMicrowave: 'pir_microwave',
   sensorMicrowaveBluetooth: 'pir_microwave',
   remoteControl: 'remote_control_bluetooth',
   pluginSensor: 'plugin_sensor',

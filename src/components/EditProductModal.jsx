@@ -53,7 +53,7 @@ const FORM_FIELD_KEYS = [
   'efficacyLumenPerW',
   'dimmingType',
   'sensorsAndControls',
-  'pirMicrowaveBluetooth',
+  'pirMicrowave',
   'installationKits',
   'adjustmentDial',
   'materialFinish',
@@ -177,7 +177,7 @@ export function EditProductModal({ product, isOpen, onClose, onSave, isCreate = 
   const designFields = [
     { key: 'materialFinish', label: 'Material Finish', placeholder: 'e.g., White, Black' },
     { key: 'sensorsAndControls', label: 'Sensors & Controls', placeholder: 'e.g., Daylight Sensor' },
-    { key: 'pirMicrowaveBluetooth', label: 'PIR / Microwave / Bluetooth', placeholder: 'e.g., PIR Sensor' },
+    { key: 'pirMicrowave', label: 'PIR / Microwave / Bluetooth', placeholder: 'e.g., PIR Sensor' },
     { key: 'installationKits', label: 'Installation Kits', placeholder: 'e.g., Surface Mount Kit' },
     { key: 'adjustmentDial', label: 'Adjustment Dial', placeholder: 'e.g., CCT Switch' },
     { key: 'certifications', label: 'Certifications', placeholder: 'e.g., CE, RoHS' }

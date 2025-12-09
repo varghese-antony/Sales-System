@@ -24,7 +24,7 @@ const fieldMappingV2 = {
   sensorsAndControls: 'sensors_and_controls',
   occupancy: 'occupancy',
   biLevel: 'bi_level',
-  pirMicrowaveBluetooth: 'pir_microwave',
+  pirMicrowave: 'pir_microwave',
   sensorMicrowaveBluetooth: 'pir_microwave',
   remoteControl: 'remote_control_bluetooth',
   pluginSensor: 'plugin_sensor',
@@ -739,12 +739,27 @@ export function validateFiltersV2(filters) {
     }
     
     // Validate the field exists in schema
-    const isValidField = 
+    // Boolean fields from SQL schema: sensors_and_controls, occupancy, bi_level, pir_microwave,
+    // remote_control_bluetooth, plugin_sensor, emergency_backup_battery, junction_cover
+    const booleanFields = [
+      'sensors_and_controls',
+      'occupancy',
+      'bi_level',
+      'pir_microwave',
+      'remote_control_bluetooth',
+      'plugin_sensor',
+      'emergency_backup_battery',
+      'junction_cover'
+    ]
+    
+    const isValidField =
       V2_SCHEMA.stringFields[dbColumn] ||
       V2_SCHEMA.numericFields[dbColumn] ||
+      booleanFields.includes(dbColumn) ||
       dbColumn === 'id' ||
-      dbColumn === 'created_at'
-    
+      dbColumn === 'created_at' ||
+      dbColumn === 'updated_at'
+
     if (!isValidField) {
       console.log(`[validateFiltersV2] Unknown field: ${key} (maps to ${dbColumn})`);
       errors.push(

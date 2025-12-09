@@ -47,7 +47,7 @@ export default function OutdoorProductPage({ params }) {
         filters.sensorsAndControls = selection.sensorsAndControls
       }
       if (selection.sensorType !== 'None') {
-        filters.pirMicrowaveBluetooth = selection.sensorType
+        filters.pirMicrowave = selection.sensorType
       }
 
       // Only add optional features if they are explicitly true
@@ -95,7 +95,7 @@ export default function OutdoorProductPage({ params }) {
         allFilters.sensorsAndControls = sensorSelection.sensorsAndControls
       }
       if (sensorSelection.sensorType !== 'None') {
-        allFilters.pirMicrowaveBluetooth = sensorSelection.sensorType
+        allFilters.pirMicrowave = sensorSelection.sensorType
       }
 
       // Only add optional features if they are explicitly true
