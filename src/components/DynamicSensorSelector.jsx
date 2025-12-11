@@ -3,9 +3,9 @@ import { useState, useEffect } from 'react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Separator } from "@/components/ui/separator"
-import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 import { Label } from "@/components/ui/label"
 import { Checkbox } from "@/components/ui/checkbox"
+import { Button } from "@/components/ui/button"
 import { LoadingSpinner } from "@/components/ui/loading"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { 
@@ -14,14 +14,14 @@ import {
   Sun, 
   X, 
   Bluetooth, 
-  Radio, 
   Camera,
   Battery,
-  Plug
+  Plug,
+  CheckSquare,
 } from 'lucide-react'
 
 const sensorIcons = {
-  'PIR': <Radio className="w-4 h-4" />,
+  'PIR': <Zap className="w-4 h-4" />,
   'Microwave': <Zap className="w-4 h-4" />,
   'Bluetooth': <Bluetooth className="w-4 h-4" />,
   'Photo cell': <Camera className="w-4 h-4" />,
@@ -91,8 +91,33 @@ export function DynamicSensorSelector({
     fetchSensorOptions()
   }, [productName, type])
 
-  // Update parent component when selection changes
-  useEffect(() => {
+  console.log("$$$$$$$$$$$$$$$$$$$ SELETCED SENSORS $$$$$$$$$$$, s",selectedSensor)
+
+  const handleControlChange = (controlType, checked) => {
+    if (!checked) {
+      setSelectedControl('')
+      setSelectedSensor('')
+      setHasRemote(false)
+      setHasEmergencyBackup(false)
+      setHasPluginSensor(false)
+      return
+    }
+
+    setSelectedControl(controlType)
+    setSelectedSensor('')
+    
+    const controlOption = sensorOptions.find(opt => opt.controlType === controlType)
+
+    if (controlOption && controlOption.sensorTypes.length === 1) {
+      setSelectedSensor(controlOption.sensorTypes[0])
+    }
+
+    setHasRemote(!!controlOption?.hasRemoteControl)
+    setHasEmergencyBackup(!!controlOption?.hasEmergencyBackup)
+    setHasPluginSensor(!!controlOption?.hasPluginSensor)
+  }
+
+  const handleSubmit = () => {
     if (onSelectionChange && selectedControl) {
       onSelectionChange({
         sensorsAndControls: selectedControl,
@@ -102,27 +127,6 @@ export function DynamicSensorSelector({
         pluginSensor: hasPluginSensor
       })
     }
-  }, [selectedControl, selectedSensor, hasRemote, hasEmergencyBackup, hasPluginSensor, onSelectionChange])
-
-  console.log("$$$$$$$$$$$$$$$$$$$ SELETCED SENSORS $$$$$$$$$$$, s",selectedSensor)
-
-  const handleControlChange = (controlType) => {
-    console.log("############# handleControlChange ", controlType)
-    setSelectedControl(controlType)
-    setSelectedSensor('')
-    
-    // Find the selected control option
-    const controlOption = sensorOptions.find(opt => opt.controlType === controlType)
-    console.log("############# controlOption ", controlOption)
-
-    // Auto-select sensor if only one option
-    if (controlOption && controlOption.sensorTypes.length === 1) {
-      setSelectedSensor(controlOption.sensorTypes[0])
-    }
-    // Reset features based on availability
-    if (controlOption?.hasRemoteControl) setHasRemote(true)
-    if (controlOption?.hasEmergencyBackup) setHasEmergencyBackup(true)
-    if (controlOption?.hasPluginSensor) setHasPluginSensor(true)
   }
 
   const currentControlOption = sensorOptions.find(opt => opt.controlType === selectedControl)
@@ -158,6 +162,9 @@ export function DynamicSensorSelector({
 
   console.log("############# selectedControl ", selectedControl)
   console.log("################# currentControlOption",currentControlOption)
+  console.log("Has remote control", hasRemote)
+  console.log("Has emergency backup", hasEmergencyBackup)
+  console.log("Has plugin sensor", hasPluginSensor)
   
   return (
     <div className={`space-y-6 ${className}`}>
@@ -173,44 +180,46 @@ export function DynamicSensorSelector({
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <RadioGroup value={selectedControl} onValueChange={(e)=>handleControlChange(e)}>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {sensorOptions.map((option) => (
-                <div key={option.controlType} className="flex items-center space-x-2">
-                  <RadioGroupItem value={option.controlType} id={option.controlType} />
-                  <Label 
-                    htmlFor={option.controlType} 
-                    className="flex-1 cursor-pointer p-4 rounded-lg border border-border hover:bg-muted/50 transition-colors"
-                  >
-                    <div className="flex items-start gap-3">
-                      <div className="mt-1">
-                        {controlTypeIcons[option.controlType] || <Zap className="w-5 h-5" />}
-                      </div>
-                      <div className="flex-1">
-                        <div className="font-medium">{option.controlType}</div>
-                        <div className="text-sm text-muted-foreground mt-1">
-                          {controlTypeDescriptions[option.controlType] || 'Lighting control option'}
-                        </div>
-                        {option.sensorTypes.length > 0 && (
-                          <div className="flex flex-wrap gap-1 mt-2">
-                            {option.sensorTypes.map(sensor => (
-                              <Badge key={sensor} variant="outline" className="text-xs">
-                                {sensor}
-                              </Badge>
-                            ))}
-                          </div>
-                        )}
-                      </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {sensorOptions.map((option) => (
+              <div key={option.controlType} className="flex items-center space-x-2">
+                <Checkbox 
+                  id={option.controlType}
+                  checked={selectedControl === option.controlType}
+                  onCheckedChange={(checked) => handleControlChange(option.controlType, checked)}
+                />
+                <Label 
+                  htmlFor={option.controlType} 
+                  className="flex-1 cursor-pointer p-4 rounded-lg border border-border hover:bg-muted/50 transition-colors"
+                >
+                  <div className="flex items-start gap-3">
+                    <div className="mt-1">
+                      {controlTypeIcons[option.controlType] || <Zap className="w-5 h-5" />}
                     </div>
-                  </Label>
-                </div>
-              ))}
-            </div>
-          </RadioGroup>
+                    <div className="flex-1">
+                      <div className="font-medium">{option.controlType}</div>
+                      <div className="text-sm text-muted-foreground mt-1">
+                        {controlTypeDescriptions[option.controlType] || 'Lighting control option'}
+                      </div>
+                      {option.sensorTypes.length > 0 && (
+                        <div className="flex flex-wrap gap-1 mt-2">
+                          {option.sensorTypes.map(sensor => (
+                            <Badge key={sensor} variant="outline" className="text-xs">
+                              {sensor}
+                            </Badge>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </Label>
+              </div>
+            ))}
+          </div>
         </CardContent>
       </Card>
 
-      {/* Sensor Type Selection */}
+      {/* Sensor Type Selection (single via checkbox) */}
       {selectedControl && currentControlOption && currentControlOption.sensorTypes.length > 0 && (
         <Card>
           <CardHeader>
@@ -223,34 +232,36 @@ export function DynamicSensorSelector({
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <RadioGroup value={selectedSensor} onValueChange={setSelectedSensor}>
-              <div className="space-y-3">
-                {currentControlOption.sensorTypes.map((sensorType) => (
-                  <div key={sensorType} className="flex items-center space-x-2">
-                    <RadioGroupItem value={sensorType} id={sensorType} />
-                    <Label 
-                      htmlFor={sensorType} 
-                      className="flex-1 cursor-pointer p-3 rounded-lg border border-border hover:bg-muted/50 transition-colors"
-                    >
-                      <div className="flex items-start gap-3">
-                        <div className="mt-1">
-                          {sensorIcons[sensorType] || <Radio className="w-4 h-4" />}
-                        </div>
-                        <div className="flex-1">
-                          <div className="font-medium">{sensorType}</div>
-                        </div>
+            <div className="space-y-3">
+              {currentControlOption.sensorTypes.map((sensorType) => (
+                <div key={sensorType} className="flex items-center space-x-2">
+                  <Checkbox
+                    id={sensorType}
+                    checked={selectedSensor === sensorType}
+                    onCheckedChange={(checked) => setSelectedSensor(checked ? sensorType : '')}
+                  />
+                  <Label 
+                    htmlFor={sensorType} 
+                    className="flex-1 cursor-pointer p-3 rounded-lg border border-border hover:bg-muted/50 transition-colors"
+                  >
+                    <div className="flex items-start gap-3">
+                      <div className="mt-1">
+                        {sensorIcons[sensorType] || <Zap className="w-4 h-4" />}
                       </div>
-                    </Label>
-                  </div>
-                ))}
-              </div>
-            </RadioGroup>
+                      <div className="flex-1">
+                        <div className="font-medium">{sensorType}</div>
+                      </div>
+                    </div>
+                  </Label>
+                </div>
+              ))}
+            </div>
           </CardContent>
         </Card>
       )}
 
       {/* Additional Options */}
-      {selectedControl && selectedSensor && currentControlOption && (
+      {selectedControl && (
         <Card>
           <CardHeader>
             <CardTitle>Additional Features</CardTitle>
@@ -258,55 +269,41 @@ export function DynamicSensorSelector({
               Customize your lighting setup with these optional features
             </CardDescription>
           </CardHeader>
-          <CardContent className="space-y-4">
-            {/* Remote Control */}
-            {currentControlOption.hasRemoteControl && (
+          <CardContent>
+            <div className="flex flex-wrap gap-4">
               <div className="flex items-center space-x-2">
                 <Checkbox 
                   id="remote-control" 
                   checked={hasRemote}
-                  onCheckedChange={setHasRemote}
+                  onCheckedChange={(checked) => setHasRemote(checked === true)}
                 />
                 <Label htmlFor="remote-control" className="flex items-center gap-2 cursor-pointer">
-                  <Radio className="w-4 h-4" />
                   Remote Control
                 </Label>
               </div>
-            )}
 
-            {(currentControlOption.hasEmergencyBackup || currentControlOption.hasPluginSensor) && (
-              <Separator />
-            )}
-
-            {/* Emergency Backup Battery */}
-            {currentControlOption.hasEmergencyBackup && (
               <div className="flex items-center space-x-2">
                 <Checkbox 
                   id="emergency-backup" 
                   checked={hasEmergencyBackup}
-                  onCheckedChange={setHasEmergencyBackup}
+                  onCheckedChange={(checked) => setHasEmergencyBackup(checked === true)}
                 />
                 <Label htmlFor="emergency-backup" className="flex items-center gap-2 cursor-pointer">
-                  <Battery className="w-4 h-4" />
                   Emergency Backup Battery
                 </Label>
               </div>
-            )}
 
-            {/* Plugin Sensor */}
-            {currentControlOption.hasPluginSensor && (
               <div className="flex items-center space-x-2">
                 <Checkbox 
                   id="plugin-sensor" 
                   checked={hasPluginSensor}
-                  onCheckedChange={setHasPluginSensor}
+                  onCheckedChange={(checked) => setHasPluginSensor(checked === true)}
                 />
                 <Label htmlFor="plugin-sensor" className="flex items-center gap-2 cursor-pointer">
-                  <Plug className="w-4 h-4" />
                   Plugin Sensor
                 </Label>
               </div>
-            )}
+            </div>
           </CardContent>
         </Card>
       )}
@@ -329,7 +326,7 @@ export function DynamicSensorSelector({
                 <div className="flex flex-wrap gap-2 mt-3">
                   {hasRemote && (
                     <Badge variant="outline" className="flex items-center gap-1">
-                      <Radio className="w-3 h-3" />
+                      <CheckSquare className="w-3 h-3" />
                       Remote Control
                     </Badge>
                   )}
@@ -351,6 +348,15 @@ export function DynamicSensorSelector({
           </CardContent>
         </Card>
       )}
+
+      <div className="flex justify-end">
+        <Button 
+          onClick={handleSubmit}
+          disabled={!selectedControl}
+        >
+          Submit Selection
+        </Button>
+      </div>
     </div>
   )
 }

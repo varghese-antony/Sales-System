@@ -77,12 +77,18 @@ export default function IndoorProductPage({ params }) {
       // These are already booleans, so pass them as true/false
       if (selection.remoteControl === true) {
         filters.remoteControl = true // Maps to 'remote_control_bluetooth' column
+      }else{
+        filters.remoteControl = false
       }
       if (selection.emergencyBackupBattery === true) {
         filters.emergencyBackupBattery = true // Maps to 'emergency_backup_battery' column
+      }else{
+        filters.emergencyBackupBattery = false
       }
       if (selection.pluginSensor === true) {
         filters.pluginSensor = true // Maps to 'plugin_sensor' column
+      }else{
+        filters.pluginSensor = false
       }
 
       console.log('handleSensorSelection filters:', filters)
