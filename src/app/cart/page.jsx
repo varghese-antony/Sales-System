@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useMemo } from "react"
 import { motion } from "framer-motion"
 import { ShoppingCart, Trash2, ArrowLeft, Package, Percent, X } from "lucide-react"
 import { Button } from "@/components/ui/button"
@@ -12,6 +12,53 @@ import { useCart } from "@/contexts/CartContext"
 // import { useCoupon } from "@/contexts/CouponContext"
 import { Input } from "@/components/ui/input"
 import Link from "next/link"
+
+const MARKUP_FLAT = 10
+
+const addonCostFields = [
+  { key: 'sensor_cost', label: 'Sensor' },
+  { key: 'remote_control_bluetooth_cost', label: 'Remote Control / Bluetooth' },
+  { key: 'plugin_sensor_cost', label: 'Plugin Sensor' },
+  { key: 'emergency_backup_battery_cost', label: 'Emergency Backup Battery' },
+  { key: 'installation_kits_cost', label: 'Installation Kits' }
+]
+
+const parseCostValue = (value) => {
+  if (value === null || value === undefined) return 0
+  if (typeof value === 'number') {
+    return Number.isFinite(value) ? value : 0
+  }
+  if (typeof value !== 'string') return 0
+  const cleaned = value.replace(/[^\d.]/g, '')
+  const parsed = parseFloat(cleaned)
+  return Number.isFinite(parsed) ? parsed : 0
+}
+
+const formatCurrency = (value) => {
+  const numeric = Number.isFinite(value) ? value : 0
+  return `$${numeric.toFixed(2)}`
+}
+
+const calculateItemPrice = (item) => {
+  // Base cost: cost_china_ddp_usa or cost_thailand_vietnam
+  const baseCost = parseCostValue(item.cost_china_ddp_usa ?? item.cost_thailand_vietnam ?? 0)
+  
+  // Addon costs
+  const totalAddons = addonCostFields.reduce((sum, { key }) => {
+    return sum + parseCostValue(item[key])
+  }, 0)
+  
+  // Total price per unit
+  const pricePerUnit = baseCost + totalAddons + MARKUP_FLAT
+  
+  return {
+    baseCost,
+    totalAddons,
+    markup: MARKUP_FLAT,
+    pricePerUnit,
+    hasPrice: baseCost > 0 || totalAddons > 0
+  }
+}
 
 export default function CartPage() {
   const { items, removeFromCart, updateQuantity, clearCart } = useCart()
@@ -75,6 +122,19 @@ export default function CartPage() {
 
   const getShippingTime = () => {
     return selectedShipping === 'air' ? 30 : 35
+  }
+
+  // Calculate total cart price
+  const cartTotal = useMemo(() => {
+    return items.reduce((total, item) => {
+      const priceData = calculateItemPrice(item)
+      return total + (priceData.pricePerUnit * item.quantity)
+    }, 0)
+  }, [items])
+
+  // Calculate price breakdown for each item
+  const getItemPriceData = (item) => {
+    return calculateItemPrice(item)
   }
 
   if (items.length === 0) {
@@ -178,16 +238,50 @@ export default function CartPage() {
 
                       {/* Product Details */}
                       <div className="flex-1 min-w-0">
-                        <div className="flex justify-between items-start">
-                          <h3 className="font-semibold text-lg mb-2">
+                        <div className="flex justify-between items-start mb-2">
+                          <h3 className="font-semibold text-lg">
                             {item.name || item.product_name || item.producttype || 'Lighting Product'}
                             {item.model_number && ` - ${item.model_number}`}
                             {!item.name && !item.product_name && !item.producttype && item.id && ` #${item.id}`}
                           </h3>
-                          <div className="text-lg font-semibold">
-                            {item.price ? `$${parseFloat(item.price).toFixed(2)}` : 'Price on request'}
-                          </div>
                         </div>
+                        
+                        {/* Price Breakdown */}
+                        {(() => {
+                          const priceData = getItemPriceData(item)
+                          if (!priceData.hasPrice) {
+                            return (
+                              <div className="text-sm text-muted-foreground mb-3">
+                                Price on request
+                              </div>
+                            )
+                          }
+                          return (
+                            <div className="mb-3 space-y-1">
+                              <div className="flex flex-wrap gap-2 text-xs">
+                                {priceData.baseCost > 0 && (
+                                  <Badge variant="outline" className="text-xs">
+                                    Base: {formatCurrency(priceData.baseCost)}
+                                  </Badge>
+                                )}
+                                {priceData.totalAddons > 0 && (
+                                  <Badge variant="outline" className="text-xs">
+                                    Add-ons: {formatCurrency(priceData.totalAddons)}
+                                  </Badge>
+                                )}
+                                <Badge variant="outline" className="text-xs">
+                                  Markup: {formatCurrency(priceData.markup)}
+                                </Badge>
+                                <Badge variant="default" className="text-xs">
+                                  Unit: {formatCurrency(priceData.pricePerUnit)}
+                                </Badge>
+                              </div>
+                              <div className="text-sm font-semibold text-primary">
+                                Total ({item.quantity} {item.quantity === 1 ? 'item' : 'items'}): {formatCurrency(priceData.pricePerUnit * item.quantity)}
+                              </div>
+                            </div>
+                          )
+                        })()}
 
                         {/* Product Type Badges */}
                         <div className="flex flex-wrap gap-2 mb-3">
@@ -428,6 +522,20 @@ export default function CartPage() {
                 </div>
 
                 <div className="border-t pt-4 space-y-2">
+                  {/* Cart Total */}
+                  <div className="flex justify-between items-center py-3 border-b">
+                    <span className="text-lg font-semibold">Cart Total:</span>
+                    <span className="text-2xl font-bold text-primary">
+                      {formatCurrency(cartTotal)}
+                    </span>
+                  </div>
+                  
+                  {/* Item Count */}
+                  <div className="flex justify-between items-center text-sm text-muted-foreground">
+                    <span>Total Items:</span>
+                    <span>{getTotalItems()} {getTotalItems() === 1 ? 'item' : 'items'}</span>
+                  </div>
+                  
                   {/* {appliedCoupon && !isCouponExpired(appliedCoupon) && (
                     <div className="flex justify-between items-center py-2 border-t border-dashed">
                       <span className="text-lg font-semibold">Total:</span>
