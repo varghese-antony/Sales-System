@@ -40,21 +40,16 @@ const TEXT_VARIATION_FIELDS = [
   'cutSheet',
   'ipRating',
   'sensorCost',
-  'sensorPrice',
   'remoteControlBluetoothCost',
-  'remoteControlBluetoothPrice',
   'pluginSensorCost',
-  'pluginSensorPrice',
   'emergencyBackupBatteryCost',
-  'emergencyBackupBatteryPrice',
-  'installationKitsCost',
-  'installationKitsPrice'
+  'installationKitsCost'
 ]
 
 const BOOLEAN_VARIATION_FIELDS = [
   'occupancy',
   'biLevel',
-  'remoteControl',
+  'remoteControlBluetooth',
   'pluginSensor',
   'emergencyBackupBattery',
   'junctionCover'
@@ -65,7 +60,6 @@ const INITIAL_STATE = {
   subCategory: '',
   productName: '',
   modelNumber: '',
-  description: '',
   size: '',
   mounting: '',
   voltage: '',
@@ -91,18 +85,13 @@ const INITIAL_STATE = {
   cutSheet: '',
   ipRating: '',
   sensorCost: '',
-  sensorPrice: '',
   remoteControlBluetoothCost: '',
-  remoteControlBluetoothPrice: '',
   pluginSensorCost: '',
-  pluginSensorPrice: '',
   emergencyBackupBatteryCost: '',
-  emergencyBackupBatteryPrice: '',
   installationKitsCost: '',
-  installationKitsPrice: '',
   occupancy: false,
   biLevel: false,
-  remoteControl: false,
+  remoteControlBluetooth: false,
   pluginSensor: false,
   emergencyBackupBattery: false,
   junctionCover: false
@@ -189,7 +178,7 @@ export default function DataEntryPage() {
   const generateVariations = useCallback(() => {
     if (variationFields.length === 0) return []
 
-    const baseFields = new Set(['type', 'subCategory', 'productName', 'modelNumber', 'description'])
+    const baseFields = new Set(['type', 'subCategory', 'productName', 'modelNumber'])
 
     const baseProduct = Array.from(baseFields).reduce((acc, key) => {
       const value = formState[key]
@@ -198,7 +187,15 @@ export default function DataEntryPage() {
     }, {})
 
     BOOLEAN_VARIATION_FIELDS.forEach((key) => {
-      baseProduct[key] = formState[key]
+      const value = formState[key]
+      // Convert 'TRUE'/'FALSE' string to boolean for variations
+      if (value === 'TRUE') {
+        baseProduct[key] = true
+      } else if (value === 'FALSE') {
+        baseProduct[key] = false
+      } else {
+        baseProduct[key] = null
+      }
     })
 
     const buildCombinations = (fields, index = 0) => {
@@ -248,10 +245,9 @@ export default function DataEntryPage() {
     }
 
     const sanitizedVariations = variations.map((variation) => {
-      const { type, description, ...rest } = variation
+      const { type, ...rest } = variation
       const product = {
         type,
-        description,
         ...rest
       }
 
@@ -259,9 +255,6 @@ export default function DataEntryPage() {
       sanitized.sub_category = variation.subCategory
       sanitized.product_name = variation.productName
       sanitized.model_number = variation.modelNumber
-      if (variation.description) {
-        sanitized.description = variation.description
-      }
 
       return sanitized
     })
@@ -430,17 +423,6 @@ export default function DataEntryPage() {
                     </div>
                   </div>
 
-                  <div className="space-y-1.5 sm:space-y-2">
-                    <label htmlFor="description" className="text-xs sm:text-sm font-medium text-foreground">Description</label>
-                    <Textarea
-                      id="description"
-                      value={formState.description}
-                      onChange={handleInputChange('description')}
-                      placeholder="Provide a brief description of the product"
-                      className="bg-background border-border"
-                      rows={4}
-                    />
-                  </div>
                 </CardContent>
               </Card>
 
@@ -528,27 +510,6 @@ export default function DataEntryPage() {
                       />
                     </div>
 
-                    <div className="space-y-1.5 sm:space-y-2">
-                      <label htmlFor="pirMicrowave" className="text-xs sm:text-sm font-medium text-foreground">PIR / Microwave / Bluetooth</label>
-                      <Input
-                        id="pirMicrowave"
-                        value={formState.pirMicrowave}
-                        onChange={handleInputChange('pirMicrowave')}
-                        placeholder="e.g., PIR Sensor"
-                        className="bg-background border-border"
-                      />
-                    </div>
-
-                    <div className="space-y-1.5 sm:space-y-2">
-                      <label htmlFor="sensorsAndControls" className="text-xs sm:text-sm font-medium text-foreground">Sensors & Controls</label>
-                      <Input
-                        id="sensorsAndControls"
-                        value={formState.sensorsAndControls}
-                        onChange={handleInputChange('sensorsAndControls')}
-                        placeholder="e.g., Daylight Sensor"
-                        className="bg-background border-border"
-                      />
-                    </div>
 
                     <div className="space-y-1.5 sm:space-y-2">
                       <label htmlFor="installationKits" className="text-xs sm:text-sm font-medium text-foreground">Installation Kits</label>
@@ -614,8 +575,8 @@ export default function DataEntryPage() {
                       <label htmlFor="biLevel" className="text-sm text-foreground flex-1">Bi-level Dimming</label>
                     </div>
                     <div className="flex items-center space-x-3 rounded-md border border-border/60 px-3 py-2">
-                      <Checkbox id="remoteControl" checked={formState.remoteControl} onCheckedChange={handleCheckboxChange('remoteControl')} />
-                      <label htmlFor="remoteControl" className="text-sm text-foreground flex-1">Remote Control</label>
+                      <Checkbox id="remoteControlBluetooth" checked={formState.remoteControlBluetooth} onCheckedChange={handleCheckboxChange('remoteControlBluetooth')} />
+                      <label htmlFor="remoteControlBluetooth" className="text-sm text-foreground flex-1">Remote Control / Bluetooth</label>
                     </div>
                     <div className="flex items-center space-x-3 rounded-md border border-border/60 px-3 py-2">
                       <Checkbox id="pluginSensor" checked={formState.pluginSensor} onCheckedChange={handleCheckboxChange('pluginSensor')} />
@@ -710,6 +671,66 @@ export default function DataEntryPage() {
                         placeholder="e.g., 17.25"
                         className="bg-background border-border"
                       />
+                    </div>
+                  </div>
+                  
+                  <div className="border-t pt-4 mt-4">
+                    <h4 className="text-sm font-medium text-foreground mb-3">Additional Costs</h4>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
+                      <div className="space-y-1.5 sm:space-y-2">
+                        <label htmlFor="sensorCost" className="text-xs sm:text-sm font-medium text-foreground">Sensor Cost</label>
+                        <Input
+                          id="sensorCost"
+                          value={formState.sensorCost}
+                          onChange={handleInputChange('sensorCost')}
+                          placeholder="e.g., 5.00"
+                          className="bg-background border-border"
+                        />
+                      </div>
+
+                      <div className="space-y-1.5 sm:space-y-2">
+                        <label htmlFor="remoteControlBluetoothCost" className="text-xs sm:text-sm font-medium text-foreground">Remote Control/Bluetooth Cost</label>
+                        <Input
+                          id="remoteControlBluetoothCost"
+                          value={formState.remoteControlBluetoothCost}
+                          onChange={handleInputChange('remoteControlBluetoothCost')}
+                          placeholder="e.g., 8.00"
+                          className="bg-background border-border"
+                        />
+                      </div>
+
+                      <div className="space-y-1.5 sm:space-y-2">
+                        <label htmlFor="pluginSensorCost" className="text-xs sm:text-sm font-medium text-foreground">Plugin Sensor Cost</label>
+                        <Input
+                          id="pluginSensorCost"
+                          value={formState.pluginSensorCost}
+                          onChange={handleInputChange('pluginSensorCost')}
+                          placeholder="e.g., 6.00"
+                          className="bg-background border-border"
+                        />
+                      </div>
+
+                      <div className="space-y-1.5 sm:space-y-2">
+                        <label htmlFor="emergencyBackupBatteryCost" className="text-xs sm:text-sm font-medium text-foreground">Emergency Backup Battery Cost</label>
+                        <Input
+                          id="emergencyBackupBatteryCost"
+                          value={formState.emergencyBackupBatteryCost}
+                          onChange={handleInputChange('emergencyBackupBatteryCost')}
+                          placeholder="e.g., 15.00"
+                          className="bg-background border-border"
+                        />
+                      </div>
+
+                      <div className="space-y-1.5 sm:space-y-2">
+                        <label htmlFor="installationKitsCost" className="text-xs sm:text-sm font-medium text-foreground">Installation Kits Cost</label>
+                        <Input
+                          id="installationKitsCost"
+                          value={formState.installationKitsCost}
+                          onChange={handleInputChange('installationKitsCost')}
+                          placeholder="e.g., 10.00"
+                          className="bg-background border-border"
+                        />
+                      </div>
                     </div>
                   </div>
                 </CardContent>

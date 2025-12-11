@@ -149,6 +149,7 @@ export const fieldMappingV2 = {
   biLevel: 'bi_level',
   pirMicrowave: 'pir_microwave',
   remoteControl: 'remote_control_bluetooth',
+  remoteControlBluetooth: 'remote_control_bluetooth',
   pluginSensor: 'plugin_sensor',
   emergencyBackupBattery: 'emergency_backup_battery',
   junctionCover: 'junction_cover',
@@ -241,11 +242,16 @@ const TRUTHY_BOOLEAN_VALUES = new Set(['true', 'yes', '1', 'included', 'optional
 
 function normalizeBooleanInput(value) {
   if (typeof value === 'boolean') return value
-  if (value === null || value === undefined) return false
-  const normalized = String(value).trim().toLowerCase()
-  if (normalized === '') return false
-  if (normalized === 'false' || normalized === 'no' || normalized === '0') return false
-  return TRUTHY_BOOLEAN_VALUES.has(normalized)
+  if (value === null || value === undefined) return null
+  const normalized = String(value).trim().toUpperCase()
+  if (normalized === '') return null
+  if (normalized === 'TRUE' || normalized === 'T') return true
+  if (normalized === 'FALSE' || normalized === 'F') return false
+  // Handle lowercase versions
+  const lowerNormalized = normalized.toLowerCase()
+  if (lowerNormalized === 'true' || lowerNormalized === 'yes' || lowerNormalized === '1' || lowerNormalized === 'included' || lowerNormalized === 'optional') return true
+  if (lowerNormalized === 'false' || lowerNormalized === 'no' || lowerNormalized === '0') return false
+  return null
 }
 
 function normalizeIntegerInput(value) {

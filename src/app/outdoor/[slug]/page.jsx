@@ -14,8 +14,7 @@ import { getAllProductsV2 } from '@/lib/database/products-v2'
 import { slugToProductName } from '@/lib/utils/slug'
 
 export default function OutdoorProductPage({ params }) {
-  const { slug } = params
-  
+  const [slug, setSlug] = useState(null)
   const [products, setProducts] = useState([])
   const [sensorSelection, setSensorSelection] = useState(null)
   const [selectedFilters, setSelectedFilters] = useState({})
@@ -24,7 +23,15 @@ export default function OutdoorProductPage({ params }) {
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState(null)
 
-  const productType = slugToProductName(slug)
+  const productName = slugToProductName(slug)
+
+  useEffect(() => {
+    const resolveParams = async () => {
+      const resolvedParams = await params
+      setSlug(resolvedParams.slug)
+    }
+    resolveParams()
+  }, [params])
 
   const desiredKeys = [
     'size', 'power_w', 'voltage', 'cct', 'cri_ra', 'lumen', 'efficacy_lumen_per_w',
@@ -41,7 +48,7 @@ export default function OutdoorProductPage({ params }) {
 
     try {
       const filters = {
-        productName: productType
+        productName: productName
       }
 
       // Map control type to boolean columns based on SQL schema
@@ -109,7 +116,7 @@ export default function OutdoorProductPage({ params }) {
 
     try {
       const allFilters = {
-        productName: productType,
+        productName: productName,
         ...newFilters
       }
 
@@ -130,7 +137,7 @@ export default function OutdoorProductPage({ params }) {
         allFilters.pirMicrowave = true // Maps to 'pir_microwave' column via fieldMappingV2
       }
 
-      // Only add optional features if they are explicitly true
+      // Map boolean features to their database column names using fieldMappingV2
       if (sensorSelection.remoteControl === true) {
         allFilters.remoteControl = true // Maps to 'remote_control_bluetooth' column
       }
@@ -163,6 +170,7 @@ export default function OutdoorProductPage({ params }) {
         setProducts([])
       }
     } catch (err) {
+      console.error('Error filtering products:', err)
       setError('Failed to filter products. Please try again.')
     } finally {
       setIsLoading(false)
@@ -212,7 +220,7 @@ export default function OutdoorProductPage({ params }) {
       <div className='min-h-screen flex items-center justify-center bg-gradient-to-br from-green-50/50 via-teal-50/30 to-emerald-50/50 dark:from-green-950/20 dark:via-teal-950/10 dark:to-emerald-950/20'>
         <div className="text-center space-y-4 flex items-center justify-center flex-col">
           <LoadingSpinner size="lg" />
-          <p className="text-muted-foreground">Loading {productType} options...</p>
+          <p className="text-muted-foreground">Loading {productName} options...</p>
         </div>
       </div>
     )
@@ -259,7 +267,7 @@ export default function OutdoorProductPage({ params }) {
               Outdoor Lighting
             </Link>
             <span className="text-muted-foreground">/</span>
-            <span className="text-primary font-medium">{productType}</span>
+            <span className="text-primary font-medium">{productName}</span>
           </div>
 
           <div className="text-center">
@@ -269,7 +277,7 @@ export default function OutdoorProductPage({ params }) {
             
             <h1 className="text-3xl md:text-5xl font-bold mb-4">
               <span className="text-gradient bg-gradient-to-r from-green-600 to-teal-600 bg-clip-text text-transparent">
-                {productType}
+                {productName}
               </span>
             </h1>
             
@@ -311,7 +319,7 @@ export default function OutdoorProductPage({ params }) {
               </p>
             </div>
             <DynamicSensorSelector 
-              productName={productType}
+              productName={productName}
               type="outdoor"
               onSelectionChange={handleSensorSelection} 
             />
@@ -330,7 +338,7 @@ export default function OutdoorProductPage({ params }) {
           </motion.div>
         )}
 
-        {sensorSelection && !error && currentValues.length > 0 && (
+        {sensorSelection && !error && currentValues.length > 0 && currentKey && (
           <OptionSelector
             title={currentKey}
             description={`Select your preferred ${currentKey.replace(/_/g, ' ')}`}
