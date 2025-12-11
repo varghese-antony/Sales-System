@@ -9,7 +9,6 @@ import { Textarea } from '@/components/ui/textarea'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { LoadingSpinner } from '@/components/ui/loading'
-import { Checkbox } from '@/components/ui/checkbox'
 
 const TEXT_VARIATION_FIELDS = [
   'subCategory',
@@ -25,8 +24,6 @@ const TEXT_VARIATION_FIELDS = [
   'efficacyLumenPerW',
   'dimmingType',
   'materialFinish',
-  'sensorsAndControls',
-  'pirMicrowave',
   'installationKits',
   'adjustmentDial',
   'certifications',
@@ -47,8 +44,10 @@ const TEXT_VARIATION_FIELDS = [
 ]
 
 const BOOLEAN_VARIATION_FIELDS = [
+  'sensorsAndControls',
   'occupancy',
   'biLevel',
+  'pirMicrowave',
   'remoteControlBluetooth',
   'pluginSensor',
   'emergencyBackupBattery',
@@ -70,8 +69,6 @@ const INITIAL_STATE = {
   efficacyLumenPerW: '',
   dimmingType: '',
   materialFinish: '',
-  sensorsAndControls: '',
-  pirMicrowave: '',
   installationKits: '',
   adjustmentDial: '',
   certifications: '',
@@ -89,12 +86,14 @@ const INITIAL_STATE = {
   pluginSensorCost: '',
   emergencyBackupBatteryCost: '',
   installationKitsCost: '',
-  occupancy: false,
-  biLevel: false,
-  remoteControlBluetooth: false,
-  pluginSensor: false,
-  emergencyBackupBattery: false,
-  junctionCover: false
+  sensorsAndControls: '',
+  occupancy: '',
+  biLevel: '',
+  pirMicrowave: '',
+  remoteControlBluetooth: '',
+  pluginSensor: '',
+  emergencyBackupBattery: '',
+  junctionCover: ''
 }
 
 const VARIATION_FIELD_KEYS = [...TEXT_VARIATION_FIELDS]
@@ -110,8 +109,10 @@ export default function DataEntryPage() {
     setFormState((prev) => ({ ...prev, [field]: value }))
   }, [])
 
-  const handleCheckboxChange = useCallback((field) => (checked) => {
-    setFormState((prev) => ({ ...prev, [field]: Boolean(checked) }))
+  const handleBooleanSelectChange = useCallback((field) => (value) => {
+    // Convert "NONE" to empty string for storage
+    const normalizedValue = value === 'NONE' ? '' : value
+    setFormState((prev) => ({ ...prev, [field]: normalizedValue }))
   }, [])
 
   const handleSelectChange = useCallback((field) => (value) => {
@@ -165,12 +166,11 @@ export default function DataEntryPage() {
     }
 
     if (!state.modelNumber || state.modelNumber.trim() === '') {
-      errors.push('Model number is required')
+      errors.push('Model number is required (model_number is NOT NULL in database)')
     }
 
-    if (!state.size || state.size.trim() === '') {
-      errors.push('Size is required')
-    }
+    // size is nullable in database, so it's optional
+    // All other fields are nullable, so no additional validation needed
 
     return errors
   }, [])
@@ -194,7 +194,8 @@ export default function DataEntryPage() {
       } else if (value === 'FALSE') {
         baseProduct[key] = false
       } else {
-        baseProduct[key] = null
+        // Empty string means not set, will be converted to null by sanitizeProductForInsert
+        baseProduct[key] = value === '' ? null : value
       }
     })
 
@@ -558,37 +559,124 @@ export default function DataEntryPage() {
                 </CardContent>
               </Card>
 
-              {/* Feature Toggles */}
+              {/* Boolean Fields */}
               <Card className="border border-border/50">
                 <CardHeader className="p-4 sm:p-6">
-                  <CardTitle className="text-base sm:text-lg text-foreground">Feature Toggles</CardTitle>
-                  <p className="text-xs text-muted-foreground">Toggle each option if it is included with the product.</p>
+                  <CardTitle className="text-base sm:text-lg text-foreground">Boolean Features</CardTitle>
+                  <p className="text-xs text-muted-foreground">Select TRUE or FALSE for each boolean feature.</p>
                 </CardHeader>
                 <CardContent className="p-4 sm:p-6">
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
-                    <div className="flex items-center space-x-3 rounded-md border border-border/60 px-3 py-2">
-                      <Checkbox id="occupancy" checked={formState.occupancy} onCheckedChange={handleCheckboxChange('occupancy')} />
-                      <label htmlFor="occupancy" className="text-sm text-foreground flex-1">Occupancy Sensor</label>
+                    <div className="space-y-1.5 sm:space-y-2">
+                      <label htmlFor="sensorsAndControls" className="text-xs sm:text-sm font-medium text-foreground">Sensors & Controls</label>
+                      <Select value={formState.sensorsAndControls || 'NONE'} onValueChange={handleBooleanSelectChange('sensorsAndControls')}>
+                        <SelectTrigger className="bg-background border-border hover:border-primary/50 focus:border-primary dark:bg-background dark:border-border dark:hover:border-primary/50 dark:focus:border-primary">
+                          <SelectValue placeholder="Select value" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="NONE">-- Not Set --</SelectItem>
+                          <SelectItem value="TRUE">TRUE</SelectItem>
+                          <SelectItem value="FALSE">FALSE</SelectItem>
+                        </SelectContent>
+                      </Select>
                     </div>
-                    <div className="flex items-center space-x-3 rounded-md border border-border/60 px-3 py-2">
-                      <Checkbox id="biLevel" checked={formState.biLevel} onCheckedChange={handleCheckboxChange('biLevel')} />
-                      <label htmlFor="biLevel" className="text-sm text-foreground flex-1">Bi-level Dimming</label>
+
+                    <div className="space-y-1.5 sm:space-y-2">
+                      <label htmlFor="occupancy" className="text-xs sm:text-sm font-medium text-foreground">Occupancy</label>
+                      <Select value={formState.occupancy || 'NONE'} onValueChange={handleBooleanSelectChange('occupancy')}>
+                        <SelectTrigger className="bg-background border-border hover:border-primary/50 focus:border-primary dark:bg-background dark:border-border dark:hover:border-primary/50 dark:focus:border-primary">
+                          <SelectValue placeholder="Select value" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="NONE">-- Not Set --</SelectItem>
+                          <SelectItem value="TRUE">TRUE</SelectItem>
+                          <SelectItem value="FALSE">FALSE</SelectItem>
+                        </SelectContent>
+                      </Select>
                     </div>
-                    <div className="flex items-center space-x-3 rounded-md border border-border/60 px-3 py-2">
-                      <Checkbox id="remoteControlBluetooth" checked={formState.remoteControlBluetooth} onCheckedChange={handleCheckboxChange('remoteControlBluetooth')} />
-                      <label htmlFor="remoteControlBluetooth" className="text-sm text-foreground flex-1">Remote Control / Bluetooth</label>
+
+                    <div className="space-y-1.5 sm:space-y-2">
+                      <label htmlFor="biLevel" className="text-xs sm:text-sm font-medium text-foreground">Bi-level</label>
+                      <Select value={formState.biLevel || 'NONE'} onValueChange={handleBooleanSelectChange('biLevel')}>
+                        <SelectTrigger className="bg-background border-border hover:border-primary/50 focus:border-primary dark:bg-background dark:border-border dark:hover:border-primary/50 dark:focus:border-primary">
+                          <SelectValue placeholder="Select value" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="NONE">-- Not Set --</SelectItem>
+                          <SelectItem value="TRUE">TRUE</SelectItem>
+                          <SelectItem value="FALSE">FALSE</SelectItem>
+                        </SelectContent>
+                      </Select>
                     </div>
-                    <div className="flex items-center space-x-3 rounded-md border border-border/60 px-3 py-2">
-                      <Checkbox id="pluginSensor" checked={formState.pluginSensor} onCheckedChange={handleCheckboxChange('pluginSensor')} />
-                      <label htmlFor="pluginSensor" className="text-sm text-foreground flex-1">Plug-in Sensor</label>
+
+                    <div className="space-y-1.5 sm:space-y-2">
+                      <label htmlFor="pirMicrowave" className="text-xs sm:text-sm font-medium text-foreground">PIR / Microwave</label>
+                      <Select value={formState.pirMicrowave || 'NONE'} onValueChange={handleBooleanSelectChange('pirMicrowave')}>
+                        <SelectTrigger className="bg-background border-border hover:border-primary/50 focus:border-primary dark:bg-background dark:border-border dark:hover:border-primary/50 dark:focus:border-primary">
+                          <SelectValue placeholder="Select value" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="NONE">-- Not Set --</SelectItem>
+                          <SelectItem value="TRUE">TRUE</SelectItem>
+                          <SelectItem value="FALSE">FALSE</SelectItem>
+                        </SelectContent>
+                      </Select>
                     </div>
-                    <div className="flex items-center space-x-3 rounded-md border border-border/60 px-3 py-2">
-                      <Checkbox id="emergencyBackupBattery" checked={formState.emergencyBackupBattery} onCheckedChange={handleCheckboxChange('emergencyBackupBattery')} />
-                      <label htmlFor="emergencyBackupBattery" className="text-sm text-foreground flex-1">Emergency Backup Battery</label>
+
+                    <div className="space-y-1.5 sm:space-y-2">
+                      <label htmlFor="remoteControlBluetooth" className="text-xs sm:text-sm font-medium text-foreground">Remote Control / Bluetooth</label>
+                      <Select value={formState.remoteControlBluetooth || 'NONE'} onValueChange={handleBooleanSelectChange('remoteControlBluetooth')}>
+                        <SelectTrigger className="bg-background border-border hover:border-primary/50 focus:border-primary dark:bg-background dark:border-border dark:hover:border-primary/50 dark:focus:border-primary">
+                          <SelectValue placeholder="Select value" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="NONE">-- Not Set --</SelectItem>
+                          <SelectItem value="TRUE">TRUE</SelectItem>
+                          <SelectItem value="FALSE">FALSE</SelectItem>
+                        </SelectContent>
+                      </Select>
                     </div>
-                    <div className="flex items-center space-x-3 rounded-md border border-border/60 px-3 py-2">
-                      <Checkbox id="junctionCover" checked={formState.junctionCover} onCheckedChange={handleCheckboxChange('junctionCover')} />
-                      <label htmlFor="junctionCover" className="text-sm text-foreground flex-1">Junction Cover</label>
+
+                    <div className="space-y-1.5 sm:space-y-2">
+                      <label htmlFor="pluginSensor" className="text-xs sm:text-sm font-medium text-foreground">Plug-in Sensor</label>
+                      <Select value={formState.pluginSensor || 'NONE'} onValueChange={handleBooleanSelectChange('pluginSensor')}>
+                        <SelectTrigger className="bg-background border-border hover:border-primary/50 focus:border-primary dark:bg-background dark:border-border dark:hover:border-primary/50 dark:focus:border-primary">
+                          <SelectValue placeholder="Select value" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="NONE">-- Not Set --</SelectItem>
+                          <SelectItem value="TRUE">TRUE</SelectItem>
+                          <SelectItem value="FALSE">FALSE</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    <div className="space-y-1.5 sm:space-y-2">
+                      <label htmlFor="emergencyBackupBattery" className="text-xs sm:text-sm font-medium text-foreground">Emergency Backup Battery</label>
+                      <Select value={formState.emergencyBackupBattery || 'NONE'} onValueChange={handleBooleanSelectChange('emergencyBackupBattery')}>
+                        <SelectTrigger className="bg-background border-border hover:border-primary/50 focus:border-primary dark:bg-background dark:border-border dark:hover:border-primary/50 dark:focus:border-primary">
+                          <SelectValue placeholder="Select value" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="NONE">-- Not Set --</SelectItem>
+                          <SelectItem value="TRUE">TRUE</SelectItem>
+                          <SelectItem value="FALSE">FALSE</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    <div className="space-y-1.5 sm:space-y-2">
+                      <label htmlFor="junctionCover" className="text-xs sm:text-sm font-medium text-foreground">Junction Cover</label>
+                      <Select value={formState.junctionCover || 'NONE'} onValueChange={handleBooleanSelectChange('junctionCover')}>
+                        <SelectTrigger className="bg-background border-border hover:border-primary/50 focus:border-primary dark:bg-background dark:border-border dark:hover:border-primary/50 dark:focus:border-primary">
+                          <SelectValue placeholder="Select value" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="NONE">-- Not Set --</SelectItem>
+                          <SelectItem value="TRUE">TRUE</SelectItem>
+                          <SelectItem value="FALSE">FALSE</SelectItem>
+                        </SelectContent>
+                      </Select>
                     </div>
                   </div>
                 </CardContent>
