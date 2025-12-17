@@ -10,6 +10,46 @@ import { getOptimizedImageUrl } from "@/lib/image-utils"
 import { ImageWithLoading } from "@/components/ui/image-with-loading"
 import { fieldMapping } from '@/lib/database/products'
 
+const MARKUP_PERCENTAGE_DEFAULT = 30 // 30% default markup
+
+const parseCostValue = (value) => {
+  if (value === null || value === undefined) return 0
+  if (typeof value === 'number') {
+    return Number.isFinite(value) ? value : 0
+  }
+  if (typeof value !== 'string') return 0
+  const cleaned = value.replace(/[^\d.]/g, '')
+  const parsed = parseFloat(cleaned)
+  return Number.isFinite(parsed) ? parsed : 0
+}
+
+const formatCurrency = (value) => {
+  const numeric = Number.isFinite(value) ? value : 0
+  return `$${numeric.toFixed(2)}`
+}
+
+const calculateBasePriceWithMarkup = (product) => {
+  // Get base cost
+  const baseCost = parseCostValue(product.cost_china_ddp_usa ?? product.cost_thailand_vietnam ?? 0)
+  
+  // Get markup percentage
+  const productMarkup = product.markup_percentage
+  let markupPercentage = MARKUP_PERCENTAGE_DEFAULT
+  if (productMarkup !== null && productMarkup !== undefined) {
+    const parsed = typeof productMarkup === 'number' 
+      ? productMarkup 
+      : parseFloat(productMarkup)
+    if (Number.isFinite(parsed) && parsed > 0) {
+      markupPercentage = parsed
+    }
+  }
+  
+  // Apply markup to base cost
+  const baseCostWithMarkup = baseCost * (1 + markupPercentage / 100)
+  
+  return baseCostWithMarkup
+}
+
 /**
  * @deprecated This component was previously used for step-by-step product filtering.
  * The filtering system has been replaced with ProductFilterModal.
@@ -99,14 +139,18 @@ export function OptionSelector({
       const normalizedTitle = norm(product[title]);
       if (product.model_number) {
         if (!map[normalizedTitle]) {
-          map[normalizedTitle] = new Set();
+          map[normalizedTitle] = [];
         }
-        map[normalizedTitle].add(product.model_number);
+        // Check if this model number already exists
+        const existingModel = map[normalizedTitle].find(m => m.modelNumber === product.model_number);
+        if (!existingModel) {
+          const price = calculateBasePriceWithMarkup(product);
+          map[normalizedTitle].push({
+            modelNumber: product.model_number,
+            price: price
+          });
+        }
       }
-    });
-    // Convert sets to arrays
-    Object.keys(map).forEach(key => {
-      map[key] = Array.from(map[key]);
     });
     return map;
   }, [products, title]);
@@ -198,21 +242,52 @@ export function OptionSelector({
 
                 {/* Product Image */}
                 {productImage && (
-                  <div className="relative w-full h-24 mb-2 rounded-lg overflow-hidden">
-                    <ImageWithLoading
-                      src={getOptimizedImageUrl(productImage)}
-                      alt={`${value} example`}
-                      className="w-full h-full object-contain"
-                      containerClassName="w-full h-full rounded-lg"
-                      loadingClassName="rounded-lg"
-                    />
-                    <div className={`
-                      absolute inset-0 transition-opacity duration-300 pointer-events-none
-                      ${isSelected
-                        ? 'bg-blue-500/20'
-                        : 'bg-black/0 group-hover:bg-black/10'
-                      }
-                    `} />
+                  <div className="relative w-full mb-2">
+                    <div className="relative w-full h-24 rounded-lg overflow-hidden">
+                      <ImageWithLoading
+                        src={getOptimizedImageUrl(productImage)}
+                        alt={`${value} example`}
+                        className="w-full h-full object-contain"
+                        containerClassName="w-full h-full rounded-lg"
+                        loadingClassName="rounded-lg"
+                      />
+                      <div className={`
+                        absolute inset-0 transition-opacity duration-300 pointer-events-none
+                        ${isSelected
+                          ? 'bg-blue-500/20'
+                          : 'bg-black/0 group-hover:bg-black/10'
+                        }
+                      `} />
+                    </div>
+                    
+                    {/* Model Numbers with Prices below image */}
+                    {modelNumbers.length > 0 && (
+                      <div className={`
+                        mt-2 space-y-1
+                        ${isSelected ? 'text-white/90' : 'text-foreground'}
+                      `}>
+                        {modelNumbers.map((modelData, idx) => (
+                          <div
+                            key={idx}
+                            className={`
+                              text-xs flex flex-col items-center gap-1
+                              ${isSelected ? 'text-white/90' : 'text-muted-foreground'}
+                            `}
+                          >
+                            <span className="font-medium">{modelData.modelNumber}</span>
+                            <span className={`
+                              text-xs
+                              ${isSelected ? 'text-white/80' : 'text-muted-foreground'}
+                            `}>
+                              Base price: <span className={`
+                                font-semibold
+                                ${isSelected ? 'text-white' : 'text-primary'}
+                              `}>{formatCurrency(modelData.price)}</span>
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    )}
                   </div>
                 )}
 
@@ -238,41 +313,33 @@ export function OptionSelector({
                     {value === 'N/A' ? 'Not Specified' : value}
                   </div>
 
-                  {/* Model Numbers */}
-                  {modelNumbers.length > 0 && (
+                  {/* Model Numbers (only show if no image, since they're shown below image when image exists) */}
+                  {!productImage && modelNumbers.length > 0 && (
                     <div className={`
                       text-xs leading-relaxed
                       ${isSelected ? 'text-white/80' : 'text-muted-foreground'}
                     `}>
-                      <div className="flex flex-wrap gap-1 justify-center">
-                        {modelNumbers.slice(0, 2).map((modelNumber, idx) => (
-                          <span
+                      <div className="space-y-1">
+                        {modelNumbers.map((modelData, idx) => (
+                          <div
                             key={idx}
                             className={`
-                              px-2 py-1 rounded-md
-                              ${isSelected
-                                ? 'bg-white/20 text-white'
-                                : 'bg-muted text-muted-foreground'
-                              }
+                              flex flex-col items-center gap-1
+                              ${isSelected ? 'text-white/90' : 'text-muted-foreground'}
                             `}
                           >
-                            {modelNumber}
-                          </span>
+                            <span className="font-medium">{modelData.modelNumber}</span>
+                            <span className={`
+                              text-xs
+                              ${isSelected ? 'text-white/80' : 'text-muted-foreground'}
+                            `}>
+                              Base price: <span className={`
+                                font-semibold
+                                ${isSelected ? 'text-white' : 'text-primary'}
+                              `}>{formatCurrency(modelData.price)}</span>
+                            </span>
+                          </div>
                         ))}
-                        {modelNumbers.length > 2 && (
-                          <span
-                            className={`
-                              px-2 py-1 rounded-md text-xs
-                              ${isSelected
-                                ? 'bg-white/10 text-white/60'
-                                : 'bg-muted/50 text-muted-foreground/60'
-                              }
-                            `}
-                            title={`And ${modelNumbers.length - 2} more model${modelNumbers.length - 2 > 1 ? 's' : ''}`}
-                          >
-                            +{modelNumbers.length - 2}
-                          </span>
-                        )}
                       </div>
                     </div>
                   )}
