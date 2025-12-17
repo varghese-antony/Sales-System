@@ -276,7 +276,7 @@ export function ProductDetails({ product, onBack }) {
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           {/* Left Column - Image & Key Specs */}
-          <div className="lg:col-span-1 space-y-6">
+          <div className="lg:col-span-1 space-y-6 order-2 lg:order-1">
             {/* Product Image - Always show */}
             <Card className="overflow-hidden">
               <CardContent className="p-0">
@@ -377,7 +377,7 @@ export function ProductDetails({ product, onBack }) {
           </div>
 
           {/* Right Column - Detailed Specs */}
-          <div className="lg:col-span-2 space-y-6">
+          <div className="lg:col-span-2 space-y-6 order-1 lg:order-2">
             {/* Add-on Pricing Section - Top */}
             {hasAddonData && groupedKeys.addons !== undefined && (
               <motion.div
@@ -388,7 +388,7 @@ export function ProductDetails({ product, onBack }) {
                 <Card>
                   <CardHeader className="pb-3">
                     <CardTitle className="text-lg flex items-center gap-2">
-                      {getKeyIcon('addons')}
+                      {getKeyIcon('addons')} 
                       {categoryTitles.addons}
                       <Badge variant="outline" className="ml-auto">
                         {addonCostData.entries.length} specs
