@@ -378,22 +378,25 @@ export function ProductDetails({ product, onBack }) {
 
           {/* Right Column - Detailed Specs */}
           <div className="lg:col-span-2 space-y-6">
-            <h2 className="text-xl font-semibold">Complete Specifications</h2>
-            
-            {Object.entries(groupedKeys).map(([category, keys]) => (
-              <Card key={category}>
-                <CardHeader className="pb-3">
-                  <CardTitle className="text-lg flex items-center gap-2">
-                    {getKeyIcon(keys[0] || (category === 'addons' ? 'addons' : ''))}
-                    {categoryTitles[category]}
-                    <Badge variant="outline" className="ml-auto">
-                      {category === 'addons' ? addonCostData.entries.length : keys.length} specs
-                    </Badge>
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  {category === 'addons' && (
-                    <div className="space-y-3 mb-4">
+            {/* Add-on Pricing Section - Top */}
+            {hasAddonData && groupedKeys.addons !== undefined && (
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.1 }}
+              >
+                <Card>
+                  <CardHeader className="pb-3">
+                    <CardTitle className="text-lg flex items-center gap-2">
+                      {getKeyIcon('addons')}
+                      {categoryTitles.addons}
+                      <Badge variant="outline" className="ml-auto">
+                        {addonCostData.entries.length} specs
+                      </Badge>
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="space-y-3">
                       <div className="flex flex-wrap gap-2">
                         <Badge variant="outline">Base: {formatCurrency(baseCost)}</Badge>
                         <Badge variant="outline">Add-ons: {formatCurrency(addonCostData.totalAddons)}</Badge>
@@ -408,28 +411,45 @@ export function ProductDetails({ product, onBack }) {
                         ))}
                       </div>
                     </div>
-                  )}
+                  </CardContent>
+                </Card>
+              </motion.div>
+            )}
 
-                  {(category !== 'addons' || keys.length > 0) && (
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      {keys.map((key) => (
-                        <div key={key} className="flex flex-col space-y-1">
-                          <span className="text-sm font-medium text-muted-foreground">{formatFieldName(key)}</span>
-                          <span className="text-sm font-semibold">
-                            {product[key] !== null && product[key] !== undefined && product[key] !== '' ? (
-                              typeof product[key] === 'boolean' ? (
-                                product[key] ? 'Yes' : 'No'
-                              ) : (
-                                product[key].toString()
-                              )
+            <h2 className="text-xl font-semibold">Complete Specifications</h2>
+            
+            {Object.entries(groupedKeys)
+              .filter(([category]) => category !== 'addons') // Exclude addons from here since it's shown at top
+              .map(([category, keys]) => (
+              <Card key={category}>
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-lg flex items-center gap-2">
+                    {getKeyIcon(keys[0] || '')}
+                    {categoryTitles[category]}
+                    <Badge variant="outline" className="ml-auto">
+                      {keys.length} specs
+                    </Badge>
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {keys.map((key) => (
+                      <div key={key} className="flex flex-col space-y-1">
+                        <span className="text-sm font-medium text-muted-foreground">{formatFieldName(key)}</span>
+                        <span className="text-sm font-semibold">
+                          {product[key] !== null && product[key] !== undefined && product[key] !== '' ? (
+                            typeof product[key] === 'boolean' ? (
+                              product[key] ? 'Yes' : 'No'
                             ) : (
-                              <span className="text-muted-foreground italic">Not specified</span>
-                            )}
-                          </span>
-                        </div>
-                      ))}
-                    </div>
-                  )}
+                              product[key].toString()
+                            )
+                          ) : (
+                            <span className="text-muted-foreground italic">Not specified</span>
+                          )}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
                 </CardContent>
               </Card>
             ))}
