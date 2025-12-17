@@ -13,7 +13,7 @@ import { getOptimizedImageUrl } from "@/lib/image-utils"
 import { ImageWithLoading } from "@/components/ui/image-with-loading"
 import { fieldMapping } from '@/lib/database/products'
 
-const MARKUP_FLAT = 10
+const MARKUP_PERCENTAGE_DEFAULT = 10 // 10% default markup
 
 const addonCostFields = [
   { key: 'sensor_cost', label: 'Sensor' },
@@ -77,10 +77,26 @@ export function ProductDetails({ product, onBack }) {
     return { entries, totalAddons }
   }, [product])
 
-  const totalCostWithAddons = useMemo(
-    () => baseCost + addonCostData.totalAddons + MARKUP_FLAT,
-    [baseCost, addonCostData.totalAddons]
-  )
+  // Get markup percentage: use product.markup_percentage if it exists and is > 0, otherwise use default 10%
+  const markupPercentage = useMemo(() => {
+    const productMarkup = product.markup_percentage
+    if (productMarkup !== null && productMarkup !== undefined) {
+      const parsed = typeof productMarkup === 'number' 
+        ? productMarkup 
+        : parseFloat(productMarkup)
+      if (Number.isFinite(parsed) && parsed > 0) {
+        return parsed
+      }
+    }
+    return MARKUP_PERCENTAGE_DEFAULT
+  }, [product.markup_percentage])
+
+  // Calculate total cost: baseCost + addons, then add markup as percentage of total cost
+  const totalCostWithAddons = useMemo(() => {
+    const totalCost = baseCost + addonCostData.totalAddons
+    const markupAmount = totalCost * (markupPercentage / 100)
+    return totalCost + markupAmount
+  }, [baseCost, addonCostData.totalAddons, markupPercentage])
 
   const hasAddonData = useMemo(
     () => baseCost > 0 || addonCostData.entries.some((entry) => entry.value > 0),
@@ -139,6 +155,7 @@ export function ProductDetails({ product, onBack }) {
     'created_at', 
     'updated_at', 
     'price_per_piece',
+    'markup_percentage', // Hide markup percentage from UI
     // Hide all addon costs (only show prices)
     'sensor_cost',
     'remote_control_bluetooth_cost',
@@ -259,7 +276,7 @@ export function ProductDetails({ product, onBack }) {
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           {/* Left Column - Image & Key Specs */}
-          <div className="lg:col-span-1 space-y-6">
+          <div className="lg:col-span-1 space-y-6 order-2 lg:order-1">
             {/* Product Image - Always show */}
             <Card className="overflow-hidden">
               <CardContent className="p-0">
@@ -360,27 +377,29 @@ export function ProductDetails({ product, onBack }) {
           </div>
 
           {/* Right Column - Detailed Specs */}
-          <div className="lg:col-span-2 space-y-6">
-            <h2 className="text-xl font-semibold">Complete Specifications</h2>
-            
-            {Object.entries(groupedKeys).map(([category, keys]) => (
-              <Card key={category}>
-                <CardHeader className="pb-3">
-                  <CardTitle className="text-lg flex items-center gap-2">
-                    {getKeyIcon(keys[0] || (category === 'addons' ? 'addons' : ''))}
-                    {categoryTitles[category]}
-                    <Badge variant="outline" className="ml-auto">
-                      {category === 'addons' ? addonCostData.entries.length : keys.length} specs
-                    </Badge>
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  {category === 'addons' && (
-                    <div className="space-y-3 mb-4">
+          <div className="lg:col-span-2 space-y-6 order-1 lg:order-2">
+            {/* Add-on Pricing Section - Top */}
+            {hasAddonData && groupedKeys.addons !== undefined && (
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.1 }}
+              >
+                <Card>
+                  <CardHeader className="pb-3">
+                    <CardTitle className="text-lg flex items-center gap-2">
+                      {getKeyIcon('addons')} 
+                      {categoryTitles.addons}
+                      <Badge variant="outline" className="ml-auto">
+                        {addonCostData.entries.length} specs
+                      </Badge>
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="space-y-3">
                       <div className="flex flex-wrap gap-2">
                         <Badge variant="outline">Base: {formatCurrency(baseCost)}</Badge>
                         <Badge variant="outline">Add-ons: {formatCurrency(addonCostData.totalAddons)}</Badge>
-                        <Badge variant="outline">Markup: {formatCurrency(MARKUP_FLAT)}</Badge>
                         <Badge variant="default">Total: {formatCurrency(totalCostWithAddons)}</Badge>
                       </div>
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
@@ -392,28 +411,45 @@ export function ProductDetails({ product, onBack }) {
                         ))}
                       </div>
                     </div>
-                  )}
+                  </CardContent>
+                </Card>
+              </motion.div>
+            )}
 
-                  {(category !== 'addons' || keys.length > 0) && (
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      {keys.map((key) => (
-                        <div key={key} className="flex flex-col space-y-1">
-                          <span className="text-sm font-medium text-muted-foreground">{formatFieldName(key)}</span>
-                          <span className="text-sm font-semibold">
-                            {product[key] !== null && product[key] !== undefined && product[key] !== '' ? (
-                              typeof product[key] === 'boolean' ? (
-                                product[key] ? 'Yes' : 'No'
-                              ) : (
-                                product[key].toString()
-                              )
+            <h2 className="text-xl font-semibold">Complete Specifications</h2>
+            
+            {Object.entries(groupedKeys)
+              .filter(([category]) => category !== 'addons') // Exclude addons from here since it's shown at top
+              .map(([category, keys]) => (
+              <Card key={category}>
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-lg flex items-center gap-2">
+                    {getKeyIcon(keys[0] || '')}
+                    {categoryTitles[category]}
+                    <Badge variant="outline" className="ml-auto">
+                      {keys.length} specs
+                    </Badge>
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {keys.map((key) => (
+                      <div key={key} className="flex flex-col space-y-1">
+                        <span className="text-sm font-medium text-muted-foreground">{formatFieldName(key)}</span>
+                        <span className="text-sm font-semibold">
+                          {product[key] !== null && product[key] !== undefined && product[key] !== '' ? (
+                            typeof product[key] === 'boolean' ? (
+                              product[key] ? 'Yes' : 'No'
                             ) : (
-                              <span className="text-muted-foreground italic">Not specified</span>
-                            )}
-                          </span>
-                        </div>
-                      ))}
-                    </div>
-                  )}
+                              product[key].toString()
+                            )
+                          ) : (
+                            <span className="text-muted-foreground italic">Not specified</span>
+                          )}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
                 </CardContent>
               </Card>
             ))}

@@ -93,7 +93,8 @@ export const V2_SCHEMA = {
     efficacy_lumen_per_w: { min: 0, max: 1000, decimals: 2 },
     price_per_piece: { min: 0, max: 1000000, decimals: 2 },
     cost_china_ddp_usa: { min: 0, max: 1000000, decimals: 2 },
-    cost_thailand_vietnam: { min: 0, max: 1000000, decimals: 2 }
+    cost_thailand_vietnam: { min: 0, max: 1000000, decimals: 2 },
+    markup_percentage: { min: 0, max: 100, decimals: 2 }
   },
   
   // Fields that should be URLs

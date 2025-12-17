@@ -25,6 +25,12 @@ export default function OutdoorProductPage({ params }) {
 
   const productName = slugToProductName(slug)
 
+  const desiredKeys = [
+    'size', 'power_w', 'voltage', 'cct', 'cri_ra', 'lumen', 'efficacy_lumen_per_w',
+    'dimming_type', 'material_finish', 'mounting', 'installation_kits', 
+    'adjustment_dial', 'certifications', 'ip_rating'
+  ]
+
   useEffect(() => {
     const resolveParams = async () => {
       const resolvedParams = await params
@@ -32,12 +38,6 @@ export default function OutdoorProductPage({ params }) {
     }
     resolveParams()
   }, [params])
-
-  const desiredKeys = [
-    'size', 'power_w', 'voltage', 'cct', 'cri_ra', 'lumen', 'efficacy_lumen_per_w',
-    'dimming_type', 'material_finish', 'mounting', 'installation_kits', 
-    'adjustment_dial', 'certifications', 'ip_rating'
-  ]
 
   const handleSensorSelection = async (selection) => {
     setSensorSelection(selection)
@@ -69,11 +69,12 @@ export default function OutdoorProductPage({ params }) {
       if (selection.sensorType && selection.sensorType !== 'None') {
         // If sensorType is "PIR, Microwave" or similar, set pir_microwave to true
         filters.pirMicrowave = true // Maps to 'pir_microwave' column via fieldMappingV2
-      } else {
+      }else{
         filters.pirMicrowave = false
       }
 
-      // Only add optional features if they are explicitly true
+      // Map boolean features to their database column names using fieldMappingV2
+      // These are already booleans, so pass them as true/false
       if (selection.remoteControl === true) {
         filters.remoteControl = true // Maps to 'remote_control_bluetooth' column
       }else{
@@ -153,6 +154,7 @@ export default function OutdoorProductPage({ params }) {
       if (fetchError) throw new Error(fetchError)
 
       if (data && data.length === 1) {
+        // If only one product matches all filters, show it
         setFinalProduct(data[0])
       } else if (data && data.length > 0) {
         // Check if we have more filters to apply
