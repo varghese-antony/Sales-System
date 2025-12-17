@@ -13,7 +13,7 @@ import { useCart } from "@/contexts/CartContext"
 import { Input } from "@/components/ui/input"
 import Link from "next/link"
 
-const MARKUP_FLAT = 10
+const MARKUP_PERCENTAGE_DEFAULT = 10 // 10% default markup
 
 const addonCostFields = [
   { key: 'sensor_cost', label: 'Sensor' },
@@ -48,13 +48,27 @@ const calculateItemPrice = (item) => {
     return sum + parseCostValue(item[key])
   }, 0)
   
-  // Total price per unit
-  const pricePerUnit = baseCost + totalAddons + MARKUP_FLAT
+  // Get markup percentage: use item.markup_percentage if it exists and is > 0, otherwise use default 10%
+  const productMarkup = item.markup_percentage
+  let markupPercentage = MARKUP_PERCENTAGE_DEFAULT
+  if (productMarkup !== null && productMarkup !== undefined) {
+    const parsed = typeof productMarkup === 'number' 
+      ? productMarkup 
+      : parseFloat(productMarkup)
+    if (Number.isFinite(parsed) && parsed > 0) {
+      markupPercentage = parsed
+    }
+  }
+  
+  // Calculate total cost: baseCost + addons, then add markup as percentage of total cost
+  const totalCost = baseCost + totalAddons
+  const markupAmount = totalCost * (markupPercentage / 100)
+  const pricePerUnit = totalCost + markupAmount
   
   return {
     baseCost,
     totalAddons,
-    markup: MARKUP_FLAT,
+    markupPercentage, // Keep for reference but don't display
     pricePerUnit,
     hasPrice: baseCost > 0 || totalAddons > 0
   }
@@ -269,9 +283,6 @@ export default function CartPage() {
                                     Add-ons: {formatCurrency(priceData.totalAddons)}
                                   </Badge>
                                 )}
-                                <Badge variant="outline" className="text-xs">
-                                  Markup: {formatCurrency(priceData.markup)}
-                                </Badge>
                                 <Badge variant="default" className="text-xs">
                                   Unit: {formatCurrency(priceData.pricePerUnit)}
                                 </Badge>

@@ -213,6 +213,7 @@ const V2_ALLOWED_COLUMNS = new Set([
   'cost_thailand_vietnam',
   'photo',
   'ip_rating',
+  'markup_percentage',
   'sensor_cost',
   'sensor_price',
   'remote_control_bluetooth_cost',
