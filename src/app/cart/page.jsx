@@ -14,6 +14,7 @@ import { Input } from "@/components/ui/input"
 import Link from "next/link"
 
 const MARKUP_PERCENTAGE_DEFAULT = 30 // 30% default markup
+const TARIFF_PERCENTAGE = 35 // 35% global tariff
 
 const addonCostFields = [
   { key: 'sensor_cost', label: 'Sensor' },
@@ -154,6 +155,16 @@ export default function CartPage() {
       return total + (priceData.pricePerUnit * item.quantity)
     }, 0)
   }, [items])
+
+  // Calculate tariff amount (35% of cart total)
+  const tariffAmount = useMemo(() => {
+    return cartTotal * (TARIFF_PERCENTAGE / 100)
+  }, [cartTotal])
+
+  // Calculate final total (cart total + tariff)
+  const finalTotal = useMemo(() => {
+    return cartTotal + tariffAmount
+  }, [cartTotal, tariffAmount])
 
   // Calculate price breakdown for each item
   const getItemPriceData = (item) => {
@@ -530,13 +541,29 @@ export default function CartPage() {
                   {/* Cart Total */}
                   <div className="flex justify-between items-center py-3 border-b">
                     <span className="text-lg font-semibold">Cart Total:</span>
-                    <span className="text-2xl font-bold text-primary">
+                    <span className="text-xl font-bold text-primary">
                       {formatCurrency(cartTotal)}
                     </span>
                   </div>
                   
+                  {/* Tariff */}
+                  <div className="flex justify-between items-center py-2 border-b">
+                    <span className="text-sm font-medium text-muted-foreground">Tariff:</span>
+                    <span className="text-sm font-semibold">
+                      {formatCurrency(tariffAmount)}
+                    </span>
+                  </div>
+                  
+                  {/* Final Total */}
+                  <div className="flex justify-between items-center py-3 border-t-2 border-primary/20">
+                    <span className="text-lg font-semibold">Total:</span>
+                    <span className="text-2xl font-bold text-primary">
+                      {formatCurrency(finalTotal)}
+                    </span>
+                  </div>
+                  
                   {/* Item Count */}
-                  <div className="flex justify-between items-center text-sm text-muted-foreground">
+                  <div className="flex justify-between items-center text-sm text-muted-foreground pt-2">
                     <span>Total Items:</span>
                     <span>{getTotalItems()} {getTotalItems() === 1 ? 'item' : 'items'}</span>
                   </div>
