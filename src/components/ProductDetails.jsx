@@ -13,7 +13,7 @@ import { getOptimizedImageUrl } from "@/lib/image-utils"
 import { ImageWithLoading } from "@/components/ui/image-with-loading"
 import { fieldMapping } from '@/lib/database/products'
 
-const MARKUP_PERCENTAGE_DEFAULT = 10 // 10% default markup
+const MARKUP_PERCENTAGE_DEFAULT = 30 // 30% default markup
 
 const addonCostFields = [
   { key: 'sensor_cost', label: 'Sensor' },
@@ -77,7 +77,7 @@ export function ProductDetails({ product, onBack }) {
     return { entries, totalAddons }
   }, [product])
 
-  // Get markup percentage: use product.markup_percentage if it exists and is > 0, otherwise use default 10%
+  // Get markup percentage: use product.markup_percentage if it exists and is > 0, otherwise use default 30%
   const markupPercentage = useMemo(() => {
     const productMarkup = product.markup_percentage
     if (productMarkup !== null && productMarkup !== undefined) {
@@ -91,12 +91,37 @@ export function ProductDetails({ product, onBack }) {
     return MARKUP_PERCENTAGE_DEFAULT
   }, [product.markup_percentage])
 
-  // Calculate total cost: baseCost + addons, then add markup as percentage of total cost
+  // Calculate markup breakdown for base cost
+  const baseCostBreakdown = useMemo(() => {
+    const markupAmount = baseCost * (markupPercentage / 100)
+    const finalPrice = baseCost + markupAmount
+    return {
+      original: baseCost,
+      markup: markupAmount,
+      final: finalPrice
+    }
+  }, [baseCost, markupPercentage])
+
+  // Calculate markup breakdown for each addon
+  const addonBreakdowns = useMemo(() => {
+    return addonCostData.entries.map(({ key, label, value }) => {
+      const markupAmount = value * (markupPercentage / 100)
+      const finalPrice = value + markupAmount
+      return {
+        key,
+        label,
+        original: value,
+        markup: markupAmount,
+        final: finalPrice
+      }
+    })
+  }, [addonCostData.entries, markupPercentage])
+
+  // Calculate total cost: apply markup percentage to each item separately (base price and each addon), then sum
   const totalCostWithAddons = useMemo(() => {
-    const totalCost = baseCost + addonCostData.totalAddons
-    const markupAmount = totalCost * (markupPercentage / 100)
-    return totalCost + markupAmount
-  }, [baseCost, addonCostData.totalAddons, markupPercentage])
+    // Sum all marked-up items
+    return baseCostBreakdown.final + addonBreakdowns.reduce((sum, addon) => sum + addon.final, 0)
+  }, [baseCostBreakdown.final, addonBreakdowns])
 
   const hasAddonData = useMemo(
     () => baseCost > 0 || addonCostData.entries.some((entry) => entry.value > 0),
@@ -398,17 +423,28 @@ export function ProductDetails({ product, onBack }) {
                   <CardContent>
                     <div className="space-y-3">
                       <div className="flex flex-wrap gap-2">
-                        <Badge variant="outline">Base: {formatCurrency(baseCost)}</Badge>
-                        <Badge variant="outline">Add-ons: {formatCurrency(addonCostData.totalAddons)}</Badge>
                         <Badge variant="default">Total: {formatCurrency(totalCostWithAddons)}</Badge>
                       </div>
+                      
+                      {/* Base Price */}
+                      {baseCostBreakdown.original > 0 && (
+                        <div className="flex items-center justify-between rounded-lg border border-border/60 bg-muted/40 px-3 py-2">
+                          <span className="text-sm font-medium text-muted-foreground">Base Price</span>
+                          <span className="text-sm font-semibold">{formatCurrency(baseCostBreakdown.final)}</span>
+                        </div>
+                      )}
+                      
+                      {/* Addon Breakdowns */}
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                        {addonCostData.entries.map(({ key, label, value }) => (
-                          <div key={key} className="flex items-center justify-between rounded-lg border border-border/60 bg-muted/40 px-3 py-2">
-                            <span className="text-sm font-medium text-muted-foreground">{label}</span>
-                            <span className="text-sm font-semibold">{formatCurrency(value)}</span>
-                          </div>
-                        ))}
+                        {addonBreakdowns.map(({ key, label, original, final }) => {
+                          if (original === 0) return null
+                          return (
+                            <div key={key} className="flex items-center justify-between rounded-lg border border-border/60 bg-muted/40 px-3 py-2">
+                              <span className="text-sm font-medium text-muted-foreground">{label}</span>
+                              <span className="text-sm font-semibold">{formatCurrency(final)}</span>
+                            </div>
+                          )
+                        })}
                       </div>
                     </div>
                   </CardContent>

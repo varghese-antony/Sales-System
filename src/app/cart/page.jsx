@@ -13,7 +13,7 @@ import { useCart } from "@/contexts/CartContext"
 import { Input } from "@/components/ui/input"
 import Link from "next/link"
 
-const MARKUP_PERCENTAGE_DEFAULT = 10 // 10% default markup
+const MARKUP_PERCENTAGE_DEFAULT = 30 // 30% default markup
 
 const addonCostFields = [
   { key: 'sensor_cost', label: 'Sensor' },
@@ -48,7 +48,7 @@ const calculateItemPrice = (item) => {
     return sum + parseCostValue(item[key])
   }, 0)
   
-  // Get markup percentage: use item.markup_percentage if it exists and is > 0, otherwise use default 10%
+  // Get markup percentage: use item.markup_percentage if it exists and is > 0, otherwise use default 30%
   const productMarkup = item.markup_percentage
   let markupPercentage = MARKUP_PERCENTAGE_DEFAULT
   if (productMarkup !== null && productMarkup !== undefined) {
@@ -60,10 +60,19 @@ const calculateItemPrice = (item) => {
     }
   }
   
-  // Calculate total cost: baseCost + addons, then add markup as percentage of total cost
-  const totalCost = baseCost + totalAddons
-  const markupAmount = totalCost * (markupPercentage / 100)
-  const pricePerUnit = totalCost + markupAmount
+  // Calculate total cost: apply markup percentage to each item separately (base price and each addon), then sum
+  // Apply markup to base cost
+  const baseCostWithMarkup = baseCost * (1 + markupPercentage / 100)
+  
+  // Apply markup to each addon separately, then sum
+  const addonsWithMarkup = addonCostFields.reduce((sum, { key }) => {
+    const addonCost = parseCostValue(item[key])
+    const addonWithMarkup = addonCost * (1 + markupPercentage / 100)
+    return sum + addonWithMarkup
+  }, 0)
+  
+  // Sum all marked-up items
+  const pricePerUnit = baseCostWithMarkup + addonsWithMarkup
   
   return {
     baseCost,
@@ -272,21 +281,6 @@ export default function CartPage() {
                           }
                           return (
                             <div className="mb-3 space-y-1">
-                              <div className="flex flex-wrap gap-2 text-xs">
-                                {priceData.baseCost > 0 && (
-                                  <Badge variant="outline" className="text-xs">
-                                    Base: {formatCurrency(priceData.baseCost)}
-                                  </Badge>
-                                )}
-                                {priceData.totalAddons > 0 && (
-                                  <Badge variant="outline" className="text-xs">
-                                    Add-ons: {formatCurrency(priceData.totalAddons)}
-                                  </Badge>
-                                )}
-                                <Badge variant="default" className="text-xs">
-                                  Unit: {formatCurrency(priceData.pricePerUnit)}
-                                </Badge>
-                              </div>
                               <div className="text-sm font-semibold text-primary">
                                 Total ({item.quantity} {item.quantity === 1 ? 'item' : 'items'}): {formatCurrency(priceData.pricePerUnit * item.quantity)}
                               </div>
