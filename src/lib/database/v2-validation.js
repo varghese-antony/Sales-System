@@ -24,8 +24,8 @@ const fieldMappingV2 = {
   sensorsAndControls: 'sensors_and_controls',
   occupancy: 'occupancy',
   biLevel: 'bi_level',
-  pirMicrowave: 'pir_microwave',
-  sensorMicrowaveBluetooth: 'pir_microwave',
+  pir: 'pir',
+  microwave: 'microwave',
   remoteControl: 'remote_control_bluetooth',
   pluginSensor: 'plugin_sensor',
   emergencyBackupBattery: 'emergency_backup_battery',
@@ -67,7 +67,6 @@ export const V2_SCHEMA = {
     sensors_and_controls: { maxLength: 100 },
     occupancy: { maxLength: 50 },
     bi_level: { maxLength: 50 },
-    pir_microwave: { maxLength: 100 },
     remote_control_bluetooth: { maxLength: 50 },
     plugin_sensor: { maxLength: 50 },
     emergency_backup_battery: { maxLength: 50 },
@@ -740,13 +739,14 @@ export function validateFiltersV2(filters) {
     }
     
     // Validate the field exists in schema
-    // Boolean fields from SQL schema: sensors_and_controls, occupancy, bi_level, pir_microwave,
+    // Boolean fields from SQL schema: sensors_and_controls, occupancy, bi_level, pir, microwave,
     // remote_control_bluetooth, plugin_sensor, emergency_backup_battery, junction_cover
     const booleanFields = [
       'sensors_and_controls',
       'occupancy',
       'bi_level',
-      'pir_microwave',
+      'pir',
+      'microwave',
       'remote_control_bluetooth',
       'plugin_sensor',
       'emergency_backup_battery',

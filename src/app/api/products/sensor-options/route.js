@@ -20,7 +20,7 @@ export async function GET(request) {
     // Include products with NULL sensors (means "None" - no sensors)
     const { data, error } = await supabase
       .from(table)
-      .select('sensors_and_controls,occupancy,bi_level, pir_microwave, remote_control_bluetooth, emergency_backup_battery, plugin_sensor')
+      .select('sensors_and_controls,occupancy,bi_level, pir, microwave, remote_control_bluetooth, emergency_backup_battery, plugin_sensor')
       .eq('product_name', productName)
 
     if (error) {
@@ -73,8 +73,12 @@ export async function GET(request) {
       }
 
       // Only add sensor type if it exists (NULL means no sensor)
-      if (row.pir_microwave) {
-        sensorOptionsMap[controlType].sensorTypes.add("PIR, Microwave")
+      // Check pir and microwave separately
+      if (row.pir === true) {
+        sensorOptionsMap[controlType].sensorTypes.add("PIR")
+      }
+      if (row.microwave === true) {
+        sensorOptionsMap[controlType].sensorTypes.add("Microwave")
       } 
 
       // Track if any variant has these features

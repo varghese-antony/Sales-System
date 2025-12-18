@@ -39,7 +39,7 @@ const formatCurrency = (value) => {
   return `$${numeric.toFixed(2)}`
 }
 
-export function ProductDetails({ product, onBack }) {
+export function ProductDetails({ product, onBack, sensorSelection = null }) {
   const { addToCart, items } = useCart()
   const [isAdded, setIsAdded] = useState(false)
   const [quantity, setQuantity] = useState(1)
@@ -155,9 +155,57 @@ export function ProductDetails({ product, onBack }) {
   
   const isInCart = items.some(item => (item.id || item.ID) === (product.id || product.ID))
   
+  // Transform product for cart: set pir/microwave based on user's selection and remove pir_microwave
+  const transformProductForCart = (productData) => {
+    const transformed = { ...productData }
+    
+    // Remove pir_microwave field (both snake_case and camelCase variants)
+    if ('pir_microwave' in transformed) {
+      delete transformed.pir_microwave
+    }
+    if ('pirMicrowave' in transformed) {
+      delete transformed.pirMicrowave
+    }
+    
+    // Use the sensorSelection prop to determine which sensor was selected
+    // This ensures we save what the user actually selected, not what's in the database
+    if (sensorSelection && sensorSelection.sensorType) {
+      if (sensorSelection.sensorType === 'PIR') {
+        transformed.pir = true
+        transformed.microwave = false
+      } else if (sensorSelection.sensorType === 'Microwave') {
+        transformed.pir = false
+        transformed.microwave = true
+      } else {
+        // For other sensor types (Bluetooth, Photo cell, None, etc.), set both to false
+        transformed.pir = false
+        transformed.microwave = false
+      }
+    } else {
+      // Fallback: if no sensorSelection provided, use product data
+      const pirValue = transformed.pir === true || transformed.pir === 'true' || transformed.pir === 1
+      const microwaveValue = transformed.microwave === true || transformed.microwave === 'true' || transformed.microwave === 1
+      
+      if (pirValue) {
+        transformed.pir = true
+        transformed.microwave = false
+      } else if (microwaveValue) {
+        transformed.pir = false
+        transformed.microwave = true
+      } else {
+        // If neither is explicitly true, ensure both are false
+        transformed.pir = false
+        transformed.microwave = false
+      }
+    }
+    
+    return transformed
+  }
+  
   const handleAddToCart = (selectedQuantity = quantity) => {
+    const transformedProduct = transformProductForCart(product)
     for (let i = 0; i < selectedQuantity; i++) {
-      addToCart(product)
+      addToCart(transformedProduct)
     }
     setIsAdded(true)
     setTimeout(() => setIsAdded(false), 2000)
@@ -188,7 +236,35 @@ export function ProductDetails({ product, onBack }) {
     'emergency_backup_battery_cost',
     'installation_kits_cost'
   ]
-  const productKeys = Object.keys(product).filter(key => !excludedKeys.includes(key))
+  // Create a display product with corrected pir/microwave values based on selection
+  const displayProduct = useMemo(() => {
+    const display = { ...product }
+    
+    // Ensure pir and microwave fields always exist in display
+    // If sensorSelection is provided, set pir and microwave based on selection
+    if (sensorSelection && sensorSelection.sensorType) {
+      if (sensorSelection.sensorType === 'PIR') {
+        display.pir = true
+        display.microwave = false
+      } else if (sensorSelection.sensorType === 'Microwave') {
+        display.pir = false
+        display.microwave = true
+      } else {
+        // For other sensor types, set both to false
+        display.pir = false
+        display.microwave = false
+      }
+    } else {
+      // If no sensorSelection, ensure both fields exist (use product values or default to false)
+      if (!('pir' in display)) display.pir = false
+      if (!('microwave' in display)) display.microwave = false
+    }
+    
+    return display
+  }, [product, sensorSelection])
+  
+  // Filter product keys (no longer need to filter out sensors)
+  const productKeys = Object.keys(displayProduct).filter(key => !excludedKeys.includes(key))
   
   // Key specifications to highlight
   const keySpecs = ['model_number', 'size', 'power_w', 'voltage', 'cct', 'lumen', 'material_finish']
@@ -207,7 +283,7 @@ export function ProductDetails({ product, onBack }) {
   const getKeyCategory = (key) => {
     const powerKeys = ['power_w', 'voltage', 'efficacy_lumen_per_w', 'lumen']
     const designKeys = ['model_number', 'size', 'material_finish', 'mounting', 'cct', 'cri_ra', 'sub_category', 'product_name', 'ip_rating']
-    const sensorKeys = ['sensors_and_controls', 'pir_microwave', 'remote_control_bluetooth', 'emergency_backup_battery', 'plugin_sensor']
+    const sensorKeys = ['sensors_and_controls', 'pir', 'microwave', 'remote_control_bluetooth', 'emergency_backup_battery', 'plugin_sensor']
     const featureKeys = ['dimming_type', 'junction_cover', 'adjustment_dial', 'installation_kits']
     const certKeys = ['certifications']
     // Only show prices to users, not costs (costs are in excludedKeys)
@@ -365,7 +441,7 @@ export function ProductDetails({ product, onBack }) {
                 {highlightedSpecs.map((key) => (
                   <div key={key} className="flex justify-between items-center py-2 border-b border-border/50 last:border-b-0">
                     <span className="text-sm font-medium text-muted-foreground">{formatFieldName(key)}</span>
-                    <span className="text-sm font-semibold">{product[key]}</span>
+                    <span className="text-sm font-semibold">{displayProduct[key]}</span>
                   </div>
                 ))}
               </CardContent>
@@ -473,11 +549,11 @@ export function ProductDetails({ product, onBack }) {
                       <div key={key} className="flex flex-col space-y-1">
                         <span className="text-sm font-medium text-muted-foreground">{formatFieldName(key)}</span>
                         <span className="text-sm font-semibold">
-                          {product[key] !== null && product[key] !== undefined && product[key] !== '' ? (
-                            typeof product[key] === 'boolean' ? (
-                              product[key] ? 'Yes' : 'No'
+                          {displayProduct[key] !== null && displayProduct[key] !== undefined && displayProduct[key] !== '' ? (
+                            typeof displayProduct[key] === 'boolean' ? (
+                              displayProduct[key] ? 'Yes' : 'No'
                             ) : (
-                              product[key].toString()
+                              displayProduct[key].toString()
                             )
                           ) : (
                             <span className="text-muted-foreground italic">Not specified</span>
