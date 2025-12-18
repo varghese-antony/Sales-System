@@ -70,9 +70,7 @@ export default function OutdoorProductPage({ params }) {
         // Set pir and microwave separately based on sensorType
         if (selection.sensorType === 'PIR') {
           filters.pir = true // Maps to 'pir' column via fieldMappingV2
-          filters.microwave = false // Maps to 'microwave' column via fieldMappingV2
         } else if (selection.sensorType === 'Microwave') {
-          filters.pir = false // Maps to 'pir' column via fieldMappingV2
           filters.microwave = true // Maps to 'microwave' column via fieldMappingV2
         } else {
           // For other sensor types (Bluetooth, Photo cell, etc.), set both to false
@@ -149,9 +147,7 @@ export default function OutdoorProductPage({ params }) {
         // Set pir and microwave separately based on sensorType
         if (sensorSelection.sensorType === 'PIR') {
           allFilters.pir = true // Maps to 'pir' column via fieldMappingV2
-          allFilters.microwave = false // Maps to 'microwave' column via fieldMappingV2
         } else if (sensorSelection.sensorType === 'Microwave') {
-          allFilters.pir = false // Maps to 'pir' column via fieldMappingV2
           allFilters.microwave = true // Maps to 'microwave' column via fieldMappingV2
         } else {
           // For other sensor types (Bluetooth, Photo cell, etc.), set both to false
