@@ -47,7 +47,8 @@ const BOOLEAN_VARIATION_FIELDS = [
   'sensorsAndControls',
   'occupancy',
   'biLevel',
-  'pirMicrowave',
+  'pir',
+  'microwave',
   'remoteControlBluetooth',
   'pluginSensor',
   'emergencyBackupBattery',
@@ -89,7 +90,8 @@ const INITIAL_STATE = {
   sensorsAndControls: '',
   occupancy: '',
   biLevel: '',
-  pirMicrowave: '',
+  pir: '',
+  microwave: '',
   remoteControlBluetooth: '',
   pluginSensor: '',
   emergencyBackupBattery: '',
@@ -610,8 +612,22 @@ export default function DataEntryPage() {
                     </div>
 
                     <div className="space-y-1.5 sm:space-y-2">
-                      <label htmlFor="pirMicrowave" className="text-xs sm:text-sm font-medium text-foreground">PIR / Microwave</label>
-                      <Select value={formState.pirMicrowave || 'NONE'} onValueChange={handleBooleanSelectChange('pirMicrowave')}>
+                      <label htmlFor="pir" className="text-xs sm:text-sm font-medium text-foreground">PIR</label>
+                      <Select value={formState.pir || 'NONE'} onValueChange={handleBooleanSelectChange('pir')}>
+                        <SelectTrigger className="bg-background border-border hover:border-primary/50 focus:border-primary dark:bg-background dark:border-border dark:hover:border-primary/50 dark:focus:border-primary">
+                          <SelectValue placeholder="Select value" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="NONE">-- Not Set --</SelectItem>
+                          <SelectItem value="TRUE">TRUE</SelectItem>
+                          <SelectItem value="FALSE">FALSE</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    <div className="space-y-1.5 sm:space-y-2">
+                      <label htmlFor="microwave" className="text-xs sm:text-sm font-medium text-foreground">Microwave</label>
+                      <Select value={formState.microwave || 'NONE'} onValueChange={handleBooleanSelectChange('microwave')}>
                         <SelectTrigger className="bg-background border-border hover:border-primary/50 focus:border-primary dark:bg-background dark:border-border dark:hover:border-primary/50 dark:focus:border-primary">
                           <SelectValue placeholder="Select value" />
                         </SelectTrigger>

@@ -512,6 +512,24 @@ export default function DataManagementPage() {
       sortable: true,
       render: (value) => value || '-'
     },
+    {
+      key: 'pir',
+      label: 'PIR',
+      sortable: true,
+      render: (value) => {
+        if (value === null || value === undefined) return '-';
+        return value ? 'Yes' : 'No';
+      }
+    },
+    {
+      key: 'microwave',
+      label: 'Microwave',
+      sortable: true,
+      render: (value) => {
+        if (value === null || value === undefined) return '-';
+        return value ? 'Yes' : 'No';
+      }
+    },
 
     // Boolean Features
     {
@@ -763,6 +781,8 @@ export default function DataManagementPage() {
       material_finish: 'Material Finish',
       sensors_and_controls: 'Sensors & Controls',
       pir_microwave: 'Sensor Type',
+      pir: 'PIR',
+      microwave: 'Microwave',
       emergency_backup_battery: 'Emergency Backup',
       plugin_sensor: 'Plug-in Sensor',
       junction_cover: 'Junction Cover',

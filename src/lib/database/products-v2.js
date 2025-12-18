@@ -147,7 +147,8 @@ export const fieldMappingV2 = {
   sensorsAndControls: 'sensors_and_controls',
   occupancy: 'occupancy',
   biLevel: 'bi_level',
-  pirMicrowave: 'pir_microwave',
+  pir: 'pir',
+  microwave: 'microwave',
   remoteControl: 'remote_control_bluetooth',
   remoteControlBluetooth: 'remote_control_bluetooth',
   pluginSensor: 'plugin_sensor',
@@ -195,7 +196,8 @@ const V2_ALLOWED_COLUMNS = new Set([
   'sensors_and_controls',
   'occupancy',
   'bi_level',
-  'pir_microwave',
+  'pir',
+  'microwave',
   'remote_control_bluetooth',
   'plugin_sensor',
   'emergency_backup_battery',
@@ -230,7 +232,8 @@ const V2_BOOLEAN_COLUMNS = new Set([
   'sensors_and_controls',
   'occupancy',
   'bi_level',
-  'pir_microwave',
+  'pir',
+  'microwave',
   'remote_control_bluetooth',
   'plugin_sensor',
   'emergency_backup_battery',
@@ -517,7 +520,7 @@ export async function getProductsByCategoryV2(type, category, options = {}) {
         
         // Handle boolean columns - normalize to boolean
         if (V2_BOOLEAN_COLUMNS.has(dbColumn)) {
-          // Handle null explicitly for nullable boolean fields (like pir_microwave)
+          // Handle null explicitly for nullable boolean fields (like pir, microwave)
           if (value === null) {
             query = query.is(formatColumnName(dbColumn), null)
           } else {
@@ -600,7 +603,7 @@ export async function getAllProductsV2(type, filters = {}) {
       // Handle boolean columns - normalize to boolean
       if (V2_BOOLEAN_COLUMNS.has(dbColumn)) {
         const column = formatColumnName(dbColumn)
-        // Handle null explicitly for nullable boolean fields (like pir_microwave)
+        // Handle null explicitly for nullable boolean fields (like pir, microwave)
         if (value === null) {
           query = query.is(column, null)
         } else {
@@ -676,17 +679,13 @@ export async function getProductsWithSensorFiltersV2(type, filters = {}) {
           query = query.eq('sensors_and_controls', boolValue)
         }
       } else if (key === 'sensorType') {
-        // Handle boolean/nullable field
-        if (value === null) {
-          query = query.is('pir_microwave', null)
-        } else {
-          const boolValue = normalizeBooleanInput(value)
-          query = query.eq('pir_microwave', boolValue)
-        }
+        // Legacy support - this should now be handled via separate pir and microwave filters
+        // Keeping for backward compatibility but should be removed in future
+        // This is now handled by separate pir and microwave filters
       } 
       // Handle boolean columns - normalize to boolean
       else if (V2_BOOLEAN_COLUMNS.has(dbColumn)) {
-        // Handle null explicitly for nullable boolean fields (like pir_microwave)
+        // Handle null explicitly for nullable boolean fields (like pir, microwave)
         if (value === null) {
           query = query.is(formatColumnName(dbColumn), null)
         } else {
@@ -735,7 +734,7 @@ export async function getDistinctSensorOptionsV2(type) {
     const table = getTableNameV2(type)
     const { data, error } = await supabase
       .from(table)
-      .select('sensors_and_controls, pir_microwave')
+      .select('sensors_and_controls, pir, microwave')
       .not('sensors_and_controls', 'is', null)
 
     if (error) throw error
@@ -743,14 +742,17 @@ export async function getDistinctSensorOptionsV2(type) {
     // Group sensor types by control type
     const sensorOptions = data.reduce((acc, item) => {
       const controlType = item.sensors_and_controls
-      const sensorType = item.pir_microwave
       
       if (!acc[controlType]) {
         acc[controlType] = new Set()
       }
       
-      if (sensorType) {
-        acc[controlType].add(sensorType)
+      // Add sensor types based on pir and microwave flags
+      if (item.pir === true) {
+        acc[controlType].add('PIR')
+      }
+      if (item.microwave === true) {
+        acc[controlType].add('Microwave')
       }
       
       return acc
@@ -842,7 +844,7 @@ export async function getProductsWithPaginationV2(type, filters = {}, pagination
       
       // Handle boolean columns - normalize to boolean
       if (V2_BOOLEAN_COLUMNS.has(dbColumn)) {
-        // Handle null explicitly for nullable boolean fields (like pir_microwave)
+        // Handle null explicitly for nullable boolean fields (like pir, microwave)
         if (value === null) {
           query = query.is(formatColumnName(dbColumn), null)
         } else {
@@ -1228,7 +1230,7 @@ export async function getProductCountV2(type, filters = {}) {
       
       // Handle boolean columns - normalize to boolean
       if (V2_BOOLEAN_COLUMNS.has(dbColumn)) {
-        // Handle null explicitly for nullable boolean fields (like pir_microwave)
+        // Handle null explicitly for nullable boolean fields (like pir, microwave)
         if (value === null) {
           query = query.is(formatColumnName(dbColumn), null)
         } else {
