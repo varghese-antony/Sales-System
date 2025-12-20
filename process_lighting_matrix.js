@@ -69,7 +69,13 @@ function generateProductVariations(row, type, products) {
     cost_china_ddp_usa: row['COST_China_DDP_USA']?.trim(),
     cost_thailand_vietnam: row['COST_Thailand_Vietnam']?.trim(),
     photo: row['Photo']?.trim(),
-    ip_rating: row['IP_Rating']?.trim()
+    ip_rating: row['IP_Rating']?.trim(),
+    length: row['Length'] ? parseFloat(row['Length']) : null,
+    width: row['Width'] ? parseFloat(row['Width']) : null,
+    height: row['Height'] ? parseFloat(row['Height']) : null,
+    pcs_per_box: row['PCS_per_Box'] ? parseInt(row['PCS_per_Box']) : null,
+    cubic_m_per_pc: row['Cubic_M_per_PC'] ? parseFloat(row['Cubic_M_per_PC']) : null,
+    pcs_per_cubic_m: row['PCS_per_Cubic_M'] ? parseFloat(row['PCS_per_Cubic_M']) : null
   };
 
   // Generate variations for each sensor control type
@@ -109,7 +115,8 @@ function generateInsertStatements(indoorProducts, outdoorProducts) {
   indoorSQL += '  occupancy, bi_level, pir_microwave_bluetooth, remote_control_bluetooth, plugin_sensor,\n';
   indoorSQL += '  emergency_backup_battery, junction_cover, mounting, installation_kits,\n';
   indoorSQL += '  adjustment_dial, certifications, price_per_piece, lead_time, cut_sheet,\n';
-  indoorSQL += '  warranty, moq, cost_china_ddp_usa, cost_thailand_vietnam, photo, ip_rating\n';
+  indoorSQL += '  warranty, moq, cost_china_ddp_usa, cost_thailand_vietnam, photo, ip_rating,\n';
+  indoorSQL += '  length, width, height, pcs_per_box, cubic_m_per_pc, pcs_per_cubic_m\n';
   indoorSQL += ') VALUES\n';
 
   const indoorValues = indoorProducts.map(product => {
@@ -146,20 +153,27 @@ function generateInsertStatements(indoorProducts, outdoorProducts) {
       product.cost_china_ddp_usa ? `'${escapeSql(product.cost_china_ddp_usa)}'` : 'NULL',
       product.cost_thailand_vietnam ? `'${escapeSql(product.cost_thailand_vietnam)}'` : 'NULL',
       product.photo ? `'${escapeSql(product.photo)}'` : 'NULL',
-      product.ip_rating ? `'${escapeSql(product.ip_rating)}'` : 'NULL'
+      product.ip_rating ? `'${escapeSql(product.ip_rating)}'` : 'NULL',
+      product.length || 'NULL',
+      product.width || 'NULL',
+      product.height || 'NULL',
+      product.pcs_per_box || 'NULL',
+      product.cubic_m_per_pc || 'NULL',
+      product.pcs_per_cubic_m || 'NULL'
     ].join(', ')})`;
   });
 
   indoorSQL += indoorValues.join(',\n') + ';\n\n';
 
   // Generate outdoor SQL similarly
-  let outdoorSQL = 'INSERT INTO public.outdoor_products_v2 (\n';
+  let outdoorSQL = 'INSERT INTO public.outdoor_products_v3 (\n';
   outdoorSQL += '  sub_category, product_name, model_number, size, power_w, voltage, cct, cri_ra,\n';
   outdoorSQL += '  lumen, efficacy_lumen_per_w, dimming_type, material_finish, sensors_and_controls,\n';
   outdoorSQL += '  occupancy, bi_level, pir_microwave_bluetooth, remote_control_bluetooth, plugin_sensor,\n';
   outdoorSQL += '  emergency_backup_battery, junction_cover, mounting, installation_kits,\n';
   outdoorSQL += '  adjustment_dial, certifications, price_per_piece, lead_time, cut_sheet,\n';
-  outdoorSQL += '  warranty, moq, cost_china_ddp_usa, cost_thailand_vietnam, photo, ip_rating\n';
+  outdoorSQL += '  warranty, moq, cost_china_ddp_usa, cost_thailand_vietnam, photo, ip_rating,\n';
+  outdoorSQL += '  length, width, height, pcs_per_box, cubic_m_per_pc, pcs_per_cubic_m\n';
   outdoorSQL += ') VALUES\n';
 
   const outdoorValues = outdoorProducts.map(product => {
@@ -196,7 +210,13 @@ function generateInsertStatements(indoorProducts, outdoorProducts) {
       product.cost_china_ddp_usa ? `'${escapeSql(product.cost_china_ddp_usa)}'` : 'NULL',
       product.cost_thailand_vietnam ? `'${escapeSql(product.cost_thailand_vietnam)}'` : 'NULL',
       product.photo ? `'${escapeSql(product.photo)}'` : 'NULL',
-      product.ip_rating ? `'${escapeSql(product.ip_rating)}'` : 'NULL'
+      product.ip_rating ? `'${escapeSql(product.ip_rating)}'` : 'NULL',
+      product.length || 'NULL',
+      product.width || 'NULL',
+      product.height || 'NULL',
+      product.pcs_per_box || 'NULL',
+      product.cubic_m_per_pc || 'NULL',
+      product.pcs_per_cubic_m || 'NULL'
     ].join(', ')})`;
   });
 

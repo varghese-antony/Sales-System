@@ -177,7 +177,13 @@ export const fieldMappingV2 = {
   emergencyBackupBatteryCost: 'emergency_backup_battery_cost',
   emergencyBackupBatteryPrice: 'emergency_backup_battery_price',
   installationKitsCost: 'installation_kits_cost',
-  installationKitsPrice: 'installation_kits_price'
+  installationKitsPrice: 'installation_kits_price',
+  length: 'length',
+  width: 'width',
+  height: 'height',
+  pcsPerBox: 'pcs_per_box',
+  cubicMPerPc: 'cubic_m_per_pc',
+  pcsPerCubicM: 'pcs_per_cubic_m'
 }
 
 const V2_ALLOWED_COLUMNS = new Set([
@@ -225,7 +231,13 @@ const V2_ALLOWED_COLUMNS = new Set([
   'emergency_backup_battery_cost',
   'emergency_backup_battery_price',
   'installation_kits_cost',
-  'installation_kits_price'
+  'installation_kits_price',
+  'length',
+  'width',
+  'height',
+  'pcs_per_box',
+  'cubic_m_per_pc',
+  'pcs_per_cubic_m'
 ])
 
 const V2_BOOLEAN_COLUMNS = new Set([
@@ -240,7 +252,7 @@ const V2_BOOLEAN_COLUMNS = new Set([
   'junction_cover'
 ])
 
-const V2_INTEGER_COLUMNS = new Set(['cri_ra'])
+const V2_INTEGER_COLUMNS = new Set(['cri_ra', 'pcs_per_box'])
 
 const TRUTHY_BOOLEAN_VALUES = new Set(['true', 'yes', '1', 'included', 'optional'])
 

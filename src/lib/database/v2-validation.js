@@ -43,7 +43,13 @@ const fieldMappingV2 = {
   costChinaDdpUsa: 'cost_china_ddp_usa',
   costThailandVietnam: 'cost_thailand_vietnam',
   photo: 'photo',
-  ipRating: 'ip_rating'
+  ipRating: 'ip_rating',
+  length: 'length',
+  width: 'width',
+  height: 'height',
+  pcsPerBox: 'pcs_per_box',
+  cubicMPerPc: 'cubic_m_per_pc',
+  pcsPerCubicM: 'pcs_per_cubic_m'
 }
 
 // V2 Schema Definitions
@@ -93,7 +99,13 @@ export const V2_SCHEMA = {
     price_per_piece: { min: 0, max: 1000000, decimals: 2 },
     cost_china_ddp_usa: { min: 0, max: 1000000, decimals: 2 },
     cost_thailand_vietnam: { min: 0, max: 1000000, decimals: 2 },
-    markup_percentage: { min: 0, max: 100, decimals: 2 }
+    markup_percentage: { min: 0, max: 100, decimals: 2 },
+    length: { min: 0, max: 100000, decimals: 2 },
+    width: { min: 0, max: 100000, decimals: 2 },
+    height: { min: 0, max: 100000, decimals: 2 },
+    pcs_per_box: { min: 0, max: 100000, decimals: 0 },
+    cubic_m_per_pc: { min: 0, max: 1000000, decimals: 6 },
+    pcs_per_cubic_m: { min: 0, max: 1000000, decimals: 2 }
   },
   
   // Fields that should be URLs

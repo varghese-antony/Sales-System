@@ -73,7 +73,13 @@ function generateSQL(data, tableName) {
       cost_china_ddp_usa: cleanValue(row['COST_China_DDP_USA']),
       cost_thailand_vietnam: cleanValue(row['COST_Thailand_Vietnam']),
       photo: cleanValue(row['Photo']),
-      ip_rating: cleanValue(row['IP_Rating'])
+      ip_rating: cleanValue(row['IP_Rating']),
+      length: cleanValue(row['Length']) ? parseFloat(cleanValue(row['Length'])) : null,
+      width: cleanValue(row['Width']) ? parseFloat(cleanValue(row['Width'])) : null,
+      height: cleanValue(row['Height']) ? parseFloat(cleanValue(row['Height'])) : null,
+      pcs_per_box: cleanValue(row['PCS_per_Box']) ? parseInt(cleanValue(row['PCS_per_Box']), 10) : null,
+      cubic_m_per_pc: cleanValue(row['Cubic_M_per_PC']) ? parseFloat(cleanValue(row['Cubic_M_per_PC'])) : null,
+      pcs_per_cubic_m: cleanValue(row['PCS_per_Cubic_M']) ? parseFloat(cleanValue(row['PCS_per_Cubic_M'])) : null
     };
     
     // Build SQL INSERT statement

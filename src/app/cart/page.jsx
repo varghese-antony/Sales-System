@@ -16,6 +16,19 @@ import Link from "next/link"
 const MARKUP_PERCENTAGE_DEFAULT = 30 // 30% default markup
 const TARIFF_PERCENTAGE = 35 // 35% global tariff
 
+// Container constants
+const CONTAINER_20FT = {
+  totalCubicM: 33,
+  price: 2000,
+  maxCapacity: 33 * 0.97 // 97% utilization = 32.01 cubic meters
+}
+
+const CONTAINER_40FT = {
+  totalCubicM: 67,
+  price: 4000,
+  maxCapacity: 67 * 0.97 // 97% utilization = 64.99 cubic meters
+}
+
 const addonCostFields = [
   { key: 'sensor_cost', label: 'Sensor' },
   { key: 'remote_control_bluetooth_cost', label: 'Remote Control / Bluetooth' },
@@ -156,15 +169,204 @@ export default function CartPage() {
     }, 0)
   }, [items])
 
+  // Parse cubic meters per piece value
+  const parseCubicMValue = (value) => {
+    if (value === null || value === undefined) return 0
+    if (typeof value === 'number') {
+      return Number.isFinite(value) && value > 0 ? value : 0
+    }
+    if (typeof value !== 'string') return 0
+    const cleaned = value.toString().trim()
+    if (cleaned === '') return 0
+    const parsed = parseFloat(cleaned)
+    return Number.isFinite(parsed) && parsed > 0 ? parsed : 0
+  }
+
+  // Calculate total cubic meters required for all items
+  const totalCubicMeters = useMemo(() => {
+    return items.reduce((total, item) => {
+      const cubicMPerPc = parseCubicMValue(item.cubic_m_per_pc)
+      if (cubicMPerPc > 0) {
+        return total + (cubicMPerPc * item.quantity)
+      }
+      return total
+    }, 0)
+  }, [items])
+
+  // Calculate container allocation and shipping costs
+  const containerAllocation = useMemo(() => {
+    if (totalCubicMeters === 0) {
+      return {
+        hasValidItems: false,
+        totalCubicMeters: 0,
+        container20ft: null,
+        container40ft: null,
+        shippingCost: 0
+      }
+    }
+
+    // Filter items that have valid cubic_m_per_pc
+    const itemsWithCubicM = items.filter(item => parseCubicMValue(item.cubic_m_per_pc) > 0)
+    
+    if (itemsWithCubicM.length === 0) {
+      return {
+        hasValidItems: false,
+        totalCubicMeters: 0,
+        container20ft: null,
+        container40ft: null,
+        shippingCost: 0
+      }
+    }
+
+    // Find the smallest cubic_m_per_pc to check if adding one more piece would overflow
+    const smallestCubicMPerPc = Math.min(...itemsWithCubicM.map(item => parseCubicMValue(item.cubic_m_per_pc)))
+
+    // Check if items fit in 20ft container
+    if (totalCubicMeters <= CONTAINER_20FT.maxCapacity) {
+      // Check if adding one more piece would cause overflow
+      const wouldOverflow = (totalCubicMeters + smallestCubicMPerPc) > CONTAINER_20FT.maxCapacity
+      // Check if already overflowing (shouldn't happen in this branch, but just in case)
+      const isOverflowing = totalCubicMeters > CONTAINER_20FT.maxCapacity
+      
+      // If overflowing or would overflow, use full container price
+      const shippingCost = (isOverflowing || wouldOverflow) 
+        ? CONTAINER_20FT.price 
+        : (totalCubicMeters / CONTAINER_20FT.totalCubicM) * CONTAINER_20FT.price
+
+      const totalPieces = itemsWithCubicM.reduce((sum, item) => sum + item.quantity, 0)
+
+      return {
+        hasValidItems: true,
+        totalCubicMeters,
+        container20ft: {
+          used: totalCubicMeters,
+          capacity: CONTAINER_20FT.maxCapacity,
+          totalCapacity: CONTAINER_20FT.totalCubicM,
+          pieces: totalPieces,
+          cost: shippingCost,
+          percentage: (totalCubicMeters / CONTAINER_20FT.totalCubicM) * 100,
+          isFullPrice: isOverflowing || wouldOverflow
+        },
+        container40ft: null,
+        shippingCost
+      }
+    } else {
+      // Need to split between 20ft and 40ft containers
+      // Fill 20ft container first with whole pieces
+      let cubicMIn20ft = 0
+      let piecesIn20ft = 0
+      const itemAllocations = []
+
+      // Allocate pieces to 20ft container
+      for (const item of itemsWithCubicM) {
+        const cubicMPerPc = parseCubicMValue(item.cubic_m_per_pc)
+        const remainingSpace20ft = CONTAINER_20FT.maxCapacity - cubicMIn20ft
+        const maxPiecesFor20ft = Math.floor(remainingSpace20ft / cubicMPerPc)
+        const piecesFor20ft = Math.min(item.quantity, maxPiecesFor20ft)
+        
+        if (piecesFor20ft > 0) {
+          piecesIn20ft += piecesFor20ft
+          cubicMIn20ft += piecesFor20ft * cubicMPerPc
+          itemAllocations.push({
+            item,
+            pieces20ft: piecesFor20ft,
+            pieces40ft: item.quantity - piecesFor20ft
+          })
+        } else {
+          itemAllocations.push({
+            item,
+            pieces20ft: 0,
+            pieces40ft: item.quantity
+          })
+        }
+      }
+
+      // Calculate remaining pieces for 40ft container
+      let cubicMIn40ft = 0
+      let piecesIn40ft = 0
+
+      for (const allocation of itemAllocations) {
+        if (allocation.pieces40ft > 0) {
+          const cubicMPerPc = parseCubicMValue(allocation.item.cubic_m_per_pc)
+          piecesIn40ft += allocation.pieces40ft
+          cubicMIn40ft += allocation.pieces40ft * cubicMPerPc
+        }
+      }
+
+      // Check if 20ft container is overflowing or would overflow with one more piece
+      const smallestCubicMIn20ft = itemsWithCubicM
+        .filter(item => {
+          const allocation = itemAllocations.find(a => a.item === item)
+          return allocation && allocation.pieces20ft > 0
+        })
+        .map(item => parseCubicMValue(item.cubic_m_per_pc))
+      const smallestPiece20ft = smallestCubicMIn20ft.length > 0 ? Math.min(...smallestCubicMIn20ft) : smallestCubicMPerPc
+      
+      const is20ftOverflowing = cubicMIn20ft > CONTAINER_20FT.maxCapacity
+      const would20ftOverflow = (cubicMIn20ft + smallestPiece20ft) > CONTAINER_20FT.maxCapacity
+
+      // Check if 40ft container is overflowing or would overflow with one more piece
+      const smallestCubicMIn40ft = itemsWithCubicM
+        .filter(item => {
+          const allocation = itemAllocations.find(a => a.item === item)
+          return allocation && allocation.pieces40ft > 0
+        })
+        .map(item => parseCubicMValue(item.cubic_m_per_pc))
+      const smallestPiece40ft = smallestCubicMIn40ft.length > 0 ? Math.min(...smallestCubicMIn40ft) : smallestCubicMPerPc
+      
+      const is40ftOverflowing = cubicMIn40ft > CONTAINER_40FT.maxCapacity
+      const would40ftOverflow = (cubicMIn40ft + smallestPiece40ft) > CONTAINER_40FT.maxCapacity
+
+      // Calculate costs - use full price if overflowing or would overflow
+      const cost20ft = cubicMIn20ft > 0 
+        ? ((is20ftOverflowing || would20ftOverflow) 
+          ? CONTAINER_20FT.price 
+          : (cubicMIn20ft / CONTAINER_20FT.totalCubicM) * CONTAINER_20FT.price)
+        : 0
+      
+      const cost40ft = cubicMIn40ft > 0
+        ? ((is40ftOverflowing || would40ftOverflow)
+          ? CONTAINER_40FT.price
+          : (cubicMIn40ft / CONTAINER_40FT.totalCubicM) * CONTAINER_40FT.price)
+        : 0
+
+      const shippingCost = cost20ft + cost40ft
+
+      return {
+        hasValidItems: true,
+        totalCubicMeters,
+        container20ft: cubicMIn20ft > 0 ? {
+          used: cubicMIn20ft,
+          capacity: CONTAINER_20FT.maxCapacity,
+          totalCapacity: CONTAINER_20FT.totalCubicM,
+          pieces: piecesIn20ft,
+          cost: cost20ft,
+          percentage: (cubicMIn20ft / CONTAINER_20FT.totalCubicM) * 100,
+          isFullPrice: is20ftOverflowing || would20ftOverflow
+        } : null,
+        container40ft: cubicMIn40ft > 0 ? {
+          used: cubicMIn40ft,
+          capacity: CONTAINER_40FT.maxCapacity,
+          totalCapacity: CONTAINER_40FT.totalCubicM,
+          pieces: piecesIn40ft,
+          cost: cost40ft,
+          percentage: (cubicMIn40ft / CONTAINER_40FT.totalCubicM) * 100,
+          isFullPrice: is40ftOverflowing || would40ftOverflow
+        } : null,
+        shippingCost
+      }
+    }
+  }, [items, totalCubicMeters])
+
   // Calculate tariff amount (35% of cart total)
   const tariffAmount = useMemo(() => {
     return cartTotal * (TARIFF_PERCENTAGE / 100)
   }, [cartTotal])
 
-  // Calculate final total (cart total + tariff)
+  // Calculate final total (cart total + tariff + shipping)
   const finalTotal = useMemo(() => {
-    return cartTotal + tariffAmount
-  }, [cartTotal, tariffAmount])
+    return cartTotal + tariffAmount + containerAllocation.shippingCost
+  }, [cartTotal, tariffAmount, containerAllocation.shippingCost])
 
   // Calculate price breakdown for each item
   const getItemPriceData = (item) => {
@@ -537,6 +739,86 @@ export default function CartPage() {
                   </div>
                 </div>
 
+                {/* Container Allocation Section */}
+                {containerAllocation.hasValidItems && (
+                  <div className="space-y-3 border-t pt-4">
+                    <h4 className="font-medium flex items-center gap-2">
+                      <Package className="w-4 h-4" />
+                      Container Allocation
+                    </h4>
+                    
+                    <div className="space-y-2">
+                      <div className="text-sm text-muted-foreground">
+                        Total Space Required: <span className="font-semibold text-foreground">{totalCubicMeters.toFixed(2)} m³</span>
+                      </div>
+
+                      {containerAllocation.container20ft && (
+                        <div className={`p-3 border rounded-lg ${containerAllocation.container20ft.isFullPrice ? 'bg-orange-50 border-orange-300' : 'bg-blue-50 border-blue-200'}`}>
+                          <div className="flex items-center justify-between mb-2">
+                            <span className={`text-sm font-semibold ${containerAllocation.container20ft.isFullPrice ? 'text-orange-800' : 'text-blue-800'}`}>
+                              20ft Container
+                              {containerAllocation.container20ft.isFullPrice && (
+                                <Badge variant="outline" className="ml-2 text-xs bg-orange-100 text-orange-800 border-orange-300">
+                                  Full Price
+                                </Badge>
+                              )}
+                            </span>
+                            <span className={`text-xs ${containerAllocation.container20ft.isFullPrice ? 'text-orange-600' : 'text-blue-600'}`}>
+                              {containerAllocation.container20ft.used.toFixed(2)} / {containerAllocation.container20ft.totalCapacity.toFixed(2)} m³
+                            </span>
+                          </div>
+                          <div className={`space-y-1 text-xs ${containerAllocation.container20ft.isFullPrice ? 'text-orange-700' : 'text-blue-700'}`}>
+                            <div>Pieces: {containerAllocation.container20ft.pieces}</div>
+                            <div>Utilization: {containerAllocation.container20ft.percentage.toFixed(1)}%</div>
+                            <div className="font-semibold">Cost: {formatCurrency(containerAllocation.container20ft.cost)}</div>
+                            {containerAllocation.container20ft.isFullPrice && (
+                              <div className="text-xs italic mt-1">
+                                Full container price applied (overflowing or near capacity)
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      )}
+
+                      {containerAllocation.container40ft && (
+                        <div className={`p-3 border rounded-lg ${containerAllocation.container40ft.isFullPrice ? 'bg-orange-50 border-orange-300' : 'bg-purple-50 border-purple-200'}`}>
+                          <div className="flex items-center justify-between mb-2">
+                            <span className={`text-sm font-semibold ${containerAllocation.container40ft.isFullPrice ? 'text-orange-800' : 'text-purple-800'}`}>
+                              40ft Container
+                              {containerAllocation.container40ft.isFullPrice && (
+                                <Badge variant="outline" className="ml-2 text-xs bg-orange-100 text-orange-800 border-orange-300">
+                                  Full Price
+                                </Badge>
+                              )}
+                            </span>
+                            <span className={`text-xs ${containerAllocation.container40ft.isFullPrice ? 'text-orange-600' : 'text-purple-600'}`}>
+                              {containerAllocation.container40ft.used.toFixed(2)} / {containerAllocation.container40ft.totalCapacity.toFixed(2)} m³
+                            </span>
+                          </div>
+                          <div className={`space-y-1 text-xs ${containerAllocation.container40ft.isFullPrice ? 'text-orange-700' : 'text-purple-700'}`}>
+                            <div>Pieces: {containerAllocation.container40ft.pieces}</div>
+                            <div>Utilization: {containerAllocation.container40ft.percentage.toFixed(1)}%</div>
+                            <div className="font-semibold">Cost: {formatCurrency(containerAllocation.container40ft.cost)}</div>
+                            {containerAllocation.container40ft.isFullPrice && (
+                              <div className="text-xs italic mt-1">
+                                Full container price applied (overflowing or near capacity)
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      )}
+
+                      {!containerAllocation.hasValidItems && (
+                        <div className="p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
+                          <p className="text-xs text-yellow-800">
+                            Container calculation requires cubic meter data (cubic_m_per_pc) for items. Some items in your cart may not have this information.
+                          </p>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
+
                 <div className="border-t pt-4 space-y-2">
                   {/* Cart Total */}
                   <div className="flex justify-between items-center py-3 border-b">
@@ -553,6 +835,16 @@ export default function CartPage() {
                       {formatCurrency(tariffAmount)}
                     </span>
                   </div>
+                  
+                  {/* Shipping Cost */}
+                  {containerAllocation.hasValidItems && containerAllocation.shippingCost > 0 && (
+                    <div className="flex justify-between items-center py-2 border-b">
+                      <span className="text-sm font-medium text-muted-foreground">Shipping:</span>
+                      <span className="text-sm font-semibold">
+                        {formatCurrency(containerAllocation.shippingCost)}
+                      </span>
+                    </div>
+                  )}
                   
                   {/* Final Total */}
                   <div className="flex justify-between items-center py-3 border-t-2 border-primary/20">
