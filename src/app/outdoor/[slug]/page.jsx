@@ -363,8 +363,8 @@ export default function OutdoorProductPage({ params }) {
 
         {sensorSelection && !error && currentValues.length > 0 && currentKey && (
           <OptionSelector
-            title={currentKey}
-            description={`Select your preferred ${currentKey.replace(/_/g, ' ')}`}
+            title={currentKey === 'power_w' ? 'Wattage' : currentKey.replace(/_/g, ' ')}
+            description={`Select your preferred ${currentKey === 'power_w' ? 'wattage' : currentKey.replace(/_/g, ' ')}`}
             options={currentValues}
             onSelect={(value) => filterProducts(currentKey, value)}
             isLoading={isLoading}

@@ -155,6 +155,19 @@ export function OptionSelector({
     return map;
   }, [products, title]);
 
+  // Calculate minimum price for each option value
+  const getMinPrice = (value) => {
+    const matchingProducts = products.filter(p => norm(p[title]) === norm(value));
+    if (matchingProducts.length === 0) return null;
+    
+    const prices = matchingProducts
+      .map(product => calculateBasePriceWithMarkup(product))
+      .filter(price => price > 0);
+    
+    if (prices.length === 0) return null;
+    return Math.min(...prices);
+  };
+
   return (
     <div className="space-y-8">
       <motion.div
@@ -201,8 +214,10 @@ export function OptionSelector({
         {options.map((value, index) => {
           const isSelected = selectedValue === value
           const icon = getOptionIcon(value)
-          const productImage = getProductImage(value)
+          // Hide images from step 1 onwards (step > 0 means we're in a stepper)
+          const productImage = step && step > 0 ? null : getProductImage(value)
           const modelNumbers = modelMap[norm(value)] || []
+          const minPrice = getMinPrice(value)
 
           return (
             <motion.div
@@ -260,32 +275,18 @@ export function OptionSelector({
                       `} />
                     </div>
                     
-                    {/* Model Numbers with Prices below image */}
-                    {modelNumbers.length > 0 && (
+                    {/* Starting from price below image */}
+                    {minPrice !== null && (
                       <div className={`
-                        mt-2 space-y-1
+                        mt-2 text-center
                         ${isSelected ? 'text-white/90' : 'text-foreground'}
                       `}>
-                        {modelNumbers.map((modelData, idx) => (
-                          <div
-                            key={idx}
-                            className={`
-                              text-xs flex flex-col items-center gap-1
-                              ${isSelected ? 'text-white/90' : 'text-muted-foreground'}
-                            `}
-                          >
-                            <span className="font-medium">{modelData.modelNumber}</span>
-                            <span className={`
-                              text-xs
-                              ${isSelected ? 'text-white/80' : 'text-muted-foreground'}
-                            `}>
-                              Base price: <span className={`
-                                font-semibold
-                                ${isSelected ? 'text-white' : 'text-primary'}
-                              `}>{formatCurrency(modelData.price)}</span>
-                            </span>
-                          </div>
-                        ))}
+                        <div className={`
+                          text-sm font-semibold
+                          ${isSelected ? 'text-white' : 'text-primary'}
+                        `}>
+                          Starting from {formatCurrency(minPrice)}
+                        </div>
                       </div>
                     )}
                   </div>
@@ -313,34 +314,13 @@ export function OptionSelector({
                     {value === 'N/A' ? 'Not Specified' : value}
                   </div>
 
-                  {/* Model Numbers (only show if no image, since they're shown below image when image exists) */}
-                  {!productImage && modelNumbers.length > 0 && (
+                  {/* Starting from price (when no image) */}
+                  {!productImage && minPrice !== null && (
                     <div className={`
-                      text-xs leading-relaxed
-                      ${isSelected ? 'text-white/80' : 'text-muted-foreground'}
+                      text-sm font-semibold
+                      ${isSelected ? 'text-white' : 'text-primary'}
                     `}>
-                      <div className="space-y-1">
-                        {modelNumbers.map((modelData, idx) => (
-                          <div
-                            key={idx}
-                            className={`
-                              flex flex-col items-center gap-1
-                              ${isSelected ? 'text-white/90' : 'text-muted-foreground'}
-                            `}
-                          >
-                            <span className="font-medium">{modelData.modelNumber}</span>
-                            <span className={`
-                              text-xs
-                              ${isSelected ? 'text-white/80' : 'text-muted-foreground'}
-                            `}>
-                              Base price: <span className={`
-                                font-semibold
-                                ${isSelected ? 'text-white' : 'text-primary'}
-                              `}>{formatCurrency(modelData.price)}</span>
-                            </span>
-                          </div>
-                        ))}
-                      </div>
+                      Starting from {formatCurrency(minPrice)}
                     </div>
                   )}
 
