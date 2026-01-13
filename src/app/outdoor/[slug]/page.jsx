@@ -312,7 +312,7 @@ export default function OutdoorProductPage({ params }) {
               <div className="flex flex-wrap justify-center gap-2 mb-6">
                 {Object.entries(selectedFilters).map(([key, value]) => (
                   <Badge key={key} variant="secondary">
-                    {key}: {value || 'Not Specified'}
+                    {key === 'power_w' ? 'Wattage' : key.replace(/_/g, ' ')}: {value || 'Not Specified'}
                   </Badge>
                 ))}
               </div>
@@ -367,6 +367,7 @@ export default function OutdoorProductPage({ params }) {
             description={`Select your preferred ${currentKey === 'power_w' ? 'wattage' : currentKey.replace(/_/g, ' ')}`}
             options={currentValues}
             onSelect={(value) => filterProducts(currentKey, value)}
+            selectedValue={undefined} // Don't show any value as selected on the current step
             isLoading={isLoading}
             step={currentStep + 1}
             totalSteps={desiredKeys.length}

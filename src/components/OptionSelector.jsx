@@ -214,8 +214,8 @@ export function OptionSelector({
         {options.map((value, index) => {
           const isSelected = selectedValue === value
           const icon = getOptionIcon(value)
-          // Hide images from step 1 onwards (step > 0 means we're in a stepper)
-          const productImage = step && step > 0 ? null : getProductImage(value)
+          // Hide images from step 2 onwards (show in step 1, hide from step 2+)
+          const productImage = step && step > 1 ? null : getProductImage(value)
           const modelNumbers = modelMap[norm(value)] || []
           const minPrice = getMinPrice(value)
 
