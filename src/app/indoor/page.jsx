@@ -35,10 +35,46 @@ const itemVariants = {
   }
 }
 
+const MARKUP_PERCENTAGE_DEFAULT = 30 // 30% default markup
+
+const parseCostValue = (value) => {
+  if (value === null || value === undefined) return 0
+  if (typeof value === 'number') {
+    return Number.isFinite(value) ? value : 0
+  }
+  if (typeof value !== 'string') return 0
+  const cleaned = value.replace(/[^\d.]/g, '')
+  const parsed = parseFloat(cleaned)
+  return Number.isFinite(parsed) ? parsed : 0
+}
+
+const calculateBasePriceWithMarkup = (product) => {
+  // Get base cost
+  const baseCost = parseCostValue(product.cost_china_ddp_usa ?? product.cost_thailand_vietnam ?? 0)
+  
+  // Get markup percentage
+  const productMarkup = product.markup_percentage
+  let markupPercentage = MARKUP_PERCENTAGE_DEFAULT
+  if (productMarkup !== null && productMarkup !== undefined) {
+    const parsed = typeof productMarkup === 'number' 
+      ? productMarkup 
+      : parseFloat(productMarkup)
+    if (Number.isFinite(parsed) && parsed > 0) {
+      markupPercentage = parsed
+    }
+  }
+  
+  // Apply markup to base cost
+  const baseCostWithMarkup = baseCost * (1 + markupPercentage / 100)
+  
+  return baseCostWithMarkup
+}
+
 export default function Indoor() {
   
   const [categories, setCategories] = useState([])
   const [categoriesWithProducts, setCategoriesWithProducts] = useState([])
+  const [categoryMinPrices, setCategoryMinPrices] = useState({})
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
   const [isSidebarOpen, setIsSidebarOpen] = useState(false)
@@ -143,6 +179,24 @@ export default function Indoor() {
         )
 
         setCategoriesWithProducts(productNamesWithImages)
+
+        // Calculate minimum prices for each category
+        const pricesMap = {}
+        await Promise.all(
+          categoriesData.map(async (category) => {
+            const { data: allProducts } = await getProductsByCategoryV2('indoor', category.sub_category)
+            if (allProducts && allProducts.length > 0) {
+              const prices = allProducts
+                .map(product => calculateBasePriceWithMarkup(product))
+                .filter(price => price > 0)
+              
+              if (prices.length > 0) {
+                pricesMap[category.sub_category] = Math.min(...prices)
+              }
+            }
+          })
+        )
+        setCategoryMinPrices(pricesMap)
       } catch (error) {
         console.error('[Indoor Page] Error fetching indoor data:', error)
         console.error('[Indoor Page] Error stack:', error.stack)
@@ -290,9 +344,16 @@ export default function Indoor() {
                     >
                       {category.sub_category}
                     </h2>
-                    <p className="text-muted-foreground mt-2">
-                      Discover our {category.sub_category.toLowerCase()} collection
-                    </p>
+                    <div className="flex items-center gap-3 mt-2">
+                      <p className="text-muted-foreground">
+                        Discover our {category.sub_category.toLowerCase()} collection
+                      </p>
+                      {categoryMinPrices[category.sub_category] && (
+                        <Badge variant="secondary" className="ml-auto">
+                          Starting from ${categoryMinPrices[category.sub_category].toFixed(2)}
+                        </Badge>
+                      )}
+                    </div>
                   </div>
                 </div>
 
@@ -332,6 +393,7 @@ export default function Indoor() {
                             icon={<Lightbulb className="w-6 h-6" />}
                             gradient="from-blue-500 to-purple-600"
                             image={productType.sampleImage}
+                            startingPrice={categoryMinPrices[category.sub_category]}
                           />
                         </motion.div>
                       ))}

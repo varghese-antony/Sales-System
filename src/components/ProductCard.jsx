@@ -24,7 +24,8 @@ export function ProductCard({
   product,
   onSelect,
   showSpecs = false,
-  variant = "category"
+  variant = "category",
+  startingPrice = null
 }) {
   const [isHovered, setIsHovered] = useState(false)
   
@@ -159,6 +160,15 @@ export function ProductCard({
             containerClassName="h-48 rounded-t-lg"
             loadingClassName="rounded-t-lg"
           />
+        )}
+        
+        {/* Starting Price */}
+        {startingPrice !== null && startingPrice > 0 && (
+          <div className="px-8 pt-4 pb-2">
+            <div className="text-sm font-semibold text-primary">
+              Starting from ${startingPrice.toFixed(2)}
+            </div>
+          </div>
         )}
         
         <CardHeader className="relative z-10 p-8">

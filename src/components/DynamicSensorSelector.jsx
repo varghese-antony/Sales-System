@@ -93,6 +93,20 @@ export function DynamicSensorSelector({
 
   console.log("$$$$$$$$$$$$$$$$$$$ SELETCED SENSORS $$$$$$$$$$$, s",selectedSensor)
 
+  // Auto-submit when "None" is selected
+  useEffect(() => {
+    if (selectedControl === 'None' && onSelectionChange) {
+      // Auto-submit when None is selected
+      onSelectionChange({
+        sensorsAndControls: 'None',
+        sensorType: 'None',
+        remoteControl: false,
+        emergencyBackupBattery: false,
+        pluginSensor: false
+      })
+    }
+  }, [selectedControl, onSelectionChange])
+
   const handleControlChange = (controlType, checked) => {
     if (!checked) {
       setSelectedControl('')
@@ -121,10 +135,10 @@ export function DynamicSensorSelector({
     if (onSelectionChange && selectedControl) {
       onSelectionChange({
         sensorsAndControls: selectedControl,
-        sensorType: selectedSensor,
-        remoteControl: hasRemote,
-        emergencyBackupBattery: hasEmergencyBackup,
-        pluginSensor: hasPluginSensor
+        sensorType: selectedControl === 'None' ? 'None' : selectedSensor,
+        remoteControl: selectedControl === 'None' ? false : hasRemote,
+        emergencyBackupBattery: selectedControl === 'None' ? false : hasEmergencyBackup,
+        pluginSensor: false // Always false as plugin sensor is commented out
       })
     }
   }
@@ -219,8 +233,8 @@ export function DynamicSensorSelector({
         </CardContent>
       </Card>
 
-      {/* Sensor Type Selection (single via checkbox) */}
-      {selectedControl && currentControlOption && currentControlOption.sensorTypes.length > 0 && (
+      {/* Sensor Type Selection (single via checkbox) - Hide when None is selected */}
+      {selectedControl && selectedControl !== 'None' && currentControlOption && currentControlOption.sensorTypes.length > 0 && (
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
@@ -260,8 +274,8 @@ export function DynamicSensorSelector({
         </Card>
       )}
 
-      {/* Additional Options */}
-      {selectedControl && (
+      {/* Additional Options - Only show if control is not "None" */}
+      {selectedControl && selectedControl !== 'None' && (
         <Card>
           <CardHeader>
             <CardTitle>Additional Features</CardTitle>
@@ -293,7 +307,8 @@ export function DynamicSensorSelector({
                 </Label>
               </div>
 
-              <div className="flex items-center space-x-2">
+              {/* Plugin Sensor - Commented out as per requirements */}
+              {/* <div className="flex items-center space-x-2">
                 <Checkbox 
                   id="plugin-sensor" 
                   checked={hasPluginSensor}
@@ -302,14 +317,14 @@ export function DynamicSensorSelector({
                 <Label htmlFor="plugin-sensor" className="flex items-center gap-2 cursor-pointer">
                   Plugin Sensor
                 </Label>
-              </div>
+              </div> */}
             </div>
           </CardContent>
         </Card>
       )}
 
       {/* Selection Summary */}
-      {selectedControl && selectedSensor && (
+      {selectedControl && (selectedSensor || selectedControl === 'None') && (
         <Card className="bg-muted/50">
           <CardHeader>
             <CardTitle className="text-lg">Selection Summary</CardTitle>
@@ -318,11 +333,15 @@ export function DynamicSensorSelector({
             <div className="space-y-2">
               <div className="flex items-center gap-2">
                 <Badge variant="default">{selectedControl}</Badge>
-                <span className="text-sm">with</span>
-                <Badge variant="secondary">{selectedSensor}</Badge>
+                {selectedControl !== 'None' && selectedSensor && (
+                  <>
+                    <span className="text-sm">with</span>
+                    <Badge variant="secondary">{selectedSensor}</Badge>
+                  </>
+                )}
               </div>
               
-              {(hasRemote || hasEmergencyBackup || hasPluginSensor) && (
+              {(hasRemote || hasEmergencyBackup) && (
                 <div className="flex flex-wrap gap-2 mt-3">
                   {hasRemote && (
                     <Badge variant="outline" className="flex items-center gap-1">
@@ -336,12 +355,13 @@ export function DynamicSensorSelector({
                       Emergency Backup
                     </Badge>
                   )}
-                  {hasPluginSensor && (
+                  {/* Plugin Sensor - Commented out as per requirements */}
+                  {/* {hasPluginSensor && (
                     <Badge variant="outline" className="flex items-center gap-1">
                       <Plug className="w-3 h-3" />
                       Plugin Sensor
                     </Badge>
-                  )}
+                  )} */}
                 </div>
               )}
             </div>
@@ -349,14 +369,17 @@ export function DynamicSensorSelector({
         </Card>
       )}
 
-      <div className="flex justify-end">
-        <Button 
-          onClick={handleSubmit}
-          disabled={!selectedControl}
-        >
-          Submit Selection
-        </Button>
-      </div>
+      {/* Submit button - Hide when None is selected (auto-submitted) */}
+      {selectedControl !== 'None' && (
+        <div className="flex justify-end">
+          <Button 
+            onClick={handleSubmit}
+            disabled={!selectedControl || !selectedSensor}
+          >
+            Submit Selection
+          </Button>
+        </div>
+      )}
     </div>
   )
 }

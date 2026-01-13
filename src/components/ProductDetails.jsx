@@ -14,6 +14,20 @@ import { ImageWithLoading } from "@/components/ui/image-with-loading"
 import { fieldMapping } from '@/lib/database/products'
 
 const MARKUP_PERCENTAGE_DEFAULT = 30 // 30% default markup
+const TARIFF_PERCENTAGE = 35 // 35% global tariff
+
+// Container constants
+const CONTAINER_20FT = {
+  totalCubicM: 33,
+  price: 2000,
+  maxCapacity: 33 * 0.97 // 97% utilization = 32.01 cubic meters
+}
+
+const CONTAINER_40FT = {
+  totalCubicM: 67,
+  price: 4000,
+  maxCapacity: 67 * 0.97 // 97% utilization = 64.99 cubic meters
+}
 
 const addonCostFields = [
   { key: 'sensor_cost', label: 'Sensor' },
@@ -122,6 +136,57 @@ export function ProductDetails({ product, onBack, sensorSelection = null }) {
     // Sum all marked-up items
     return baseCostBreakdown.final + addonBreakdowns.reduce((sum, addon) => sum + addon.final, 0)
   }, [baseCostBreakdown.final, addonBreakdowns])
+
+  // Parse cubic meters per piece value
+  const parseCubicMValue = (value) => {
+    if (value === null || value === undefined) return 0
+    if (typeof value === 'number') {
+      return Number.isFinite(value) && value > 0 ? value : 0
+    }
+    if (typeof value !== 'string') return 0
+    const cleaned = value.toString().trim()
+    if (cleaned === '') return 0
+    const parsed = parseFloat(cleaned)
+    return Number.isFinite(parsed) && parsed > 0 ? parsed : 0
+  }
+
+  // Calculate shipping cost based on quantity
+  const shippingCost = useMemo(() => {
+    const cubicMPerPc = parseCubicMValue(product.cubic_m_per_pc)
+    if (cubicMPerPc === 0) return 0
+
+    const totalCubicMeters = cubicMPerPc * quantity
+
+    if (totalCubicMeters <= CONTAINER_20FT.maxCapacity) {
+      const smallestCubicMPerPc = cubicMPerPc
+      const wouldOverflow = (totalCubicMeters + smallestCubicMPerPc) > CONTAINER_20FT.maxCapacity
+      const isOverflowing = totalCubicMeters > CONTAINER_20FT.maxCapacity
+      
+      return (isOverflowing || wouldOverflow) 
+        ? CONTAINER_20FT.price 
+        : (totalCubicMeters / CONTAINER_20FT.totalCubicM) * CONTAINER_20FT.price
+    } else {
+      // Need 40ft container
+      const smallestCubicMPerPc = cubicMPerPc
+      const isOverflowing = totalCubicMeters > CONTAINER_40FT.maxCapacity
+      const wouldOverflow = (totalCubicMeters + smallestCubicMPerPc) > CONTAINER_40FT.maxCapacity
+      
+      return (isOverflowing || wouldOverflow)
+        ? CONTAINER_40FT.price
+        : (totalCubicMeters / CONTAINER_40FT.totalCubicM) * CONTAINER_40FT.price
+    }
+  }, [product.cubic_m_per_pc, quantity])
+
+  // Calculate tariff amount (35% of product total)
+  const tariffAmount = useMemo(() => {
+    return totalCostWithAddons * quantity * (TARIFF_PERCENTAGE / 100)
+  }, [totalCostWithAddons, quantity])
+
+  // Calculate final total (product total + tariff + shipping)
+  const finalTotal = useMemo(() => {
+    const productTotal = totalCostWithAddons * quantity
+    return productTotal + tariffAmount + shippingCost
+  }, [totalCostWithAddons, quantity, tariffAmount, shippingCost])
 
   const hasAddonData = useMemo(
     () => baseCost > 0 || addonCostData.entries.some((entry) => entry.value > 0),
@@ -316,7 +381,7 @@ export function ProductDetails({ product, onBack, sensorSelection = null }) {
     sensors: 'Sensors & Controls',
     features: 'Smart Features',
     certification: 'Certifications & Installation',
-    addons: 'Add-on Pricing',
+    addons: 'Build cost summary',
     general: 'Additional Information'
   }
 
@@ -491,15 +556,15 @@ export function ProductDetails({ product, onBack, sensorSelection = null }) {
                     <CardTitle className="text-lg flex items-center gap-2">
                       {getKeyIcon('addons')} 
                       {categoryTitles.addons}
-                      <Badge variant="outline" className="ml-auto">
-                        {addonCostData.entries.length} specs
-                      </Badge>
                     </CardTitle>
                   </CardHeader>
                   <CardContent>
                     <div className="space-y-3">
                       <div className="flex flex-wrap gap-2">
-                        <Badge variant="default">Total: {formatCurrency(totalCostWithAddons)}</Badge>
+                        <Badge variant="default">Unit Price: {formatCurrency(totalCostWithAddons)}</Badge>
+                        {quantity > 1 && (
+                          <Badge variant="secondary">Total ({quantity} units): {formatCurrency(totalCostWithAddons * quantity)}</Badge>
+                        )}
                       </div>
                       
                       {/* Base Price */}
@@ -522,6 +587,26 @@ export function ProductDetails({ product, onBack, sensorSelection = null }) {
                           )
                         })}
                       </div>
+
+                      {/* Shipping Cost */}
+                      {shippingCost > 0 && (
+                        <div className="mt-4 pt-4 border-t">
+                          <div className="flex items-center justify-between rounded-lg border border-border/60 bg-muted/40 px-3 py-2 mb-2">
+                            <span className="text-sm font-medium text-muted-foreground">Shipping Cost</span>
+                            <span className="text-sm font-semibold">{formatCurrency(shippingCost)}</span>
+                          </div>
+                          {tariffAmount > 0 && (
+                            <div className="flex items-center justify-between rounded-lg border border-border/60 bg-muted/40 px-3 py-2 mb-2">
+                              <span className="text-sm font-medium text-muted-foreground">Tariff ({TARIFF_PERCENTAGE}%)</span>
+                              <span className="text-sm font-semibold">{formatCurrency(tariffAmount)}</span>
+                            </div>
+                          )}
+                          <div className="flex items-center justify-between rounded-lg border-2 border-primary/30 bg-primary/5 px-3 py-2">
+                            <span className="text-sm font-semibold">Final Total</span>
+                            <span className="text-base font-bold text-primary">{formatCurrency(finalTotal)}</span>
+                          </div>
+                        </div>
+                      )}
                     </div>
                   </CardContent>
                 </Card>
@@ -538,9 +623,6 @@ export function ProductDetails({ product, onBack, sensorSelection = null }) {
                   <CardTitle className="text-lg flex items-center gap-2">
                     {getKeyIcon(keys[0] || '')}
                     {categoryTitles[category]}
-                    <Badge variant="outline" className="ml-auto">
-                      {keys.length} specs
-                    </Badge>
                   </CardTitle>
                 </CardHeader>
                 <CardContent>

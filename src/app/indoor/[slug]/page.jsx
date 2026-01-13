@@ -43,6 +43,9 @@ export default function IndoorProductPage({ params }) {
     setSensorSelection(selection)
     setIsLoading(true)
     setError(null)
+    // Clear selectedFilters when starting a new sensor selection
+    setSelectedFilters({})
+    setCurrentStep(0)
 
     console.log("S#############ensor Selection inside handleSensorSelection",selection)
 
@@ -312,7 +315,7 @@ export default function IndoorProductPage({ params }) {
               <div className="flex flex-wrap justify-center gap-2 mb-6">
                 {Object.entries(selectedFilters).map(([key, value]) => (
                   <Badge key={key} variant="secondary">
-                    {key}: {value || 'Not Specified'}
+                    {key === 'power_w' ? 'Wattage' : key.replace(/_/g, ' ')}: {value || 'Not Specified'}
                   </Badge>
                 ))}
               </div>
@@ -363,10 +366,11 @@ export default function IndoorProductPage({ params }) {
 
         {sensorSelection && !error && currentValues.length > 0 && currentKey && (
           <OptionSelector
-            title={currentKey}
-            description={`Select your preferred ${currentKey.replace(/_/g, ' ')}`}
+            title={currentKey === 'power_w' ? 'Wattage' : currentKey.replace(/_/g, ' ')}
+            description={`Select your preferred ${currentKey === 'power_w' ? 'wattage' : currentKey.replace(/_/g, ' ')}`}
             options={currentValues}
             onSelect={(value) => filterProducts(currentKey, value)}
+            selectedValue={undefined} // Don't show any value as selected on the current step
             isLoading={isLoading}
             step={currentStep + 1}
             totalSteps={desiredKeys.length}
