@@ -43,6 +43,9 @@ export default function IndoorProductPage({ params }) {
     setSensorSelection(selection)
     setIsLoading(true)
     setError(null)
+    // Clear selectedFilters when starting a new sensor selection
+    setSelectedFilters({})
+    setCurrentStep(0)
 
     console.log("S#############ensor Selection inside handleSensorSelection",selection)
 
