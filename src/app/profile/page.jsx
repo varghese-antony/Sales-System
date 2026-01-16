@@ -42,7 +42,7 @@ export default function ProfilePage() {
         <div className="space-y-6">
           {/* Header */}
           <div className="text-center space-y-2">
-            <h1 className="text-3xl font-bold text-foreground">Profile</h1>
+            <h1 className="text-3xl font-bold text-foreground">Profile * test</h1>
             <p className="text-muted-foreground">Manage your account information</p>
           </div>
 
