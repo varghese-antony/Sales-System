@@ -49,9 +49,22 @@ const parseCostValue = (value) => {
 }
 
 const formatCurrency = (value) => {
-  const numeric = Number.isFinite(value) ? value : 0
-  return `$${numeric.toFixed(2)}`
+  const numeric = (typeof value === 'number' && Number.isFinite(value))
+    ? value
+    : (parseFloat(String(value || 0).replace(/[^\d.-]/g, '')) || 0)
+  return `$${numeric.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
 }
+
+const formatInteger = (value) => {
+  const n = Math.round((typeof value === 'number' && Number.isFinite(value))
+    ? value
+    : (parseFloat(String(value || 0).replace(/[^\d.-]/g, '')) || 0))
+  return n.toLocaleString('en-US')
+}
+
+const CUBIC_M_TO_CUBIC_FT = 35.3147
+const SHIPPING_MIN_THRESHOLD = 3000
+const CONSOLIDATION_FEE = 650
 
 const calculateItemPrice = (item) => {
   // Base cost: cost_china_ddp_usa or cost_thailand_vietnam
@@ -158,7 +171,8 @@ export default function CartPage() {
   // }
 
   const getShippingTime = () => {
-    return selectedShipping === 'air' ? 30 : 35
+    if (selectedShipping === 'air') return null // Air: custom order pricing TBD
+    return 45 // Sea shipping: 45 days default
   }
 
   // Calculate total cart price
@@ -193,6 +207,8 @@ export default function CartPage() {
     }, 0)
   }, [items])
 
+  const totalPieces = useMemo(() => items.reduce((s, i) => s + i.quantity, 0), [items])
+
   // Calculate container allocation and shipping costs
   const containerAllocation = useMemo(() => {
     if (totalCubicMeters === 0) {
@@ -201,7 +217,10 @@ export default function CartPage() {
         totalCubicMeters: 0,
         container20ft: null,
         container40ft: null,
-        shippingCost: 0
+        shippingCost: 0,
+        consolidationFee: 0,
+        effectiveShippingCost: 0,
+        shippingPerUnit: 0
       }
     }
 
@@ -214,7 +233,10 @@ export default function CartPage() {
         totalCubicMeters: 0,
         container20ft: null,
         container40ft: null,
-        shippingCost: 0
+        shippingCost: 0,
+        consolidationFee: 0,
+        effectiveShippingCost: 0,
+        shippingPerUnit: 0
       }
     }
 
@@ -233,7 +255,10 @@ export default function CartPage() {
         ? CONTAINER_20FT.price 
         : (totalCubicMeters / CONTAINER_20FT.totalCubicM) * CONTAINER_20FT.price
 
-      const totalPieces = itemsWithCubicM.reduce((sum, item) => sum + item.quantity, 0)
+      const pieces = itemsWithCubicM.reduce((sum, item) => sum + item.quantity, 0)
+      const consolidationFee = shippingCost > 0 && shippingCost < SHIPPING_MIN_THRESHOLD ? CONSOLIDATION_FEE : 0
+      const effectiveShippingCost = shippingCost + consolidationFee
+      const shippingPerUnit = pieces > 0 ? effectiveShippingCost / pieces : 0
 
       return {
         hasValidItems: true,
@@ -242,13 +267,16 @@ export default function CartPage() {
           used: totalCubicMeters,
           capacity: CONTAINER_20FT.maxCapacity,
           totalCapacity: CONTAINER_20FT.totalCubicM,
-          pieces: totalPieces,
+          pieces,
           cost: shippingCost,
           percentage: (totalCubicMeters / CONTAINER_20FT.totalCubicM) * 100,
           isFullPrice: isOverflowing || wouldOverflow
         },
         container40ft: null,
-        shippingCost
+        shippingCost,
+        consolidationFee,
+        effectiveShippingCost,
+        shippingPerUnit
       }
     } else {
       // Need to split between 20ft and 40ft containers
@@ -331,6 +359,10 @@ export default function CartPage() {
         : 0
 
       const shippingCost = cost20ft + cost40ft
+      const pieces = piecesIn20ft + piecesIn40ft
+      const consolidationFee = shippingCost > 0 && shippingCost < SHIPPING_MIN_THRESHOLD ? CONSOLIDATION_FEE : 0
+      const effectiveShippingCost = shippingCost + consolidationFee
+      const shippingPerUnit = pieces > 0 ? effectiveShippingCost / pieces : 0
 
       return {
         hasValidItems: true,
@@ -353,7 +385,10 @@ export default function CartPage() {
           percentage: (cubicMIn40ft / CONTAINER_40FT.totalCubicM) * 100,
           isFullPrice: is40ftOverflowing || would40ftOverflow
         } : null,
-        shippingCost
+        shippingCost,
+        consolidationFee,
+        effectiveShippingCost,
+        shippingPerUnit
       }
     }
   }, [items, totalCubicMeters])
@@ -363,10 +398,10 @@ export default function CartPage() {
     return cartTotal * (TARIFF_PERCENTAGE / 100)
   }, [cartTotal])
 
-  // Calculate final total (cart total + tariff + shipping)
+  // Calculate final total (cart total + tariff + effective shipping including consolidation when < $3000)
   const finalTotal = useMemo(() => {
-    return cartTotal + tariffAmount + containerAllocation.shippingCost
-  }, [cartTotal, tariffAmount, containerAllocation.shippingCost])
+    return cartTotal + tariffAmount + (containerAllocation.effectiveShippingCost ?? containerAllocation.shippingCost ?? 0)
+  }, [cartTotal, tariffAmount, containerAllocation.effectiveShippingCost, containerAllocation.shippingCost])
 
   // Calculate price breakdown for each item
   const getItemPriceData = (item) => {
@@ -429,7 +464,7 @@ export default function CartPage() {
 
           <div className="flex items-center gap-4">
             <Badge variant="secondary" className="text-sm">
-              {getTotalItems()} {getTotalItems() === 1 ? 'item' : 'items'}
+              {formatInteger(getTotalItems())} {getTotalItems() === 1 ? 'item' : 'items'}
             </Badge>
             <Button
               variant="outline"
@@ -475,11 +510,15 @@ export default function CartPage() {
                       {/* Product Details */}
                       <div className="flex-1 min-w-0">
                         <div className="flex justify-between items-start mb-2">
-                          <h3 className="font-semibold text-lg">
-                            {item.name || item.product_name || item.producttype || 'Lighting Product'}
-                            {item.model_number && ` - ${item.model_number}`}
-                            {!item.name && !item.product_name && !item.producttype && item.id && ` #${item.id}`}
-                          </h3>
+                          <div>
+                            <h3 className="font-semibold text-lg">
+                              {item.name || item.product_name || item.producttype || 'Lighting Product'}
+                              {!item.name && !item.product_name && !item.producttype && item.id && ` #${item.id}`}
+                            </h3>
+                            {item.model_number && (
+                              <p className="text-sm text-muted-foreground mt-0.5">{item.model_number}</p>
+                            )}
+                          </div>
                         </div>
                         
                         {/* Price Breakdown */}
@@ -495,7 +534,7 @@ export default function CartPage() {
                           return (
                             <div className="mb-3 space-y-1">
                               <div className="text-sm font-semibold text-primary">
-                                Total ({item.quantity} {item.quantity === 1 ? 'item' : 'items'}): {formatCurrency(priceData.pricePerUnit * item.quantity)}
+                                Total ({formatInteger(item.quantity)} {item.quantity === 1 ? 'item' : 'items'}): {formatCurrency(priceData.pricePerUnit * item.quantity)}
                               </div>
                             </div>
                           )
@@ -525,14 +564,8 @@ export default function CartPage() {
                           )}
                         </div>
 
-                        {/* Key Specifications */}
+                        {/* Key Specifications - power and warranty removed per requirements */}
                         <div className="grid grid-cols-2 gap-x-4 gap-y-2 text-sm text-muted-foreground mb-4">
-                          {item.power_w && (
-                            <div className="flex items-center gap-1">
-                              <span className="font-medium">Power:</span>
-                              <span>{item.power_w}W</span>
-                            </div>
-                          )}
                           {item.voltage_v && (
                             <div className="flex items-center gap-1">
                               <span className="font-medium">Voltage:</span>
@@ -567,12 +600,6 @@ export default function CartPage() {
                             <div className="flex items-center gap-1">
                               <span className="font-medium">Dimmable:</span>
                               <span>{item.dimmable === 'Yes' ? 'Yes' : 'No'}</span>
-                            </div>
-                          )}
-                          {item.warranty && (
-                            <div className="flex items-center gap-1">
-                              <span className="font-medium">Warranty:</span>
-                              <span>{item.warranty} years</span>
                             </div>
                           )}
                           {item.driver_brand && (
@@ -704,7 +731,7 @@ export default function CartPage() {
                         <div className="flex-1">
                           <div className="flex items-center justify-between">
                             <span className="text-sm font-medium">Air Shipping</span>
-                            <span className="text-sm text-muted-foreground">15 days</span>
+                            <span className="text-sm text-muted-foreground">TBD (custom order pricing)</span>
                           </div>
                         </div>
                       </label>
@@ -720,8 +747,8 @@ export default function CartPage() {
                         />
                         <div className="flex-1">
                           <div className="flex items-center justify-between">
-                            <span className="text-sm font-medium">Boat Shipping</span>
-                            <span className="text-sm text-muted-foreground">35 days</span>
+                            <span className="text-sm font-medium">Sea Shipping</span>
+                            <span className="text-sm text-muted-foreground">45 days</span>
                           </div>
                         </div>
                       </label>
@@ -733,23 +760,23 @@ export default function CartPage() {
                     <div className="flex items-center gap-2">
                       <div className="w-2 h-2 bg-green-500 rounded-full"></div>
                       <span className="text-sm font-medium text-green-800">
-                        Total Delivery: {30 + getShippingTime()} days
+                        Total Delivery: {getShippingTime() == null ? 'TBD' : `${30 + getShippingTime()} days`}
                       </span>
                     </div>
                   </div>
                 </div>
 
-                {/* Container Allocation Section */}
+                {/* Container Size and Utilization Section */}
                 {containerAllocation.hasValidItems && (
                   <div className="space-y-3 border-t pt-4">
                     <h4 className="font-medium flex items-center gap-2">
                       <Package className="w-4 h-4" />
-                      Container Allocation
+                      Container Size and Utilization
                     </h4>
                     
                     <div className="space-y-2">
                       <div className="text-sm text-muted-foreground">
-                        Total Space Required: <span className="font-semibold text-foreground">{totalCubicMeters.toFixed(2)} m³</span>
+                        Total Space Required: <span className="font-semibold text-foreground">{totalCubicMeters.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} m³ ({(totalCubicMeters * CUBIC_M_TO_CUBIC_FT).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ft³)</span>
                       </div>
 
                       {containerAllocation.container20ft && (
@@ -764,12 +791,12 @@ export default function CartPage() {
                               )}
                             </span>
                             <span className={`text-xs ${containerAllocation.container20ft.isFullPrice ? 'text-orange-600' : 'text-blue-600'}`}>
-                              {containerAllocation.container20ft.used.toFixed(2)} / {containerAllocation.container20ft.totalCapacity.toFixed(2)} m³
+                              {containerAllocation.container20ft.used.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} / {containerAllocation.container20ft.totalCapacity.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} m³ ({(containerAllocation.container20ft.used * CUBIC_M_TO_CUBIC_FT).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ft³)
                             </span>
                           </div>
                           <div className={`space-y-1 text-xs ${containerAllocation.container20ft.isFullPrice ? 'text-orange-700' : 'text-blue-700'}`}>
-                            <div>Pieces: {containerAllocation.container20ft.pieces}</div>
-                            <div>Utilization: {containerAllocation.container20ft.percentage.toFixed(1)}%</div>
+                            <div>Pieces: {containerAllocation.container20ft.pieces.toLocaleString('en-US')}</div>
+                            <div>Utilization: {containerAllocation.container20ft.percentage.toLocaleString('en-US', { minimumFractionDigits: 1, maximumFractionDigits: 1 })}%</div>
                             <div className="font-semibold">Cost: {formatCurrency(containerAllocation.container20ft.cost)}</div>
                             {containerAllocation.container20ft.isFullPrice && (
                               <div className="text-xs italic mt-1">
@@ -792,12 +819,12 @@ export default function CartPage() {
                               )}
                             </span>
                             <span className={`text-xs ${containerAllocation.container40ft.isFullPrice ? 'text-orange-600' : 'text-purple-600'}`}>
-                              {containerAllocation.container40ft.used.toFixed(2)} / {containerAllocation.container40ft.totalCapacity.toFixed(2)} m³
+                              {containerAllocation.container40ft.used.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} / {containerAllocation.container40ft.totalCapacity.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} m³ ({(containerAllocation.container40ft.used * CUBIC_M_TO_CUBIC_FT).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ft³)
                             </span>
                           </div>
                           <div className={`space-y-1 text-xs ${containerAllocation.container40ft.isFullPrice ? 'text-orange-700' : 'text-purple-700'}`}>
-                            <div>Pieces: {containerAllocation.container40ft.pieces}</div>
-                            <div>Utilization: {containerAllocation.container40ft.percentage.toFixed(1)}%</div>
+                            <div>Pieces: {containerAllocation.container40ft.pieces.toLocaleString('en-US')}</div>
+                            <div>Utilization: {containerAllocation.container40ft.percentage.toLocaleString('en-US', { minimumFractionDigits: 1, maximumFractionDigits: 1 })}%</div>
                             <div className="font-semibold">Cost: {formatCurrency(containerAllocation.container40ft.cost)}</div>
                             {containerAllocation.container40ft.isFullPrice && (
                               <div className="text-xs italic mt-1">
@@ -808,13 +835,32 @@ export default function CartPage() {
                         </div>
                       )}
 
-                      {!containerAllocation.hasValidItems && (
-                        <div className="p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
-                          <p className="text-xs text-yellow-800">
-                            Container calculation requires cubic meter data (cubic_m_per_pc) for items. Some items in your cart may not have this information.
-                          </p>
+                      {/* Shipping per unit and consolidation fee */}
+                      {containerAllocation.shippingPerUnit != null && containerAllocation.shippingPerUnit > 0 && (
+                        <div className="p-3 border rounded-lg bg-muted/50">
+                          <div className="text-sm">
+                            <span className="font-medium text-muted-foreground">Shipping per unit: </span>
+                            <span className="font-semibold">{formatCurrency(containerAllocation.shippingPerUnit)}</span>
+                          </div>
+                          {containerAllocation.consolidationFee > 0 && (
+                            <div className="text-sm mt-1">
+                              <span className="font-medium text-muted-foreground">Consolidation fee: </span>
+                              <span className="font-semibold">{formatCurrency(containerAllocation.consolidationFee)}</span>
+                              <span className="text-muted-foreground text-xs"> (applied when shipping &lt; $3,000)</span>
+                            </div>
+                          )}
                         </div>
                       )}
+                    </div>
+                  </div>
+                )}
+
+                {!containerAllocation.hasValidItems && items.length > 0 && (
+                  <div className="space-y-3 border-t pt-4">
+                    <div className="p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
+                      <p className="text-xs text-yellow-800">
+                        Container calculation requires cubic meter data (cubic_m_per_pc) for items. Some items in your cart may not have this information.
+                      </p>
                     </div>
                   </div>
                 )}
@@ -836,14 +882,26 @@ export default function CartPage() {
                     </span>
                   </div>
                   
-                  {/* Shipping Cost */}
-                  {containerAllocation.hasValidItems && containerAllocation.shippingCost > 0 && (
-                    <div className="flex justify-between items-center py-2 border-b">
-                      <span className="text-sm font-medium text-muted-foreground">Shipping:</span>
-                      <span className="text-sm font-semibold">
-                        {formatCurrency(containerAllocation.shippingCost)}
-                      </span>
-                    </div>
+                  {/* Shipping Cost and Consolidation Fee */}
+                  {containerAllocation.hasValidItems && (containerAllocation.shippingCost > 0 || (containerAllocation.consolidationFee ?? 0) > 0) && (
+                    <>
+                      {containerAllocation.shippingCost > 0 && (
+                        <div className="flex justify-between items-center py-2 border-b">
+                          <span className="text-sm font-medium text-muted-foreground">Shipping:</span>
+                          <span className="text-sm font-semibold">
+                            {formatCurrency(containerAllocation.shippingCost)}
+                          </span>
+                        </div>
+                      )}
+                      {(containerAllocation.consolidationFee ?? 0) > 0 && (
+                        <div className="flex justify-between items-center py-2 border-b">
+                          <span className="text-sm font-medium text-muted-foreground">Consolidation fee:</span>
+                          <span className="text-sm font-semibold">
+                            {formatCurrency(containerAllocation.consolidationFee)}
+                          </span>
+                        </div>
+                      )}
+                    </>
                   )}
                   
                   {/* Final Total */}
@@ -857,13 +915,13 @@ export default function CartPage() {
                   {/* Item Count */}
                   <div className="flex justify-between items-center text-sm text-muted-foreground pt-2">
                     <span>Total Items:</span>
-                    <span>{getTotalItems()} {getTotalItems() === 1 ? 'item' : 'items'}</span>
+                    <span>{formatInteger(getTotalItems())} {getTotalItems() === 1 ? 'item' : 'items'}</span>
                   </div>
                   
                   {/* {appliedCoupon && !isCouponExpired(appliedCoupon) && (
                     <div className="flex justify-between items-center py-2 border-t border-dashed">
                       <span className="text-lg font-semibold">Total:</span>
-                      <span className="text-lg font-bold">${getDiscountedTotal().toFixed(2)}</span>
+                      <span className="text-lg font-bold">{formatCurrency(getDiscountedTotal())}</span>
                     </div>
                   )}
 

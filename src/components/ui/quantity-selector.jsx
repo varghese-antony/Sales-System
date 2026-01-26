@@ -96,11 +96,11 @@ export function QuantitySelector({
     
     // Add extra padding for different sizes
     if (size === "sm") {
-      return Math.max(digits * 9 + 20, 50) // min 50px for sm
+      return Math.max(digits * 9 + 18 + 20, 50) // min 50px for sm
     } else if (size === "lg") {
-      return Math.max(digits * 14 + 28, 85) // min 85px for lg  
+      return Math.max(digits * 14 + 28 + 28, 85) // min 85px for lg  
     } else {
-      return Math.max(digits * 11 + 24, 70) // min 70px for default
+      return Math.max(digits * 11 + 22 + 24, 70) // min 70px for default
     }
   }
 
