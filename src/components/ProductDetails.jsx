@@ -50,7 +50,7 @@ const parseCostValue = (value) => {
 
 const formatCurrency = (value) => {
   const numeric = Number.isFinite(value) ? value : 0
-  return `$${numeric.toFixed(2)}`
+  return `$${numeric.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
 }
 
 export function ProductDetails({ product, onBack, sensorSelection = null }) {
@@ -331,10 +331,6 @@ export function ProductDetails({ product, onBack, sensorSelection = null }) {
   // Filter product keys (no longer need to filter out sensors)
   const productKeys = Object.keys(displayProduct).filter(key => !excludedKeys.includes(key))
   
-  // Key specifications to highlight
-  const keySpecs = ['model_number', 'size', 'power_w', 'voltage', 'cct', 'lumen', 'material_finish']
-  const highlightedSpecs = keySpecs.filter(key => product[key]).slice(0, 6)
-  
   const getKeyIcon = (key) => {
     if (!key) return <Info className="w-4 h-4" />
     const lowerKey = key.toLowerCase()
@@ -345,12 +341,14 @@ export function ProductDetails({ product, onBack, sensorSelection = null }) {
     return <Info className="w-4 h-4" />
   }
 
+  // Keys to exclude from "Product and Shipping Dimensions" (no duplication: sensors, bi-level, model number).
+  const dimensionsExcludeKeys = ['sensors_and_controls', 'pir', 'microwave', 'model_number', 'bi_level']
+
   const getKeyCategory = (key) => {
     const powerKeys = ['power_w', 'voltage', 'efficacy_lumen_per_w', 'lumen']
-    const designKeys = ['model_number', 'size', 'material_finish', 'mounting', 'cct', 'cri_ra', 'sub_category', 'product_name', 'ip_rating']
+    const designKeys = ['model_number', 'size', 'material_finish', 'mounting', 'cct', 'cri_ra', 'sub_category', 'product_name', 'ip_rating', 'certifications']
     const sensorKeys = ['sensors_and_controls', 'pir', 'microwave', 'remote_control_bluetooth', 'emergency_backup_battery', 'plugin_sensor']
     const featureKeys = ['dimming_type', 'junction_cover', 'adjustment_dial', 'installation_kits']
-    const certKeys = ['certifications']
     // Only show prices to users, not costs (costs are in excludedKeys)
     const addonKeys = ['sensor_price', 'remote_control_bluetooth_price', 'plugin_sensor_price', 'emergency_backup_battery_price', 'installation_kits_price']
 
@@ -358,14 +356,15 @@ export function ProductDetails({ product, onBack, sensorSelection = null }) {
     if (designKeys.includes(key)) return 'design'
     if (sensorKeys.includes(key)) return 'sensors'
     if (featureKeys.includes(key)) return 'features'
-    if (certKeys.includes(key)) return 'certification'
     if (addonKeys.includes(key)) return 'addons'
+    if (dimensionsExcludeKeys.includes(key)) return 'exclude'
     return 'general'
   }
 
-  // Group keys by category
+  // Group keys by category. Skip 'exclude' so those keys don't get a separate card.
   const groupedKeys = productKeys.reduce((acc, key) => {
     const category = getKeyCategory(key)
+    if (category === 'exclude') return acc
     if (!acc[category]) acc[category] = []
     acc[category].push(key)
     return acc
@@ -380,9 +379,8 @@ export function ProductDetails({ product, onBack, sensorSelection = null }) {
     design: 'Design & Specifications',
     sensors: 'Sensors & Controls',
     features: 'Smart Features',
-    certification: 'Certifications & Installation',
-    addons: 'Build cost summary',
-    general: 'Additional Information'
+    addons: 'Buildout Cost',
+    general: 'Product and Shipping Dimensions'
   }
 
   const formatFieldName = (key) => {
@@ -402,15 +400,7 @@ export function ProductDetails({ product, onBack, sensorSelection = null }) {
           </Button>
           
           <div className="flex gap-2">
-            {product['cut_sheet'] && (
-              <Button variant="outline" asChild>
-                <a href={product['cut_sheet']} target="_blank" rel="noopener noreferrer">
-                  <FileText className="w-4 h-4 mr-2" />
-                  View Cut Sheet
-                  <ExternalLink className="w-3 h-3 ml-1" />
-                </a>
-              </Button>
-            )}
+            {/* View Cut Sheet moved to Downloads box */}
             
             {/* Quantity Selector */}
             <QuantitySelector
@@ -441,7 +431,7 @@ export function ProductDetails({ product, onBack, sensorSelection = null }) {
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          {/* Left Column - Image & Key Specs */}
+          {/* Left Column - Image, Title & Downloads */}
           <div className="lg:col-span-1 space-y-6 order-2 lg:order-1">
             {/* Product Image - Always show */}
             <Card className="overflow-hidden">
@@ -471,21 +461,16 @@ export function ProductDetails({ product, onBack, sensorSelection = null }) {
               </CardContent>
             </Card>
 
-            {/* Product Title */}
+            {/* Product Title - model number removed from under picture per requirements */}
             <div>
               <h1 className="text-2xl font-bold mb-2">
                 {product['product_name'] || product['producttype'] || 'Lighting Product'}
               </h1>
-              {product['model_number'] && (
-                <p className="text-sm text-muted-foreground mb-2">
-                  Model: {product['model_number']}
-                </p>
-              )}
               <div className="flex flex-wrap gap-2">
                 {product['sub_category'] && (
                   <Badge variant="secondary">{product['sub_category']}</Badge>
                 )}
-                {product['sensors_and_controls'] && (
+                {product['sensors_and_controls'] && !(product.bi_level || product.sensors_and_controls === 'Bi-Level' || product.sensors_and_controls === 'B-Level') && (
                   <Badge variant="outline">{product['sensors_and_controls']}</Badge>
                 )}
                 {optimizedImageUrl && optimizedImageUrl !== '/placeholder-product.svg' && (
@@ -496,23 +481,7 @@ export function ProductDetails({ product, onBack, sensorSelection = null }) {
                 )}
               </div>
             </div>
-
-            {/* Key Specifications */}
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-lg">Key Specifications</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-3">
-                {highlightedSpecs.map((key) => (
-                  <div key={key} className="flex justify-between items-center py-2 border-b border-border/50 last:border-b-0">
-                    <span className="text-sm font-medium text-muted-foreground">{formatFieldName(key)}</span>
-                    <span className="text-sm font-semibold">{displayProduct[key]}</span>
-                  </div>
-                ))}
-              </CardContent>
-            </Card>
-
-            {/* Downloads Section */}
+            {/* Downloads Section - moved closer to top; View Cut Sheet here instead of header */}
             <Card>
               <CardHeader>
                 <CardTitle className="text-lg flex items-center gap-2">
@@ -525,7 +494,7 @@ export function ProductDetails({ product, onBack, sensorSelection = null }) {
                   <Button variant="outline" className="w-full justify-start" asChild>
                     <a href={product['cut_sheet']} target="_blank" rel="noopener noreferrer">
                       <FileText className="w-4 h-4 mr-2" />
-                      <span className="text-sm font-medium">Product Cut Sheet</span>
+                      <span className="text-sm font-medium">View Cut Sheet</span>
                       <ExternalLink className="w-3 h-3 ml-auto" />
                     </a>
                   </Button>
@@ -540,6 +509,14 @@ export function ProductDetails({ product, onBack, sensorSelection = null }) {
                 </Button>
               </CardContent>
             </Card>
+
+            {/* Bi Level - above Product Title when product is Bi-Level */}
+            {(product.bi_level || product.sensors_and_controls === 'Bi-Level' || product.sensors_and_controls === 'B-Level') && (
+              <div>
+                <Badge variant="default">Bi Level</Badge>
+              </div>
+            )}
+
           </div>
 
           {/* Right Column - Detailed Specs */}
@@ -575,17 +552,14 @@ export function ProductDetails({ product, onBack, sensorSelection = null }) {
                         </div>
                       )}
                       
-                      {/* Addon Breakdowns */}
+                      {/* Addon Breakdowns - show all no-cost as $0 */}
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                        {addonBreakdowns.map(({ key, label, original, final }) => {
-                          if (original === 0) return null
-                          return (
-                            <div key={key} className="flex items-center justify-between rounded-lg border border-border/60 bg-muted/40 px-3 py-2">
-                              <span className="text-sm font-medium text-muted-foreground">{label}</span>
-                              <span className="text-sm font-semibold">{formatCurrency(final)}</span>
-                            </div>
-                          )
-                        })}
+                        {addonBreakdowns.map(({ key, label, original, final }) => (
+                          <div key={key} className="flex items-center justify-between rounded-lg border border-border/60 bg-muted/40 px-3 py-2">
+                            <span className="text-sm font-medium text-muted-foreground">{label}</span>
+                            <span className="text-sm font-semibold">{formatCurrency(final)}</span>
+                          </div>
+                        ))}
                       </div>
 
                       {/* Shipping Cost */}

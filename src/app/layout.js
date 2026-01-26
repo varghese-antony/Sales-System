@@ -25,11 +25,27 @@ export const metadata = {
   description: "Discover our curated collection of premium indoor and outdoor lighting solutions. Modern designs, exceptional quality.",
 };
 
+const themeScript = `
+(function(){
+  try {
+    var d=document.documentElement.classList;
+    if(localStorage.theme==='dark'||(!('theme' in localStorage)&&window.matchMedia('(prefers-color-scheme:dark)').matches))
+      d.add('dark');
+    else
+      d.remove('dark');
+  } catch(e){}
+})();
+`;
+
 export default function RootLayout({ children }) {
   return (
-    <html lang="en" className="scroll-smooth" data-scroll-behavior="smooth">
+    <html lang="en" className="scroll-smooth" suppressHydrationWarning>
+      <head>
+        <script dangerouslySetInnerHTML={{ __html: themeScript }} />
+      </head>
       <body
         className={`${inter.variable} ${jetbrainsMono.variable} antialiased font-sans`}
+        suppressHydrationWarning
       >
         <AuthProvider>
           <CartProvider>

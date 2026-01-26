@@ -5,8 +5,14 @@ import { useState, useEffect } from "react"
 
 export function AnimatedBackground() {
   const [particles, setParticles] = useState([])
+  const [mounted, setMounted] = useState(false)
 
   useEffect(() => {
+    setMounted(true)
+  }, [])
+
+  useEffect(() => {
+    if (!mounted) return
     // Generate particles on client side only to avoid hydration mismatch
     const newParticles = [...Array(20)].map((_, i) => ({
       id: i,
@@ -16,7 +22,12 @@ export function AnimatedBackground() {
       delay: Math.random() * 2,
     }))
     setParticles(newParticles)
-  }, [])
+  }, [mounted])
+
+  // Render static placeholder on server and initial client to avoid Framer Motion SSR hydration mismatch
+  if (!mounted) {
+    return <div className="fixed inset-0 -z-10 overflow-hidden" aria-hidden />
+  }
 
   return (
     <div className="fixed inset-0 -z-10 overflow-hidden">

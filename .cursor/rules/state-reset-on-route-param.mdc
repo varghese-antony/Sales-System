@@ -1,0 +1,50 @@
+---
+description: Reset page state when dynamic route params (e.g. [slug], [id]) change
+globs: src/app/**/page.jsx
+alwaysApply: false
+---
+
+# State Reset on Route Param Change
+
+When a page uses **dynamic route params** (e.g. `[slug]`, `[id]` in the path like `indoor/[slug]/page.jsx`), **reset all flow and selection state** whenever the param changes. This prevents showing the previous entity’s data or stale UI after navigation.
+
+## Rule
+
+Add a `useEffect` that depends on the resolved param (e.g. `slug`, `id`). When it changes, reset:
+
+- Result/entity state (e.g. `finalProduct`, `selectedItem`)
+- List/options state (e.g. `products`, `items`)
+- Step/filter/selection state (e.g. `currentStep`, `selectedFilters`, `sensorSelection`)
+- `error`
+- `isLoading` (set to `false` so a previous fetch doesn’t leave a spinner)
+
+Skip the reset when the param is still empty (e.g. before `params` has resolved): `if (!slug) return`.
+
+## Example
+
+```js
+useEffect(() => {
+  const resolveParams = async () => {
+    const resolved = await params
+    setSlug(resolved.slug)
+  }
+  resolveParams()
+}, [params])
+
+// Reset flow state when slug changes (e.g. navigating to another product).
+useEffect(() => {
+  if (!slug) return
+  setFinalProduct(null)
+  setProducts([])
+  setSensorSelection(null)
+  setSelectedFilters({})
+  setCurrentStep(0)
+  setError(null)
+  setIsLoading(false)
+}, [slug])
+```
+
+## When to Apply
+
+- New `[param]` pages: add this pattern from the start.
+- Existing dynamic-route pages: add the reset `useEffect` if you see wrong or stale data after changing the param in the URL.

@@ -27,7 +27,7 @@ export default function OutdoorProductPage({ params }) {
 
   const desiredKeys = [
     'size', 'power_w', 'voltage', 'cct', 'cri_ra', 'lumen', 'efficacy_lumen_per_w',
-    'dimming_type', 'material_finish', 'mounting', 'installation_kits', 
+    'dimming_type', 'material_finish', 'installation_kits', 
     'adjustment_dial', 'certifications', 'ip_rating'
   ]
 
@@ -38,6 +38,19 @@ export default function OutdoorProductPage({ params }) {
     }
     resolveParams()
   }, [params])
+
+  // Reset flow state when slug changes (e.g. navigating to another product).
+  // Ensures we never show the previous product or stale selection.
+  useEffect(() => {
+    if (!slug) return
+    setFinalProduct(null)
+    setProducts([])
+    setSensorSelection(null)
+    setSelectedFilters({})
+    setCurrentStep(0)
+    setError(null)
+    setIsLoading(false)
+  }, [slug])
 
   const handleSensorSelection = async (selection) => {
     setSensorSelection(selection)

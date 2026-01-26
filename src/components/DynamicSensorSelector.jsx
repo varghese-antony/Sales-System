@@ -212,9 +212,14 @@ export function DynamicSensorSelector({
                     </div>
                     <div className="flex-1">
                       <div className="font-medium">{option.controlType}</div>
-                      <div className="text-sm text-muted-foreground mt-1">
-                        {controlTypeDescriptions[option.controlType] || 'Lighting control option'}
-                      </div>
+                      {(() => {
+                        const desc = controlTypeDescriptions[option.controlType] || 'Lighting control option'
+                        const isNoneOption = /^(none|no)$/i.test(String(option.controlType ?? '').trim()) || desc === 'Manual control only - no automatic sensors'
+                        if (isNoneOption) return null
+                        return (
+                          <div className="text-sm text-muted-foreground mt-1">{desc}</div>
+                        )
+                      })()}
                       {option.sensorTypes.length > 0 && (
                         <div className="flex flex-wrap gap-1 mt-2">
                           {option.sensorTypes.map(sensor => (
