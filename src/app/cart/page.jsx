@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useMemo } from "react"
 import { motion } from "framer-motion"
-import { ShoppingCart, Trash2, ArrowLeft, Package, Percent, X } from "lucide-react"
+import { ShoppingCart, Trash2, ArrowLeft, Package, Percent, X, AlertCircle, TrendingUp, TrendingDown } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
@@ -12,6 +12,14 @@ import { useCart } from "@/contexts/CartContext"
 // import { useCoupon } from "@/contexts/CouponContext"
 import { Input } from "@/components/ui/input"
 import Link from "next/link"
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "@/components/ui/dialog"
 
 const MARKUP_PERCENTAGE_DEFAULT = 30 // 30% default markup
 const TARIFF_PERCENTAGE = 35 // 35% global tariff
@@ -116,6 +124,7 @@ export default function CartPage() {
   // const [couponCode, setCouponCode] = useState('')
   const [selectedShipping, setSelectedShipping] = useState('air')
   const [isEnquiryOpen, setIsEnquiryOpen] = useState(false)
+  const [showOptimizationDialog, setShowOptimizationDialog] = useState(false)
 
   const handleQuantityChange = (item, newQuantity) => {
     const productId = item.id || item.ID
@@ -242,7 +251,11 @@ export default function CartPage() {
 
     // Find the smallest cubic_m_per_pc to check if adding one more piece would overflow
     const smallestCubicMPerPc = Math.min(...itemsWithCubicM.map(item => parseCubicMValue(item.cubic_m_per_pc)))
+    
+    // 95% threshold for consolidation fee
+    const CONTAINER_20FT_95_PERCENT = CONTAINER_20FT.maxCapacity * 0.95
 
+    // Always prioritize 20ft container first
     // Check if items fit in 20ft container
     if (totalCubicMeters <= CONTAINER_20FT.maxCapacity) {
       // Check if adding one more piece would cause overflow
@@ -250,15 +263,41 @@ export default function CartPage() {
       // Check if already overflowing (shouldn't happen in this branch, but just in case)
       const isOverflowing = totalCubicMeters > CONTAINER_20FT.maxCapacity
       
+      // Check if utilization is less than 95%
+      const utilizationPercentage = (totalCubicMeters / CONTAINER_20FT.maxCapacity) * 100
+      const isLessThan95Percent = totalCubicMeters < CONTAINER_20FT_95_PERCENT
+      
       // If overflowing or would overflow, use full container price
       const shippingCost = (isOverflowing || wouldOverflow) 
         ? CONTAINER_20FT.price 
         : (totalCubicMeters / CONTAINER_20FT.totalCubicM) * CONTAINER_20FT.price
 
       const pieces = itemsWithCubicM.reduce((sum, item) => sum + item.quantity, 0)
-      const consolidationFee = shippingCost > 0 && shippingCost < SHIPPING_MIN_THRESHOLD ? CONSOLIDATION_FEE : 0
+      
+      // Consolidation fee: only add if:
+      // 1. Utilization is less than 95% of max capacity
+      // 2. Can fit one more piece without overflowing
+      const consolidationFee = isLessThan95Percent && !wouldOverflow && !isOverflowing && totalCubicMeters < CONTAINER_20FT.maxCapacity ? CONSOLIDATION_FEE : 0
       const effectiveShippingCost = shippingCost + consolidationFee
       const shippingPerUnit = pieces > 0 ? effectiveShippingCost / pieces : 0
+
+      // Calculate optimization suggestions
+      let optimizationSuggestions = null
+      if (consolidationFee > 0) {
+        // Calculate how many pieces to add to reach 95% threshold (to remove consolidation fee)
+        const spaceTo95Percent = CONTAINER_20FT_95_PERCENT - totalCubicMeters
+        const piecesToAddFor95Percent = spaceTo95Percent > 0 && smallestCubicMPerPc > 0 
+          ? Math.ceil(spaceTo95Percent / smallestCubicMPerPc)
+          : 0
+        
+        optimizationSuggestions = {
+          hasConsolidationFee: true,
+          piecesToAddToRemoveFee: piecesToAddFor95Percent > 0 ? piecesToAddFor95Percent : null,
+          currentShippingCost: effectiveShippingCost,
+          optimizedShippingCost: shippingCost, // Without consolidation fee
+          savings: consolidationFee
+        }
+      }
 
       return {
         hasValidItems: true,
@@ -270,125 +309,104 @@ export default function CartPage() {
           pieces,
           cost: shippingCost,
           percentage: (totalCubicMeters / CONTAINER_20FT.totalCubicM) * 100,
-          isFullPrice: isOverflowing || wouldOverflow
+          isFullPrice: isOverflowing || wouldOverflow,
+          utilizationPercentage
         },
         container40ft: null,
         shippingCost,
         consolidationFee,
         effectiveShippingCost,
-        shippingPerUnit
+        shippingPerUnit,
+        optimizationSuggestions
       }
     } else {
-      // Need to split between 20ft and 40ft containers
-      // Fill 20ft container first with whole pieces
-      let cubicMIn20ft = 0
-      let piecesIn20ft = 0
-      const itemAllocations = []
-
-      // Allocate pieces to 20ft container
-      for (const item of itemsWithCubicM) {
-        const cubicMPerPc = parseCubicMValue(item.cubic_m_per_pc)
-        const remainingSpace20ft = CONTAINER_20FT.maxCapacity - cubicMIn20ft
-        const maxPiecesFor20ft = Math.floor(remainingSpace20ft / cubicMPerPc)
-        const piecesFor20ft = Math.min(item.quantity, maxPiecesFor20ft)
-        
-        if (piecesFor20ft > 0) {
-          piecesIn20ft += piecesFor20ft
-          cubicMIn20ft += piecesFor20ft * cubicMPerPc
-          itemAllocations.push({
-            item,
-            pieces20ft: piecesFor20ft,
-            pieces40ft: item.quantity - piecesFor20ft
-          })
-        } else {
-          itemAllocations.push({
-            item,
-            pieces20ft: 0,
-            pieces40ft: item.quantity
-          })
-        }
-      }
-
-      // Calculate remaining pieces for 40ft container
-      let cubicMIn40ft = 0
-      let piecesIn40ft = 0
-
-      for (const allocation of itemAllocations) {
-        if (allocation.pieces40ft > 0) {
-          const cubicMPerPc = parseCubicMValue(allocation.item.cubic_m_per_pc)
-          piecesIn40ft += allocation.pieces40ft
-          cubicMIn40ft += allocation.pieces40ft * cubicMPerPc
-        }
-      }
-
-      // Check if 20ft container is overflowing or would overflow with one more piece
-      const smallestCubicMIn20ft = itemsWithCubicM
-        .filter(item => {
-          const allocation = itemAllocations.find(a => a.item === item)
-          return allocation && allocation.pieces20ft > 0
-        })
-        .map(item => parseCubicMValue(item.cubic_m_per_pc))
-      const smallestPiece20ft = smallestCubicMIn20ft.length > 0 ? Math.min(...smallestCubicMIn20ft) : smallestCubicMPerPc
+      // Quantities exceed 20ft container - use 40ft container (not split)
+      // Check if adding one more piece would cause overflow in 40ft
+      const wouldOverflow40ft = (totalCubicMeters + smallestCubicMPerPc) > CONTAINER_40FT.maxCapacity
+      const isOverflowing40ft = totalCubicMeters > CONTAINER_40FT.maxCapacity
       
-      const is20ftOverflowing = cubicMIn20ft > CONTAINER_20FT.maxCapacity
-      const would20ftOverflow = (cubicMIn20ft + smallestPiece20ft) > CONTAINER_20FT.maxCapacity
-
-      // Check if 40ft container is overflowing or would overflow with one more piece
-      const smallestCubicMIn40ft = itemsWithCubicM
-        .filter(item => {
-          const allocation = itemAllocations.find(a => a.item === item)
-          return allocation && allocation.pieces40ft > 0
-        })
-        .map(item => parseCubicMValue(item.cubic_m_per_pc))
-      const smallestPiece40ft = smallestCubicMIn40ft.length > 0 ? Math.min(...smallestCubicMIn40ft) : smallestCubicMPerPc
+      // 95% threshold for consolidation fee
+      const CONTAINER_40FT_95_PERCENT = CONTAINER_40FT.maxCapacity * 0.95
+      const isLessThan95Percent40ft = totalCubicMeters < CONTAINER_40FT_95_PERCENT
       
-      const is40ftOverflowing = cubicMIn40ft > CONTAINER_40FT.maxCapacity
-      const would40ftOverflow = (cubicMIn40ft + smallestPiece40ft) > CONTAINER_40FT.maxCapacity
+      // Calculate shipping cost for 40ft container
+      const shippingCost = (isOverflowing40ft || wouldOverflow40ft) 
+        ? CONTAINER_40FT.price 
+        : (totalCubicMeters / CONTAINER_40FT.totalCubicM) * CONTAINER_40FT.price
 
-      // Calculate costs - use full price if overflowing or would overflow
-      const cost20ft = cubicMIn20ft > 0 
-        ? ((is20ftOverflowing || would20ftOverflow) 
-          ? CONTAINER_20FT.price 
-          : (cubicMIn20ft / CONTAINER_20FT.totalCubicM) * CONTAINER_20FT.price)
-        : 0
+      const pieces = itemsWithCubicM.reduce((sum, item) => sum + item.quantity, 0)
       
-      const cost40ft = cubicMIn40ft > 0
-        ? ((is40ftOverflowing || would40ftOverflow)
-          ? CONTAINER_40FT.price
-          : (cubicMIn40ft / CONTAINER_40FT.totalCubicM) * CONTAINER_40FT.price)
-        : 0
-
-      const shippingCost = cost20ft + cost40ft
-      const pieces = piecesIn20ft + piecesIn40ft
-      const consolidationFee = shippingCost > 0 && shippingCost < SHIPPING_MIN_THRESHOLD ? CONSOLIDATION_FEE : 0
+      // Consolidation fee: only add if:
+      // 1. Utilization is less than 95% of max capacity
+      // 2. Can fit one more piece without overflowing
+      const consolidationFee = isLessThan95Percent40ft && !wouldOverflow40ft && !isOverflowing40ft && totalCubicMeters < CONTAINER_40FT.maxCapacity ? CONSOLIDATION_FEE : 0
       const effectiveShippingCost = shippingCost + consolidationFee
       const shippingPerUnit = pieces > 0 ? effectiveShippingCost / pieces : 0
+
+      // Calculate optimization suggestions
+      let optimizationSuggestions = null
+      
+      if (consolidationFee > 0) {
+        // Calculate how many pieces to add to reach 95% threshold (to remove consolidation fee)
+        const spaceTo95Percent = CONTAINER_40FT_95_PERCENT - totalCubicMeters
+        const piecesToAddFor95Percent = spaceTo95Percent > 0 && smallestCubicMPerPc > 0 
+          ? Math.ceil(spaceTo95Percent / smallestCubicMPerPc)
+          : null
+        
+        optimizationSuggestions = {
+          hasConsolidationFee: true,
+          piecesToAddToRemoveFee: piecesToAddFor95Percent,
+          currentShippingCost: effectiveShippingCost,
+          optimizedShippingCost: shippingCost,
+          savings: consolidationFee
+        }
+      } else {
+        // Using 40ft container - suggest reducing quantity to fit in 20ft
+        const spaceAvailableIn20ft = CONTAINER_20FT.maxCapacity
+        const excessCubicM = totalCubicMeters - spaceAvailableIn20ft
+        
+        if (excessCubicM > 0 && smallestCubicMPerPc > 0) {
+          // Calculate how many pieces to reduce to fit in 20ft container
+          const piecesToReduce = Math.ceil(excessCubicM / smallestCubicMPerPc)
+          
+          // Calculate what shipping cost would be with 20ft only
+          const newTotalCubicM = totalCubicMeters - (piecesToReduce * smallestCubicMPerPc)
+          const wouldOverflow20ft = (newTotalCubicM + smallestCubicMPerPc) > CONTAINER_20FT.maxCapacity
+          const newShippingCost20ft = wouldOverflow20ft 
+            ? CONTAINER_20FT.price 
+            : (newTotalCubicM / CONTAINER_20FT.totalCubicM) * CONTAINER_20FT.price
+          
+          const newConsolidationFee20ft = newTotalCubicM < CONTAINER_20FT_95_PERCENT && !wouldOverflow20ft ? CONSOLIDATION_FEE : 0
+          const newEffectiveShippingCost20ft = newShippingCost20ft + newConsolidationFee20ft
+          
+          optimizationSuggestions = {
+            using40ftContainer: true,
+            piecesToReduceFor20ft: piecesToReduce,
+            currentShippingCost: effectiveShippingCost,
+            optimizedShippingCost: newEffectiveShippingCost20ft,
+            savings: effectiveShippingCost - newEffectiveShippingCost20ft
+          }
+        }
+      }
 
       return {
         hasValidItems: true,
         totalCubicMeters,
-        container20ft: cubicMIn20ft > 0 ? {
-          used: cubicMIn20ft,
-          capacity: CONTAINER_20FT.maxCapacity,
-          totalCapacity: CONTAINER_20FT.totalCubicM,
-          pieces: piecesIn20ft,
-          cost: cost20ft,
-          percentage: (cubicMIn20ft / CONTAINER_20FT.totalCubicM) * 100,
-          isFullPrice: is20ftOverflowing || would20ftOverflow
-        } : null,
-        container40ft: cubicMIn40ft > 0 ? {
-          used: cubicMIn40ft,
+        container20ft: null,
+        container40ft: {
+          used: totalCubicMeters,
           capacity: CONTAINER_40FT.maxCapacity,
           totalCapacity: CONTAINER_40FT.totalCubicM,
-          pieces: piecesIn40ft,
-          cost: cost40ft,
-          percentage: (cubicMIn40ft / CONTAINER_40FT.totalCubicM) * 100,
-          isFullPrice: is40ftOverflowing || would40ftOverflow
-        } : null,
+          pieces,
+          cost: shippingCost,
+          percentage: (totalCubicMeters / CONTAINER_40FT.totalCubicM) * 100,
+          isFullPrice: isOverflowing40ft || wouldOverflow40ft
+        },
         shippingCost,
         consolidationFee,
         effectiveShippingCost,
-        shippingPerUnit
+        shippingPerUnit,
+        optimizationSuggestions
       }
     }
   }, [items, totalCubicMeters])
@@ -943,7 +961,14 @@ export default function CartPage() {
                 <Button
                   className="w-full"
                   size="lg"
-                  onClick={() => setIsEnquiryOpen(true)}
+                  onClick={() => {
+                    // Show optimization dialog if there are suggestions, otherwise go directly to enquiry form
+                    if (containerAllocation.optimizationSuggestions) {
+                      setShowOptimizationDialog(true)
+                    } else {
+                      setIsEnquiryOpen(true)
+                    }
+                  }}
                   // disabled={appliedCoupon && isCouponExpired(appliedCoupon)}
                 >
                   Submit Enquiry
@@ -963,6 +988,112 @@ export default function CartPage() {
           </div>
         </div>
       </div>
+
+      {/* Optimization Suggestions Dialog */}
+      <Dialog open={showOptimizationDialog} onOpenChange={setShowOptimizationDialog}>
+        <DialogContent className="sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <AlertCircle className="w-5 h-5 text-primary" />
+              Shipping Cost Optimization
+            </DialogTitle>
+            <DialogDescription>
+              We found opportunities to optimize your shipping costs
+            </DialogDescription>
+          </DialogHeader>
+          
+          {containerAllocation.optimizationSuggestions && (
+            <div className="space-y-4 py-4">
+              {containerAllocation.optimizationSuggestions.hasConsolidationFee && (
+                <div className="p-4 bg-blue-50 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-800 rounded-lg">
+                  <div className="flex items-start gap-3">
+                    <TrendingUp className="w-5 h-5 text-blue-600 dark:text-blue-400 mt-0.5" />
+                    <div className="flex-1">
+                      <h4 className="font-semibold text-blue-900 dark:text-blue-100 mb-2">
+                        Remove Consolidation Fee
+                      </h4>
+                      <p className="text-sm text-blue-800 dark:text-blue-200 mb-3">
+                        You're currently paying a consolidation fee of {formatCurrency(containerAllocation.optimizationSuggestions.savings)}.
+                      </p>
+                      {containerAllocation.optimizationSuggestions.piecesToAddToRemoveFee && (
+                        <div className="bg-white dark:bg-blue-900/30 p-3 rounded border border-blue-200 dark:border-blue-700">
+                          <p className="text-sm font-medium text-blue-900 dark:text-blue-100">
+                            Add {containerAllocation.optimizationSuggestions.piecesToAddToRemoveFee} more piece{containerAllocation.optimizationSuggestions.piecesToAddToRemoveFee !== 1 ? 's' : ''} to reach 95% container utilization and remove the consolidation fee.
+                          </p>
+                          <div className="mt-2 flex items-center justify-between text-sm">
+                            <span className="text-blue-700 dark:text-blue-300">Current shipping:</span>
+                            <span className="font-semibold text-blue-900 dark:text-blue-100">{formatCurrency(containerAllocation.optimizationSuggestions.currentShippingCost)}</span>
+                          </div>
+                          <div className="flex items-center justify-between text-sm">
+                            <span className="text-blue-700 dark:text-blue-300">Optimized shipping:</span>
+                            <span className="font-semibold text-green-600 dark:text-green-400">{formatCurrency(containerAllocation.optimizationSuggestions.optimizedShippingCost)}</span>
+                          </div>
+                          <div className="mt-2 pt-2 border-t border-blue-200 dark:border-blue-700 flex items-center justify-between">
+                            <span className="text-sm font-semibold text-blue-900 dark:text-blue-100">You save:</span>
+                            <span className="text-sm font-bold text-green-600 dark:text-green-400">{formatCurrency(containerAllocation.optimizationSuggestions.savings)}</span>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              )}
+              
+              {containerAllocation.optimizationSuggestions.using40ftContainer && (
+                <div className="p-4 bg-orange-50 dark:bg-orange-950/20 border border-orange-200 dark:border-orange-800 rounded-lg">
+                  <div className="flex items-start gap-3">
+                    <TrendingDown className="w-5 h-5 text-orange-600 dark:text-orange-400 mt-0.5" />
+                    <div className="flex-1">
+                      <h4 className="font-semibold text-orange-900 dark:text-orange-100 mb-2">
+                        Reduce Shipping Cost with 20ft Container
+                      </h4>
+                      <p className="text-sm text-orange-800 dark:text-orange-200 mb-3">
+                        Your order currently requires a 40ft container. You can reduce the quantity to fit in a 20ft container and save on shipping.
+                      </p>
+                      {containerAllocation.optimizationSuggestions.piecesToReduceFor20ft && (
+                        <div className="bg-white dark:bg-orange-900/30 p-3 rounded border border-orange-200 dark:border-orange-700">
+                          <p className="text-sm font-medium text-orange-900 dark:text-orange-100">
+                            Reduce {containerAllocation.optimizationSuggestions.piecesToReduceFor20ft} piece{containerAllocation.optimizationSuggestions.piecesToReduceFor20ft !== 1 ? 's' : ''} to fit in a 20ft container.
+                          </p>
+                          <div className="mt-2 flex items-center justify-between text-sm">
+                            <span className="text-orange-700 dark:text-orange-300">Current shipping (40ft):</span>
+                            <span className="font-semibold text-orange-900 dark:text-orange-100">{formatCurrency(containerAllocation.optimizationSuggestions.currentShippingCost)}</span>
+                          </div>
+                          <div className="flex items-center justify-between text-sm">
+                            <span className="text-orange-700 dark:text-orange-300">Optimized shipping (20ft):</span>
+                            <span className="font-semibold text-green-600 dark:text-green-400">{formatCurrency(containerAllocation.optimizationSuggestions.optimizedShippingCost)}</span>
+                          </div>
+                          <div className="mt-2 pt-2 border-t border-orange-200 dark:border-orange-700 flex items-center justify-between">
+                            <span className="text-sm font-semibold text-orange-900 dark:text-orange-100">You save:</span>
+                            <span className="text-sm font-bold text-green-600 dark:text-green-400">{formatCurrency(containerAllocation.optimizationSuggestions.savings)}</span>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+          
+          <DialogFooter className="flex gap-2">
+            <Button
+              variant="outline"
+              onClick={() => setShowOptimizationDialog(false)}
+            >
+              Continue with Current Order
+            </Button>
+            <Button
+              onClick={() => {
+                setShowOptimizationDialog(false)
+                setIsEnquiryOpen(true)
+              }}
+            >
+              Proceed to Submit Enquiry
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Enquiry Form Modal */}
       <EnquiryForm
