@@ -423,8 +423,8 @@ export default function Outdoor() {
                     </h2>
                     <div className="flex items-center gap-3 mt-2">
                       <p className="text-muted-foreground">
-                        Discover our {category.sub_category.toLowerCase()} collection
-                      </p>
+                      Discover our {category.sub_category.toLowerCase()} collection
+                    </p>
                       {categoryMinPrices[category.sub_category] && (
                         <Badge variant="secondary" className="ml-auto">
                           Starting from ${categoryMinPrices[category.sub_category].toFixed(2)}

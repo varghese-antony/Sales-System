@@ -284,9 +284,9 @@ export function OptionSelector({
                         <div className={`
                           text-sm font-semibold
                           ${isSelected ? 'text-white' : 'text-primary'}
-                        `}>
+                            `}>
                           Starting from {formatCurrency(minPrice)}
-                        </div>
+                          </div>
                       </div>
                     )}
                   </div>
@@ -319,7 +319,7 @@ export function OptionSelector({
                     <div className={`
                       text-sm font-semibold
                       ${isSelected ? 'text-white' : 'text-primary'}
-                    `}>
+                            `}>
                       Starting from {formatCurrency(minPrice)}
                     </div>
                   )}
