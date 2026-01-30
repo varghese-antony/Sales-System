@@ -252,8 +252,8 @@ export default function CartPage() {
     // Find the smallest cubic_m_per_pc to check if adding one more piece would overflow
     const smallestCubicMPerPc = Math.min(...itemsWithCubicM.map(item => parseCubicMValue(item.cubic_m_per_pc)))
     
-    // 95% threshold for consolidation fee
-    const CONTAINER_20FT_95_PERCENT = CONTAINER_20FT.maxCapacity * 0.95
+    // 97% threshold for consolidation fee (97% of total container size)
+    const CONTAINER_20FT_97_PERCENT = CONTAINER_20FT.totalCubicM * 0.97
 
     // Always prioritize 20ft container first
     // Check if items fit in 20ft container
@@ -263,9 +263,9 @@ export default function CartPage() {
       // Check if already overflowing (shouldn't happen in this branch, but just in case)
       const isOverflowing = totalCubicMeters > CONTAINER_20FT.maxCapacity
       
-      // Check if utilization is less than 95%
+      // Check if utilization is less than 97%
       const utilizationPercentage = (totalCubicMeters / CONTAINER_20FT.maxCapacity) * 100
-      const isLessThan95Percent = totalCubicMeters < CONTAINER_20FT_95_PERCENT
+      const isLessThan97Percent = totalCubicMeters < CONTAINER_20FT_97_PERCENT
       
       // If overflowing or would overflow, use full container price
       const shippingCost = (isOverflowing || wouldOverflow) 
@@ -275,24 +275,24 @@ export default function CartPage() {
       const pieces = itemsWithCubicM.reduce((sum, item) => sum + item.quantity, 0)
       
       // Consolidation fee: only add if:
-      // 1. Utilization is less than 95% of max capacity
+      // 1. Utilization is less than 97% of max capacity
       // 2. Can fit one more piece without overflowing
-      const consolidationFee = isLessThan95Percent && !wouldOverflow && !isOverflowing && totalCubicMeters < CONTAINER_20FT.maxCapacity ? CONSOLIDATION_FEE : 0
+      const consolidationFee = isLessThan97Percent && !wouldOverflow && !isOverflowing && totalCubicMeters < CONTAINER_20FT.maxCapacity ? CONSOLIDATION_FEE : 0
       const effectiveShippingCost = shippingCost + consolidationFee
       const shippingPerUnit = pieces > 0 ? effectiveShippingCost / pieces : 0
 
       // Calculate optimization suggestions
       let optimizationSuggestions = null
       if (consolidationFee > 0) {
-        // Calculate how many pieces to add to reach 95% threshold (to remove consolidation fee)
-        const spaceTo95Percent = CONTAINER_20FT_95_PERCENT - totalCubicMeters
-        const piecesToAddFor95Percent = spaceTo95Percent > 0 && smallestCubicMPerPc > 0 
-          ? Math.ceil(spaceTo95Percent / smallestCubicMPerPc)
+        // Calculate how many pieces to add to reach 97% threshold (to remove consolidation fee)
+        const spaceTo97Percent = CONTAINER_20FT_97_PERCENT - totalCubicMeters
+        const piecesToAddFor97Percent = spaceTo97Percent > 0 && smallestCubicMPerPc > 0 
+          ? Math.ceil(spaceTo97Percent / smallestCubicMPerPc)
           : 0
         
         optimizationSuggestions = {
           hasConsolidationFee: true,
-          piecesToAddToRemoveFee: piecesToAddFor95Percent > 0 ? piecesToAddFor95Percent : null,
+          piecesToAddToRemoveFee: piecesToAddFor97Percent > 0 ? piecesToAddFor97Percent : null,
           currentShippingCost: effectiveShippingCost,
           optimizedShippingCost: shippingCost, // Without consolidation fee
           savings: consolidationFee
@@ -325,9 +325,9 @@ export default function CartPage() {
       const wouldOverflow40ft = (totalCubicMeters + smallestCubicMPerPc) > CONTAINER_40FT.maxCapacity
       const isOverflowing40ft = totalCubicMeters > CONTAINER_40FT.maxCapacity
       
-      // 95% threshold for consolidation fee
-      const CONTAINER_40FT_95_PERCENT = CONTAINER_40FT.maxCapacity * 0.95
-      const isLessThan95Percent40ft = totalCubicMeters < CONTAINER_40FT_95_PERCENT
+      // 97% threshold for consolidation fee (97% of total container size)
+      const CONTAINER_40FT_97_PERCENT = CONTAINER_40FT.totalCubicM * 0.97
+      const isLessThan97Percent40ft = totalCubicMeters < CONTAINER_40FT_97_PERCENT
       
       // Calculate shipping cost for 40ft container
       const shippingCost = (isOverflowing40ft || wouldOverflow40ft) 
@@ -337,9 +337,9 @@ export default function CartPage() {
       const pieces = itemsWithCubicM.reduce((sum, item) => sum + item.quantity, 0)
       
       // Consolidation fee: only add if:
-      // 1. Utilization is less than 95% of max capacity
+      // 1. Utilization is less than 97% of max capacity
       // 2. Can fit one more piece without overflowing
-      const consolidationFee = isLessThan95Percent40ft && !wouldOverflow40ft && !isOverflowing40ft && totalCubicMeters < CONTAINER_40FT.maxCapacity ? CONSOLIDATION_FEE : 0
+      const consolidationFee = isLessThan97Percent40ft && !wouldOverflow40ft && !isOverflowing40ft && totalCubicMeters < CONTAINER_40FT.maxCapacity ? CONSOLIDATION_FEE : 0
       const effectiveShippingCost = shippingCost + consolidationFee
       const shippingPerUnit = pieces > 0 ? effectiveShippingCost / pieces : 0
 
@@ -347,15 +347,15 @@ export default function CartPage() {
       let optimizationSuggestions = null
       
       if (consolidationFee > 0) {
-        // Calculate how many pieces to add to reach 95% threshold (to remove consolidation fee)
-        const spaceTo95Percent = CONTAINER_40FT_95_PERCENT - totalCubicMeters
-        const piecesToAddFor95Percent = spaceTo95Percent > 0 && smallestCubicMPerPc > 0 
-          ? Math.ceil(spaceTo95Percent / smallestCubicMPerPc)
+        // Calculate how many pieces to add to reach 97% threshold (to remove consolidation fee)
+        const spaceTo97Percent = CONTAINER_40FT_97_PERCENT - totalCubicMeters
+        const piecesToAddFor97Percent = spaceTo97Percent > 0 && smallestCubicMPerPc > 0 
+          ? Math.ceil(spaceTo97Percent / smallestCubicMPerPc)
           : null
         
         optimizationSuggestions = {
           hasConsolidationFee: true,
-          piecesToAddToRemoveFee: piecesToAddFor95Percent,
+          piecesToAddToRemoveFee: piecesToAddFor97Percent,
           currentShippingCost: effectiveShippingCost,
           optimizedShippingCost: shippingCost,
           savings: consolidationFee
@@ -376,7 +376,7 @@ export default function CartPage() {
             ? CONTAINER_20FT.price 
             : (newTotalCubicM / CONTAINER_20FT.totalCubicM) * CONTAINER_20FT.price
           
-          const newConsolidationFee20ft = newTotalCubicM < CONTAINER_20FT_95_PERCENT && !wouldOverflow20ft ? CONSOLIDATION_FEE : 0
+          const newConsolidationFee20ft = newTotalCubicM < CONTAINER_20FT_97_PERCENT && !wouldOverflow20ft ? CONSOLIDATION_FEE : 0
           const newEffectiveShippingCost20ft = newShippingCost20ft + newConsolidationFee20ft
           
           optimizationSuggestions = {
@@ -1018,7 +1018,7 @@ export default function CartPage() {
                       {containerAllocation.optimizationSuggestions.piecesToAddToRemoveFee && (
                         <div className="bg-white dark:bg-blue-900/30 p-3 rounded border border-blue-200 dark:border-blue-700">
                           <p className="text-sm font-medium text-blue-900 dark:text-blue-100">
-                            Add {containerAllocation.optimizationSuggestions.piecesToAddToRemoveFee} more piece{containerAllocation.optimizationSuggestions.piecesToAddToRemoveFee !== 1 ? 's' : ''} to reach 95% container utilization and remove the consolidation fee.
+                            Add {containerAllocation.optimizationSuggestions.piecesToAddToRemoveFee} more piece{containerAllocation.optimizationSuggestions.piecesToAddToRemoveFee !== 1 ? 's' : ''} to reach 97% container utilization and remove the consolidation fee.
                           </p>
                           <div className="mt-2 flex items-center justify-between text-sm">
                             <span className="text-blue-700 dark:text-blue-300">Current shipping:</span>
