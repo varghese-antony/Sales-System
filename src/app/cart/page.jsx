@@ -622,6 +622,23 @@ export default function CartPage() {
     return cartTotal + tariffAmount + (containerAllocation.effectiveShippingCost ?? containerAllocation.shippingCost ?? 0)
   }, [cartTotal, tariffAmount, containerAllocation.effectiveShippingCost, containerAllocation.shippingCost])
 
+  // Calculate per-piece charges
+  const perPieceCharges = useMemo(() => {
+    const totalPieces = items.reduce((sum, item) => sum + item.quantity, 0)
+    if (totalPieces === 0) {
+      return {
+        withoutShippingAndTariff: 0,
+        withTariffOnly: 0,
+        withTariffAndShipping: 0
+      }
+    }
+    return {
+      withoutShippingAndTariff: cartTotal / totalPieces,
+      withTariffOnly: (cartTotal + tariffAmount) / totalPieces,
+      withTariffAndShipping: finalTotal / totalPieces
+    }
+  }, [cartTotal, tariffAmount, finalTotal, items])
+
   // Calculate price breakdown for each item
   const getItemPriceData = (item) => {
     return calculateItemPrice(item)
@@ -847,11 +864,17 @@ export default function CartPage() {
                                 min={1}
                               />
                             </div>
-                            {containerAllocation.shippingPerUnit != null && containerAllocation.shippingPerUnit > 0 && (
-                              <div className="text-xs text-muted-foreground">
-                                <span className="font-medium">Shipping:</span> {formatCurrency(containerAllocation.shippingPerUnit)}/unit
+                            <div className="flex flex-col gap-1 text-xs text-muted-foreground">
+                              <div>
+                                <span className="font-medium">Product:</span> {formatCurrency(perPieceCharges.withoutShippingAndTariff)}/pc
                               </div>
-                            )}
+                              <div>
+                                <span className="font-medium">+ Tariff:</span> {formatCurrency(perPieceCharges.withTariffOnly)}/pc
+                              </div>
+                              <div>
+                                <span className="font-medium">+ Shipping:</span> {formatCurrency(perPieceCharges.withTariffAndShipping)}/pc
+                              </div>
+                            </div>
                           </div>
 
                           <Button
@@ -1142,6 +1165,25 @@ export default function CartPage() {
                   <div className="flex justify-between items-center text-sm text-muted-foreground pt-2">
                     <span>Total Items:</span>
                     <span>{formatInteger(getTotalItems())} {getTotalItems() === 1 ? 'item' : 'items'}</span>
+                  </div>
+
+                  {/* Per-Piece Charges Breakdown */}
+                  <div className="border-t pt-4 space-y-2 mt-4">
+                    <h5 className="text-sm font-semibold mb-2">Per-Piece Charges:</h5>
+                    <div className="space-y-1.5 text-xs">
+                      <div className="flex justify-between items-center">
+                        <span className="text-muted-foreground">Product only:</span>
+                        <span className="font-medium">{formatCurrency(perPieceCharges.withoutShippingAndTariff)}</span>
+                      </div>
+                      <div className="flex justify-between items-center">
+                        <span className="text-muted-foreground">+ Tariff:</span>
+                        <span className="font-medium">{formatCurrency(perPieceCharges.withTariffOnly)}</span>
+                      </div>
+                      <div className="flex justify-between items-center">
+                        <span className="text-muted-foreground">+ Shipping:</span>
+                        <span className="font-semibold text-primary">{formatCurrency(perPieceCharges.withTariffAndShipping)}</span>
+                      </div>
+                    </div>
                   </div>
                   
                   {/* {appliedCoupon && !isCouponExpired(appliedCoupon) && (

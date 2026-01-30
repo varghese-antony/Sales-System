@@ -121,7 +121,11 @@ export default function IndoorProductPage({ params }) {
       
       if (fetchError) throw new Error(fetchError)
       
-      if (data && data.length > 0) {
+      if (data && data.length === 1) {
+        // If only one product matches, automatically show it as final product
+        setFinalProduct(data[0])
+        setProducts([])
+      } else if (data && data.length > 0) {
         setProducts(data)
       } else {
         setError('No products found matching your sensor configuration.')
