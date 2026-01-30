@@ -29,6 +29,8 @@ const CONTAINER_40FT = {
   maxCapacity: 67 * 0.97 // 97% utilization = 64.99 cubic meters
 }
 
+const CONSOLIDATION_FEE = 650
+
 const addonCostFields = [
   { key: 'sensor_cost', label: 'Sensor' },
   { key: 'remote_control_bluetooth_cost', label: 'Remote Control / Bluetooth' },
@@ -150,30 +152,52 @@ export function ProductDetails({ product, onBack, sensorSelection = null }) {
     return Number.isFinite(parsed) && parsed > 0 ? parsed : 0
   }
 
-  // Calculate shipping cost based on quantity
-  const shippingCost = useMemo(() => {
+  // Calculate shipping cost based on quantity (including consolidation fee)
+  const { shippingCost, consolidationFee, effectiveShippingCost } = useMemo(() => {
     const cubicMPerPc = parseCubicMValue(product.cubic_m_per_pc)
-    if (cubicMPerPc === 0) return 0
+    if (cubicMPerPc === 0) return { shippingCost: 0, consolidationFee: 0, effectiveShippingCost: 0 }
 
     const totalCubicMeters = cubicMPerPc * quantity
+    const CONTAINER_20FT_97_PERCENT = CONTAINER_20FT.totalCubicM * 0.97
+    const CONTAINER_40FT_97_PERCENT = CONTAINER_40FT.totalCubicM * 0.97
 
     if (totalCubicMeters <= CONTAINER_20FT.maxCapacity) {
       const smallestCubicMPerPc = cubicMPerPc
       const wouldOverflow = (totalCubicMeters + smallestCubicMPerPc) > CONTAINER_20FT.maxCapacity
       const isOverflowing = totalCubicMeters > CONTAINER_20FT.maxCapacity
+      const isAtMaxCapacity = totalCubicMeters >= CONTAINER_20FT.maxCapacity
+      const isLessThan97Percent = totalCubicMeters < CONTAINER_20FT_97_PERCENT
       
-      return (isOverflowing || wouldOverflow) 
+      const baseShippingCost = (isOverflowing || isAtMaxCapacity) 
         ? CONTAINER_20FT.price 
         : (totalCubicMeters / CONTAINER_20FT.totalCubicM) * CONTAINER_20FT.price
+      
+      const fee = isLessThan97Percent && !isAtMaxCapacity && !isOverflowing && totalCubicMeters < CONTAINER_20FT.maxCapacity ? CONSOLIDATION_FEE : 0
+      
+      return {
+        shippingCost: baseShippingCost,
+        consolidationFee: fee,
+        effectiveShippingCost: baseShippingCost + fee
+      }
     } else {
       // Need 40ft container
       const smallestCubicMPerPc = cubicMPerPc
       const isOverflowing = totalCubicMeters > CONTAINER_40FT.maxCapacity
       const wouldOverflow = (totalCubicMeters + smallestCubicMPerPc) > CONTAINER_40FT.maxCapacity
+      const isAtMaxCapacity = totalCubicMeters >= CONTAINER_40FT.maxCapacity
+      const isLessThan97Percent = totalCubicMeters < CONTAINER_40FT_97_PERCENT
       
-      return (isOverflowing || wouldOverflow)
+      const baseShippingCost = (isOverflowing || isAtMaxCapacity)
         ? CONTAINER_40FT.price
         : (totalCubicMeters / CONTAINER_40FT.totalCubicM) * CONTAINER_40FT.price
+      
+      const fee = isLessThan97Percent && !isAtMaxCapacity && !isOverflowing && totalCubicMeters < CONTAINER_40FT.maxCapacity ? CONSOLIDATION_FEE : 0
+      
+      return {
+        shippingCost: baseShippingCost,
+        consolidationFee: fee,
+        effectiveShippingCost: baseShippingCost + fee
+      }
     }
   }, [product.cubic_m_per_pc, quantity])
 
@@ -182,11 +206,24 @@ export function ProductDetails({ product, onBack, sensorSelection = null }) {
     return totalCostWithAddons * quantity * (TARIFF_PERCENTAGE / 100)
   }, [totalCostWithAddons, quantity])
 
-  // Calculate final total (product total + tariff + shipping)
+  // Calculate final total (product total + tariff + effective shipping including consolidation fee)
   const finalTotal = useMemo(() => {
     const productTotal = totalCostWithAddons * quantity
-    return productTotal + tariffAmount + shippingCost
-  }, [totalCostWithAddons, quantity, tariffAmount, shippingCost])
+    return productTotal + tariffAmount + effectiveShippingCost
+  }, [totalCostWithAddons, quantity, tariffAmount, effectiveShippingCost])
+
+  // Calculate per-piece charges
+  const perPieceCharges = useMemo(() => {
+    const unitPrice = totalCostWithAddons
+    const tariffPerUnit = unitPrice * (TARIFF_PERCENTAGE / 100)
+    const shippingPerUnit = quantity > 0 ? effectiveShippingCost / quantity : 0
+    
+    return {
+      unitPriceOnly: unitPrice,
+      unitPriceWithTariff: unitPrice + tariffPerUnit,
+      unitPriceWithTariffAndShipping: unitPrice + tariffPerUnit + shippingPerUnit
+    }
+  }, [totalCostWithAddons, effectiveShippingCost, quantity])
 
   const hasAddonData = useMemo(
     () => baseCost > 0 || addonCostData.entries.some((entry) => entry.value > 0),
@@ -537,10 +574,30 @@ export function ProductDetails({ product, onBack, sensorSelection = null }) {
                   </CardHeader>
                   <CardContent>
                     <div className="space-y-3">
-                      <div className="flex flex-wrap gap-2">
-                        <Badge variant="default">Unit Price: {formatCurrency(totalCostWithAddons)}</Badge>
+                      <div className="space-y-3">
+                        {/* Per-Piece Charges Breakdown */}
+                        <div className="space-y-2 p-3 bg-muted/30 rounded-lg border border-border/60">
+                          <h5 className="text-sm font-semibold mb-2">Per-Piece Charges:</h5>
+                          <div className="space-y-1.5">
+                            <div className="flex items-center justify-between text-sm">
+                              <span className="text-muted-foreground">Unit Price:</span>
+                              <span className="font-semibold">{formatCurrency(perPieceCharges.unitPriceOnly)}</span>
+                            </div>
+                            <div className="flex items-center justify-between text-sm">
+                              <span className="text-muted-foreground">Unit Price + Tariff:</span>
+                              <span className="font-semibold">{formatCurrency(perPieceCharges.unitPriceWithTariff)}</span>
+                            </div>
+                            <div className="flex items-center justify-between text-sm border-t border-border/60 pt-1.5">
+                              <span className="font-medium text-foreground">Unit Price + Tariff + Shipping:</span>
+                              <span className="font-bold text-primary">{formatCurrency(perPieceCharges.unitPriceWithTariffAndShipping)}</span>
+                            </div>
+                          </div>
+                        </div>
                         {quantity > 1 && (
-                          <Badge variant="secondary">Total ({quantity} units): {formatCurrency(totalCostWithAddons * quantity)}</Badge>
+                          <div className="flex items-center justify-between p-2 bg-muted/20 rounded-lg">
+                            <span className="text-sm font-medium text-muted-foreground">Total ({quantity} units):</span>
+                            <span className="text-sm font-semibold">{formatCurrency(totalCostWithAddons * quantity)}</span>
+                          </div>
                         )}
                       </div>
                       
@@ -563,12 +620,18 @@ export function ProductDetails({ product, onBack, sensorSelection = null }) {
                       </div>
 
                       {/* Shipping Cost */}
-                      {shippingCost > 0 && (
+                      {effectiveShippingCost > 0 && (
                         <div className="mt-4 pt-4 border-t">
                           <div className="flex items-center justify-between rounded-lg border border-border/60 bg-muted/40 px-3 py-2 mb-2">
                             <span className="text-sm font-medium text-muted-foreground">Shipping Cost</span>
                             <span className="text-sm font-semibold">{formatCurrency(shippingCost)}</span>
                           </div>
+                          {consolidationFee > 0 && (
+                            <div className="flex items-center justify-between rounded-lg border border-border/60 bg-muted/40 px-3 py-2 mb-2">
+                              <span className="text-sm font-medium text-muted-foreground">Consolidation Fee</span>
+                              <span className="text-sm font-semibold">{formatCurrency(consolidationFee)}</span>
+                            </div>
+                          )}
                           {tariffAmount > 0 && (
                             <div className="flex items-center justify-between rounded-lg border border-border/60 bg-muted/40 px-3 py-2 mb-2">
                               <span className="text-sm font-medium text-muted-foreground">Tariff ({TARIFF_PERCENTAGE}%)</span>
