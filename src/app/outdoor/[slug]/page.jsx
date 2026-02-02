@@ -13,6 +13,9 @@ import Link from "next/link"
 import { getAllProductsV2 } from '@/lib/database/products-v2'
 import { slugToProductName } from '@/lib/utils/slug'
 
+// Options that affect cost
+const costSelections = ['size', 'power_w']
+
 export default function OutdoorProductPage({ params }) {
   const [slug, setSlug] = useState(null)
   const [products, setProducts] = useState([])
@@ -402,7 +405,7 @@ export default function OutdoorProductPage({ params }) {
         {sensorSelection && !error && currentKey && (
           <OptionSelector
             title={currentKey === 'power_w' ? 'Wattage' : currentKey.replace(/_/g, ' ')}
-            description={`Select your preferred ${currentKey === 'power_w' ? 'wattage' : currentKey.replace(/_/g, ' ')}${displayValues.length === 1 && (displayValues[0] === 'N/A' || displayValues[0] === '') ? ' (Empty value available)' : ''}`}
+            description={`Select your preferred ${currentKey === 'power_w' ? 'wattage' : currentKey.replace(/_/g, ' ')}${!costSelections.includes(currentKey) ? ' ($0)' : ''}${displayValues.length === 1 && (displayValues[0] === 'N/A' || displayValues[0] === '') ? ' (Empty value available)' : ''}`}
             options={displayValues}
             onSelect={(value) => filterProducts(currentKey, value)}
             selectedValue={undefined} // Don't show any value as selected on the current step
