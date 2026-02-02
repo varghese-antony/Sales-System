@@ -14,7 +14,7 @@ import { getAllProductsV2 } from '@/lib/database/products-v2'
 import { slugToProductName } from '@/lib/utils/slug'
 
 // Options that affect cost
-const costSelections = ['size', 'power_w']
+const costSelections = ['size', 'power_w','wattage']
 
 export default function IndoorProductPage({ params }) {
   const [slug, setSlug] = useState(null)
