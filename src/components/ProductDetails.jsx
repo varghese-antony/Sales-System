@@ -30,6 +30,7 @@ const CONTAINER_40FT = {
 }
 
 const CONSOLIDATION_FEE = 650
+const SHIPPING_MIN_THRESHOLD = 3000
 
 const addonCostFields = [
   { key: 'sensor_cost', label: 'Sensor' },
@@ -172,7 +173,8 @@ export function ProductDetails({ product, onBack, sensorSelection = null }) {
         ? CONTAINER_20FT.price 
         : (totalCubicMeters / CONTAINER_20FT.totalCubicM) * CONTAINER_20FT.price
       
-      const fee = isLessThan97Percent && !isAtMaxCapacity && !isOverflowing && totalCubicMeters < CONTAINER_20FT.maxCapacity ? CONSOLIDATION_FEE : 0
+      // Consolidation fee: only add if shipping cost is less than $3000
+      const fee = baseShippingCost < SHIPPING_MIN_THRESHOLD ? CONSOLIDATION_FEE : 0
       
       return {
         shippingCost: baseShippingCost,
@@ -191,7 +193,8 @@ export function ProductDetails({ product, onBack, sensorSelection = null }) {
         ? CONTAINER_40FT.price
         : (totalCubicMeters / CONTAINER_40FT.totalCubicM) * CONTAINER_40FT.price
       
-      const fee = isLessThan97Percent && !isAtMaxCapacity && !isOverflowing && totalCubicMeters < CONTAINER_40FT.maxCapacity ? CONSOLIDATION_FEE : 0
+      // Consolidation fee: only add if shipping cost is less than $3000
+      const fee = baseShippingCost < SHIPPING_MIN_THRESHOLD ? CONSOLIDATION_FEE : 0
       
       return {
         shippingCost: baseShippingCost,
@@ -627,10 +630,15 @@ export function ProductDetails({ product, onBack, sensorSelection = null }) {
                             <span className="text-sm font-semibold">{formatCurrency(shippingCost)}</span>
                           </div>
                           {consolidationFee > 0 && (
-                            <div className="flex items-center justify-between rounded-lg border border-border/60 bg-muted/40 px-3 py-2 mb-2">
-                              <span className="text-sm font-medium text-muted-foreground">Consolidation Fee</span>
-                              <span className="text-sm font-semibold">{formatCurrency(consolidationFee)}</span>
-                            </div>
+                            <>
+                              <div className="flex items-center justify-between rounded-lg border border-border/60 bg-muted/40 px-3 py-2 mb-2">
+                                <span className="text-sm font-medium text-muted-foreground">Consolidation Fee</span>
+                                <span className="text-sm font-semibold">{formatCurrency(consolidationFee)}</span>
+                              </div>
+                              <div className="text-xs text-orange-600 font-medium px-3 py-1">
+                                ⚠️ Applies when shipping cost is less than $3,000
+                              </div>
+                            </>
                           )}
                           {tariffAmount > 0 && (
                             <div className="flex items-center justify-between rounded-lg border border-border/60 bg-muted/40 px-3 py-2 mb-2">

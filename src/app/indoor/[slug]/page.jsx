@@ -413,6 +413,7 @@ export default function IndoorProductPage({ params }) {
             step={currentStep + 1}
             totalSteps={desiredKeys.length}
             products={products}
+            costSelections={costSelections}
           />
         )}
       </div>

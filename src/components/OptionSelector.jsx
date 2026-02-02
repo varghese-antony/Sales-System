@@ -90,7 +90,8 @@ export function OptionSelector({
   description,
   step,
   totalSteps,
-  products = []
+  products = [],
+  costSelections = []
 }) {
   const getOptionIcon = (value) => {
     if (value?.toString().toLowerCase().includes('led')) return <Zap className="w-4 h-4" />
