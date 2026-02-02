@@ -272,10 +272,8 @@ export default function CartPage() {
 
       const pieces = itemsWithCubicM.reduce((sum, item) => sum + item.quantity, 0)
       
-      // Consolidation fee: only add if:
-      // 1. Utilization is less than 97% of max capacity
-      // 2. Can fit one more piece without overflowing (not at max capacity)
-      const consolidationFee = isLessThan97Percent && !isAtMaxCapacity && !isOverflowing && totalCubicMeters < CONTAINER_20FT.maxCapacity ? CONSOLIDATION_FEE : 0
+      // Consolidation fee: only add if shipping cost is less than $3000
+      const consolidationFee = shippingCost < SHIPPING_MIN_THRESHOLD ? CONSOLIDATION_FEE : 0
       const effectiveShippingCost = shippingCost + consolidationFee
       const shippingPerUnit = pieces > 0 ? effectiveShippingCost / pieces : 0
 
@@ -341,7 +339,7 @@ export default function CartPage() {
             ? CONTAINER_20FT.price
             : (newTotalCubicM / CONTAINER_20FT.totalCubicM) * CONTAINER_20FT.price
           
-          const newConsolidationFee = newTotalCubicM < CONTAINER_20FT_97_PERCENT && !newIsAtMaxCapacity && !newIsOverflowing && newTotalCubicM < CONTAINER_20FT.maxCapacity ? CONSOLIDATION_FEE : 0
+          const newConsolidationFee = newShippingCost < SHIPPING_MIN_THRESHOLD ? CONSOLIDATION_FEE : 0
           const newEffectiveShippingCost = newShippingCost + newConsolidationFee
           const newShippingPerUnit = newPieces > 0 ? newEffectiveShippingCost / newPieces : 0
           
@@ -427,10 +425,8 @@ export default function CartPage() {
 
       const pieces = itemsWithCubicM.reduce((sum, item) => sum + item.quantity, 0)
       
-      // Consolidation fee: only add if:
-      // 1. Utilization is less than 97% of max capacity
-      // 2. Can fit one more piece without overflowing (not at max capacity)
-      const consolidationFee = isLessThan97Percent40ft && !isAtMaxCapacity && !isOverflowing40ft && totalCubicMeters < CONTAINER_40FT.maxCapacity ? CONSOLIDATION_FEE : 0
+      // Consolidation fee: only add if shipping cost is less than $3000
+      const consolidationFee = shippingCost < SHIPPING_MIN_THRESHOLD ? CONSOLIDATION_FEE : 0
       const effectiveShippingCost = shippingCost + consolidationFee
       const shippingPerUnit = pieces > 0 ? effectiveShippingCost / pieces : 0
 
@@ -491,7 +487,7 @@ export default function CartPage() {
             ? CONTAINER_20FT.price 
             : (newTotalCubicM / CONTAINER_20FT.totalCubicM) * CONTAINER_20FT.price
           
-          const newConsolidationFee20ft = newTotalCubicM < CONTAINER_20FT_97_PERCENT && !wouldOverflow20ft ? CONSOLIDATION_FEE : 0
+          const newConsolidationFee20ft = newShippingCost20ft < SHIPPING_MIN_THRESHOLD ? CONSOLIDATION_FEE : 0
           const newEffectiveShippingCost20ft = newShippingCost20ft + newConsolidationFee20ft
           const newShippingPerUnit20ft = newPieces > 0 ? newEffectiveShippingCost20ft / newPieces : 0
           
@@ -533,7 +529,7 @@ export default function CartPage() {
             ? CONTAINER_40FT.price
             : (newTotalCubicM / CONTAINER_40FT.totalCubicM) * CONTAINER_40FT.price
           
-          const newConsolidationFee = newTotalCubicM < CONTAINER_40FT_97_PERCENT && !newIsAtMaxCapacity && !newIsOverflowing && newTotalCubicM < CONTAINER_40FT.maxCapacity ? CONSOLIDATION_FEE : 0
+          const newConsolidationFee = newShippingCost < SHIPPING_MIN_THRESHOLD ? CONSOLIDATION_FEE : 0
           const newEffectiveShippingCost = newShippingCost + newConsolidationFee
           const newShippingPerUnit = newPieces > 0 ? newEffectiveShippingCost / newPieces : 0
           
@@ -1095,7 +1091,9 @@ export default function CartPage() {
                             <div className="text-sm mt-1">
                               <span className="font-medium text-muted-foreground">Consolidation fee: </span>
                               <span className="font-semibold">{formatCurrency(containerAllocation.consolidationFee)}</span>
-                              <span className="text-muted-foreground text-xs"> (When the container is not full)</span>
+                              <div className="text-xs text-muted-foreground mt-1">
+                                <span className="font-medium text-orange-600">⚠️ Consolidation fee applies when shipping cost is less than $3,000</span>
+                              </div>
                             </div>
                           )}
                         </div>
@@ -1143,11 +1141,16 @@ export default function CartPage() {
                         </div>
                       )}
                       {(containerAllocation.consolidationFee ?? 0) > 0 && (
-                        <div className="flex justify-between items-center py-2 border-b">
-                          <span className="text-sm font-medium text-muted-foreground">Consolidation fee:</span>
-                          <span className="text-sm font-semibold">
-                            {formatCurrency(containerAllocation.consolidationFee)}
-                          </span>
+                        <div className="flex flex-col py-2 border-b">
+                          <div className="flex justify-between items-center">
+                            <span className="text-sm font-medium text-muted-foreground">Consolidation fee:</span>
+                            <span className="text-sm font-semibold">
+                              {formatCurrency(containerAllocation.consolidationFee)}
+                            </span>
+                          </div>
+                          <div className="text-xs text-orange-600 font-medium mt-1">
+                            ⚠️ Applies when shipping cost is less than $3,000
+                          </div>
                         </div>
                       )}
                     </>

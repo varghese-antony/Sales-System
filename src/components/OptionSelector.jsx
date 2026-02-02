@@ -90,7 +90,8 @@ export function OptionSelector({
   description,
   step,
   totalSteps,
-  products = []
+  products = [],
+  costSelections = []
 }) {
   const getOptionIcon = (value) => {
     if (value?.toString().toLowerCase().includes('led')) return <Zap className="w-4 h-4" />
@@ -194,7 +195,7 @@ export function OptionSelector({
         )}
 
         <h2 className="text-3xl md:text-4xl font-bold mb-4">
-          Select <span className="text-gradient bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">{title}</span>
+          Select <span className="text-gradient bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">{title}{" "} {!costSelections.includes(title) ? '$0' : ''}</span>
         </h2>
         
         {description && (
@@ -311,7 +312,7 @@ export function OptionSelector({
                     font-semibold text-sm md:text-base leading-tight
                     ${isSelected ? 'text-white' : 'text-foreground'}
                   `}>
-                    {value === 'N/A' ? 'Not Specified' : value}
+                    {value === 'N/A' ? 'Not Specified' : value === '' ? 'Empty' : value}
                   </div>
 
                   {/* Starting from price (when no image) */}

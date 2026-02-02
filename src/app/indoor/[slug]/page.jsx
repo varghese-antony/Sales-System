@@ -13,6 +13,9 @@ import Link from "next/link"
 import { getAllProductsV2 } from '@/lib/database/products-v2'
 import { slugToProductName } from '@/lib/utils/slug'
 
+// Options that affect cost
+const costSelections = ['size', 'power_w']
+
 export default function IndoorProductPage({ params }) {
   const [slug, setSlug] = useState(null)
   const [products, setProducts] = useState([])
@@ -125,7 +128,8 @@ export default function IndoorProductPage({ params }) {
         // If only one product matches, automatically show it as final product
         setFinalProduct(data[0])
         setProducts([])
-      } else if (data && data.length > 0) {
+      } else if (data && data.length > 1) {
+        // If more than one product, show selection step (including empty values)
         setProducts(data)
       } else {
         setError('No products found matching your sensor configuration.')
@@ -195,18 +199,20 @@ export default function IndoorProductPage({ params }) {
       if (fetchError) throw new Error(fetchError)
 
       if (data && data.length === 1) {
-        // If only one product matches all filters, show it
+        // If only one product matches all filters, show it as final product
         setFinalProduct(data[0])
-      } else if (data && data.length > 0) {
-        // Check if we have more filters to apply
+        setProducts([])
+      } else if (data && data.length > 1) {
+        // If more than one product, continue to next step (show selection including empty values)
         const nextStep = currentStep + 1
         if (nextStep < desiredKeys.length) {
           // If we have more filters, move to the next step
           setProducts(data)
           setCurrentStep(nextStep)
         } else {
-          // If no more filters, show the first product
+          // If no more filters but still multiple products, show the first one
           setFinalProduct(data[0])
+          setProducts([])
         }
       } else {
         setError('No products match your selection. Please try different options.')
@@ -273,9 +279,24 @@ export default function IndoorProductPage({ params }) {
   const currentValues = products.length > 0 
     ? [...new Set(products.map(p => {
         const value = p[currentKey]
+        // Keep null/undefined as 'N/A', but preserve empty strings as-is
         return value === null || value === undefined ? 'N/A' : value
-      }))].filter(v => v?.toString().trim())
+      }))].filter(v => {
+        // Keep 'N/A', empty strings, and all other values (don't filter out empty strings)
+        if (v === 'N/A') return true
+        return v !== null && v !== undefined
+      })
     : []
+  
+  // If all values are empty/null, show empty string as an option so user can proceed
+  // Check if all non-N/A values are empty strings
+  const nonNAValues = currentValues.filter(v => v !== 'N/A')
+  const allEmpty = nonNAValues.length > 0 && nonNAValues.every(v => v === '')
+  const displayValues = currentValues.length === 0 
+    ? [''] // Show empty string option when no values
+    : allEmpty && !currentValues.includes('N/A')
+    ? [''] // Show empty string option when all are empty strings
+    : currentValues
 
     console.log("################## cureent key", currentKey)
     console.log("###################current value", currentValues)
@@ -332,7 +353,7 @@ export default function IndoorProductPage({ params }) {
               <div className="flex flex-wrap justify-center gap-2 mb-6">
                 {Object.entries(selectedFilters).map(([key, value]) => (
                   <Badge key={key} variant="secondary">
-                    {key === 'power_w' ? 'Wattage' : key.replace(/_/g, ' ')}: {value || 'Not Specified'}
+                    {key === 'power_w' ? 'Wattage' : key.replace(/_/g, ' ')}: {value}
                   </Badge>
                 ))}
               </div>
@@ -381,17 +402,18 @@ export default function IndoorProductPage({ params }) {
           </motion.div>
         )}
 
-        {sensorSelection && !error && currentValues.length > 0 && currentKey && (
+        {sensorSelection && !error && currentKey && (
           <OptionSelector
             title={currentKey === 'power_w' ? 'Wattage' : currentKey.replace(/_/g, ' ')}
-            description={`Select your preferred ${currentKey === 'power_w' ? 'wattage' : currentKey.replace(/_/g, ' ')}`}
-            options={currentValues}
+            description={`Select your preferred ${currentKey === 'power_w' ? 'wattage' : currentKey.replace(/_/g, ' ')}${!costSelections.includes(currentKey) ? ' ($0)' : ''}${displayValues.length === 1 && (displayValues[0] === 'N/A' || displayValues[0] === '') ? ' (Empty value available)' : ''}`}
+            options={displayValues}
             onSelect={(value) => filterProducts(currentKey, value)}
             selectedValue={undefined} // Don't show any value as selected on the current step
             isLoading={isLoading}
             step={currentStep + 1}
             totalSteps={desiredKeys.length}
             products={products}
+            costSelections={costSelections}
           />
         )}
       </div>
