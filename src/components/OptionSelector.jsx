@@ -311,7 +311,7 @@ export function OptionSelector({
                     font-semibold text-sm md:text-base leading-tight
                     ${isSelected ? 'text-white' : 'text-foreground'}
                   `}>
-                    {value === 'N/A' ? 'Not Specified' : value}
+                    {value === 'N/A' ? 'Not Specified' : value === '' ? 'Empty' : value}
                   </div>
 
                   {/* Starting from price (when no image) */}
