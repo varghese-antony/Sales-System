@@ -29,7 +29,7 @@ export default function IndoorProductPage({ params }) {
   const productName = slugToProductName(slug)
 
   const desiredKeys = [
-    'size', 'power_w', 'voltage', 'cct', 'cri_ra', 'lumen', 'efficacy_lumen_per_w',
+    'size', 'power_w',
     'dimming_type', 'material_finish', 'installation_kits', 
     'adjustment_dial', 'certifications'
   ]

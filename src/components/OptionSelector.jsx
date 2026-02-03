@@ -195,7 +195,7 @@ export function OptionSelector({
         )}
 
         <h2 className="text-3xl md:text-4xl font-bold mb-4">
-          Select <span className="text-gradient bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">{title}{" "} {!costSelections.includes(title.toLowerCase()) ? '$0' : ''}</span>
+          Select <span className="text-gradient bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">{title}</span>
         </h2>
         
         {description && (
