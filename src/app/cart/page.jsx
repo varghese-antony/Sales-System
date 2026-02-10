@@ -115,7 +115,7 @@ export default function CartPage() {
   const { items, removeFromCart, updateQuantity, clearCart } = useCart()
   // const { coupons, loading, error, appliedCoupon, applyCoupon, removeCoupon } = useCoupon()
   // const [couponCode, setCouponCode] = useState('')
-  const [selectedShipping, setSelectedShipping] = useState('air')
+  const [selectedShipping, setSelectedShipping] = useState('boat')
   const [isEnquiryOpen, setIsEnquiryOpen] = useState(false)
   const [showOptimizationDialog, setShowOptimizationDialog] = useState(false)
 
@@ -851,14 +851,22 @@ export default function CartPage() {
                         {/* Quantity Controls */}
                         <div className="flex items-center justify-between">
                           <div className="flex items-center gap-3">
-                            <div className="flex items-center gap-2">
-                              <span className="text-sm text-muted-foreground">Qty:</span>
-                              <QuantitySelector
-                                value={item.quantity}
-                                onChange={(newQuantity) => handleQuantityChange(item, newQuantity)}
-                                size="sm"
-                                min={1}
-                              />
+                            <div className="flex flex-col gap-1">
+                              <div className="flex items-center gap-2">
+                                <span className="text-sm text-muted-foreground">Qty:</span>
+                                <QuantitySelector
+                                  value={item.quantity}
+                                  onChange={(newQuantity) => handleQuantityChange(item, newQuantity)}
+                                  size="sm"
+                                  min={1}
+                                  step={item.pcs_per_box && item.pcs_per_box > 0 ? item.pcs_per_box : 1}
+                                />
+                              </div>
+                              {item.pcs_per_box && item.pcs_per_box > 0 && (
+                                <span className="text-xs text-muted-foreground ml-12">
+                                  Increments by {item.pcs_per_box} pcs/box
+                                </span>
+                              )}
                             </div>
                             <div className="flex flex-col gap-1 text-xs text-muted-foreground">
                               <div>

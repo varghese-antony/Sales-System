@@ -12,6 +12,7 @@ export function QuantitySelector({
   min = 1, 
   max = 99999, 
   size = "default",
+  step = 1,
   className 
 }) {
   const [inputValue, setInputValue] = useState(value.toString())
@@ -64,12 +65,12 @@ export function QuantitySelector({
   }
 
   const handleDecrement = () => {
-    const newValue = Math.max(min, value - 1)
+    const newValue = Math.max(min, value - step)
     onChange(newValue)
   }
 
   const handleIncrement = () => {
-    const newValue = Math.min(max, value + 1)
+    const newValue = Math.min(max, value + step)
     onChange(newValue)
   }
 

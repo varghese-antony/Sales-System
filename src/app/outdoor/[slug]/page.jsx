@@ -14,7 +14,7 @@ import { getAllProductsV2 } from '@/lib/database/products-v2'
 import { slugToProductName } from '@/lib/utils/slug'
 
 // Options that affect cost
-const costSelections = ['size', 'power_w']
+const costSelections = ['size', 'power_w', 'wattage']
 
 export default function OutdoorProductPage({ params }) {
   const [slug, setSlug] = useState(null)
@@ -29,9 +29,8 @@ export default function OutdoorProductPage({ params }) {
   const productName = slugToProductName(slug)
 
   const desiredKeys = [
-    'size', 'power_w', 'voltage', 'cct', 'cri_ra', 'lumen', 'efficacy_lumen_per_w',
-    'dimming_type', 'material_finish', 'installation_kits', 
-    'adjustment_dial', 'certifications', 'ip_rating'
+    'size', 'power_w',
+    'dimming_type', 'material_finish', 'installation_kits'
   ]
 
   useEffect(() => {
@@ -105,25 +104,25 @@ export default function OutdoorProductPage({ params }) {
       // These are already booleans, so pass them as true/false
       if (selection.remoteControl === true) {
         filters.remoteControl = true // Maps to 'remote_control_bluetooth' column
-      }else{
+      } else {
         filters.remoteControl = false
       }
       if (selection.emergencyBackupBattery === true) {
         filters.emergencyBackupBattery = true // Maps to 'emergency_backup_battery' column
-      }else{
+      } else {
         filters.emergencyBackupBattery = false
       }
       if (selection.pluginSensor === true) {
         filters.pluginSensor = true // Maps to 'plugin_sensor' column
-      }else{
+      } else {
         filters.pluginSensor = false
       }
 
       console.log('handleSensorSelection filters:', filters)
       const { data, error: fetchError } = await getAllProductsV2('outdoor', filters)
-      
+
       if (fetchError) throw new Error(fetchError)
-      
+
       if (data && data.length === 1) {
         // If only one product matches, automatically show it as final product
         setFinalProduct(data[0])
@@ -195,7 +194,7 @@ export default function OutdoorProductPage({ params }) {
       }
 
       const { data, error: fetchError } = await getAllProductsV2('outdoor', allFilters)
-      
+
       if (fetchError) throw new Error(fetchError)
 
       if (data && data.length === 1) {
@@ -246,11 +245,11 @@ export default function OutdoorProductPage({ params }) {
       const newFilters = { ...selectedFilters }
       const currentKey = desiredKeys[currentStep]
       delete newFilters[currentKey]
-      
+
       setSelectedFilters(newFilters)
       setCurrentStep(newStep)
       setError(null)
-      
+
       handleSensorSelection(sensorSelection)
     } else {
       setSensorSelection(null)
@@ -276,30 +275,30 @@ export default function OutdoorProductPage({ params }) {
   }
 
   const currentKey = desiredKeys[currentStep]
-  const currentValues = products.length > 0 
+  const currentValues = products.length > 0
     ? [...new Set(products.map(p => {
-        const value = p[currentKey]
-        // Keep null/undefined as 'N/A', but preserve empty strings as-is
-        return value === null || value === undefined ? 'N/A' : value
-      }))].filter(v => {
-        // Keep 'N/A', empty strings, and all other values (don't filter out empty strings)
-        if (v === 'N/A') return true
-        return v !== null && v !== undefined
-      })
+      const value = p[currentKey]
+      // Keep null/undefined as 'N/A', but preserve empty strings as-is
+      return value === null || value === undefined ? 'N/A' : value
+    }))].filter(v => {
+      // Keep 'N/A', empty strings, and all other values (don't filter out empty strings)
+      if (v === 'N/A') return true
+      return v !== null && v !== undefined
+    })
     : []
-  
+
   // If all values are empty/null, show empty string as an option so user can proceed
   // Check if all non-N/A values are empty strings
   const nonNAValues = currentValues.filter(v => v !== 'N/A')
   const allEmpty = nonNAValues.length > 0 && nonNAValues.every(v => v === '')
-  const displayValues = currentValues.length === 0 
+  const displayValues = currentValues.length === 0
     ? [''] // Show empty string option when no values
     : allEmpty && !currentValues.includes('N/A')
-    ? [''] // Show empty string option when all are empty strings
-    : currentValues
+      ? [''] // Show empty string option when all are empty strings
+      : currentValues
 
-    console.log("################## cureent key", currentKey)
-    console.log("###################current value", currentValues)
+  console.log("################## cureent key", currentKey)
+  console.log("###################current value", currentValues)
 
   return (
     <div className='min-h-screen bg-gradient-to-br from-green-50/50 via-teal-50/30 to-emerald-50/50 dark:from-green-950/20 dark:via-teal-950/10 dark:to-emerald-950/20'>
@@ -307,7 +306,7 @@ export default function OutdoorProductPage({ params }) {
         <svg className="w-full h-full" xmlns="http://www.w3.org/2000/svg">
           <defs>
             <pattern id="outdoor-product-grid" width="60" height="60" patternUnits="userSpaceOnUse">
-              <path d="M 60 0 L 0 0 0 60" fill="none" stroke="currentColor" strokeWidth="1"/>
+              <path d="M 60 0 L 0 0 0 60" fill="none" stroke="currentColor" strokeWidth="1" />
             </pattern>
           </defs>
           <rect width="100%" height="100%" fill="url(#outdoor-product-grid)" />
@@ -338,13 +337,13 @@ export default function OutdoorProductPage({ params }) {
             <div className="flex justify-center items-center gap-3 mb-6">
               <Sun className="w-12 h-12 text-primary" />
             </div>
-            
+
             <h1 className="text-3xl md:text-5xl font-bold mb-4">
               <span className="text-gradient bg-gradient-to-r from-green-600 to-teal-600 bg-clip-text text-transparent">
                 {productName}
               </span>
             </h1>
-            
+
             <p className="text-lg text-muted-foreground max-w-2xl mx-auto mb-6">
               Configure your perfect outdoor lighting solution by selecting from the weather-resistant options below.
             </p>
@@ -382,10 +381,10 @@ export default function OutdoorProductPage({ params }) {
                 Choose your preferred sensor and control options for this lighting product
               </p>
             </div>
-            <DynamicSensorSelector 
+            <DynamicSensorSelector
               productName={productName}
               type="outdoor"
-              onSelectionChange={handleSensorSelection} 
+              onSelectionChange={handleSensorSelection}
             />
           </div>
         )}

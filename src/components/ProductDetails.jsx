@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useEffect, useMemo } from 'react'
+import { useParams, usePathname } from 'next/navigation'
 import { motion } from "framer-motion"
 import { ArrowLeft, Download, FileText, Award, ExternalLink, Zap, Shield, Settings, Info, ShoppingCart, Check, Image as ImageIcon, ZoomIn } from "lucide-react"
 import { Button } from "@/components/ui/button"
@@ -12,6 +13,9 @@ import { ImageModal } from "@/components/ui/image-modal"
 import { getOptimizedImageUrl } from "@/lib/image-utils"
 import { ImageWithLoading } from "@/components/ui/image-with-loading"
 import { fieldMapping } from '@/lib/database/products'
+import { getProductByIdV2 } from '@/lib/database/products-v2'
+import { LoadingSpinner } from '@/components/ui/loading'
+import { Alert, AlertDescription } from '@/components/ui/alert'
 
 const MARKUP_PERCENTAGE_DEFAULT = 30 // 30% default markup
 const TARIFF_PERCENTAGE = 35 // 35% global tariff
@@ -56,11 +60,163 @@ const formatCurrency = (value) => {
   return `$${numeric.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
 }
 
-export function ProductDetails({ product, onBack, sensorSelection = null }) {
+// Helper to derive sensorSelection from product data
+function deriveSensorSelection(product) {
+  if (!product) return null
+
+  // Determine sensorsAndControls
+  let sensorsAndControls = 'None'
+  if (product.sensors_and_controls === true || product.sensorsAndControls === true) {
+    if (product.occupancy === true) {
+      sensorsAndControls = 'Occupancy'
+    } else if (product.bi_level === true || product.biLevel === true) {
+      sensorsAndControls = 'Bi-Level'
+    }
+  }
+
+  // Determine sensorType
+  let sensorType = 'None'
+  if (product.pir === true) {
+    sensorType = 'PIR'
+  } else if (product.microwave === true) {
+    sensorType = 'Microwave'
+  }
+
+  return {
+    sensorsAndControls,
+    sensorType,
+    remoteControl: product.remote_control_bluetooth === true || product.remoteControl === true,
+    emergencyBackupBattery: product.emergency_backup_battery === true || product.emergencyBackupBattery === true,
+    pluginSensor: product.plugin_sensor === true || product.pluginSensor === true
+  }
+}
+
+export function ProductDetails({ product: productProp, onBack: onBackProp, sensorSelection: sensorSelectionProp = null }) {
+  const params = useParams()
+  const pathname = usePathname()
   const { addToCart, items } = useCart()
   const [isAdded, setIsAdded] = useState(false)
-  const [quantity, setQuantity] = useState(1)
+  const [product, setProduct] = useState(productProp)
+  const [isLoadingProduct, setIsLoadingProduct] = useState(!productProp)
+  const [productError, setProductError] = useState(null)
+  
+  // Fetch product from URL if not provided as prop
+  useEffect(() => {
+    if (productProp) {
+      setProduct(productProp)
+      setIsLoadingProduct(false)
+      return
+    }
+
+    // Extract product ID from pathname
+    // Path format: /indoor/[slug]/product-details/[id]
+    const pathParts = pathname?.split('/') || []
+    const productIdIndex = pathParts.indexOf('product-details')
+    const productId = productIdIndex >= 0 && pathParts[productIdIndex + 1] ? pathParts[productIdIndex + 1] : null
+
+    if (!productId) {
+      setProductError('Product ID not found in URL')
+      setIsLoadingProduct(false)
+      return
+    }
+
+    const fetchProduct = async () => {
+      setIsLoadingProduct(true)
+      setProductError(null)
+      
+      try {
+        // Try indoor first, then outdoor
+        const [indoorRes, outdoorRes] = await Promise.allSettled([
+          getProductByIdV2('indoor', productId),
+          getProductByIdV2('outdoor', productId)
+        ])
+
+        const fetchedProduct =
+          indoorRes.status === 'fulfilled' && indoorRes.value.data
+            ? indoorRes.value.data
+            : outdoorRes.status === 'fulfilled' && outdoorRes.value.data
+            ? outdoorRes.value.data
+            : null
+
+        if (!fetchedProduct) {
+          setProductError('Product not found')
+          return
+        }
+
+        setProduct(fetchedProduct)
+      } catch (err) {
+        console.error('Error fetching product:', err)
+        setProductError(err.message || 'Failed to load product')
+      } finally {
+        setIsLoadingProduct(false)
+      }
+    }
+
+    fetchProduct()
+  }, [productProp, pathname])
+
+  // Derive sensorSelection from product if not provided
+  const sensorSelection = sensorSelectionProp || (product ? deriveSensorSelection(product) : null)
+
+  // Default onBack handler
+  const onBack = onBackProp || (() => {
+    if (pathname?.includes('/indoor/')) {
+      const pathParts = pathname.split('/')
+      const slugIndex = pathParts.indexOf('indoor')
+      const slug = slugIndex >= 0 && pathParts[slugIndex + 1] ? pathParts[slugIndex + 1] : null
+      if (slug) {
+        window.location.href = `/indoor/${slug}`
+      } else {
+        window.history.back()
+      }
+    } else {
+      window.history.back()
+    }
+  })
+  
+  // Get pcs_per_box value, default to 1 if null or 0
+  const pcsPerBox = useMemo(() => {
+    if (!product) return 1
+    const value = product.pcs_per_box
+    if (value === null || value === undefined || value === 0) return 1
+    const parsed = typeof value === 'number' ? value : parseInt(value)
+    return Number.isFinite(parsed) && parsed > 0 ? parsed : 1
+  }, [product?.pcs_per_box])
+  
+  const [quantity, setQuantity] = useState(pcsPerBox)
   const [isImageModalOpen, setIsImageModalOpen] = useState(false)
+
+  // Update quantity when pcsPerBox changes (e.g., when product changes)
+  useEffect(() => {
+    if (product && pcsPerBox > 0) {
+      setQuantity(pcsPerBox)
+    }
+  }, [product, pcsPerBox])
+
+  // Show loading state
+  if (isLoadingProduct) {
+    return (
+      <div className='min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50/50 via-indigo-50/30 to-purple-50/50 dark:from-blue-950/20 dark:via-indigo-950/10 dark:to-purple-950/20'>
+        <div className="text-center space-y-4 flex items-center justify-center flex-col">
+          <LoadingSpinner size="lg" />
+          <p className="text-muted-foreground">Loading product details...</p>
+        </div>
+      </div>
+    )
+  }
+
+  // Show error state
+  if (productError || !product) {
+    return (
+      <div className='min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50/50 via-indigo-50/30 to-purple-50/50 dark:from-blue-950/20 dark:via-indigo-950/10 dark:to-purple-950/20'>
+        <Alert variant="destructive" className="max-w-2xl">
+          <AlertDescription>
+            {productError || 'Product not found'}
+          </AlertDescription>
+        </Alert>
+      </div>
+    )
+  }
   
   // Convert database field names to frontend field names for display
   const reverseFieldMapping = useMemo(() => {
@@ -309,9 +465,8 @@ export function ProductDetails({ product, onBack, sensorSelection = null }) {
   
   const handleAddToCart = (selectedQuantity = quantity) => {
     const transformedProduct = transformProductForCart(product)
-    for (let i = 0; i < selectedQuantity; i++) {
-      addToCart(transformedProduct)
-    }
+    // Pass quantity directly instead of looping
+    addToCart({ ...transformedProduct, quantity: selectedQuantity })
     setIsAdded(true)
     setTimeout(() => setIsAdded(false), 2000)
   }
@@ -443,11 +598,19 @@ export function ProductDetails({ product, onBack, sensorSelection = null }) {
             {/* View Cut Sheet moved to Downloads box */}
             
             {/* Quantity Selector */}
-            <QuantitySelector
-              value={quantity}
-              onChange={handleQuantityChange}
-              size="sm"
-            />
+            <div className="flex flex-col items-end gap-1">
+              <QuantitySelector
+                value={quantity}
+                onChange={handleQuantityChange}
+                size="sm"
+                step={pcsPerBox}
+              />
+              {pcsPerBox > 1 && (
+                <span className="text-xs text-muted-foreground">
+                  Increments by {pcsPerBox} pcs/box
+                </span>
+              )}
+            </div>
 
             <Button 
               variant="default"
@@ -716,13 +879,21 @@ export function ProductDetails({ product, onBack, sensorSelection = null }) {
                 
                 <div className="flex items-center gap-4">
                   {/* Quantity Selector */}
-                  <div className="flex items-center gap-2">
-                    <span className="text-sm font-medium text-muted-foreground">Qty:</span>
-                    <QuantitySelector
-                      value={quantity}
-                      onChange={handleQuantityChange}
-                      size="default"
-                    />
+                  <div className="flex flex-col gap-2">
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm font-medium text-muted-foreground">Qty:</span>
+                      <QuantitySelector
+                        value={quantity}
+                        onChange={handleQuantityChange}
+                        size="default"
+                        step={pcsPerBox}
+                      />
+                    </div>
+                    {pcsPerBox > 1 && (
+                      <span className="text-xs text-muted-foreground ml-12">
+                        Increments by {pcsPerBox} pcs/box
+                      </span>
+                    )}
                   </div>
 
                   {/* Add to Cart Button */}

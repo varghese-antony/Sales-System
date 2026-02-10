@@ -8,20 +8,28 @@ const cartReducer = (state, action) => {
   switch (action.type) {
     case 'ADD_TO_CART':
       const productId = action.payload.id || action.payload.ID
+      // Get pcs_per_box for increment step, default to 1
+      const pcsPerBox = action.payload.pcs_per_box
+      const incrementStep = (pcsPerBox && pcsPerBox > 0) ? pcsPerBox : 1
+      
       const existingItem = state.items.find(item => (item.id || item.ID) === productId)
       if (existingItem) {
+        // When adding to existing item, increment by pcs_per_box (or provided quantity if it's a custom add)
+        const quantityToAdd = action.payload.quantity || incrementStep
         return {
           ...state,
           items: state.items.map(item =>
             (item.id || item.ID) === productId
-              ? { ...item, quantity: item.quantity + 1 }
+              ? { ...item, quantity: item.quantity + quantityToAdd }
               : item
           )
         }
       }
+      // For new items, use the provided quantity or pcs_per_box, default to 1
+      const initialQuantity = action.payload.quantity || incrementStep
       return {
         ...state,
-        items: [...state.items, { ...action.payload, id: productId, quantity: 1 }]
+        items: [...state.items, { ...action.payload, id: productId, quantity: initialQuantity }]
       }
     
     case 'REMOVE_FROM_CART':

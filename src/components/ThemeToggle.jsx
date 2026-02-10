@@ -5,12 +5,29 @@ import { Sun, Moon } from "lucide-react"
 import { Button } from "@/components/ui/button"
 
 export function ThemeToggle() {
-  const [isDark, setIsDark] = useState(false)
+  const [isDark, setIsDark] = useState(true) // Default to dark mode
+  const [mounted, setMounted] = useState(false)
 
   useEffect(() => {
+    setMounted(true)
     // Sync with theme set by blocking script in layout (avoids hydration mismatch)
     setIsDark(document.documentElement.classList.contains('dark'))
   }, [])
+
+  // Prevent hydration mismatch by not rendering until mounted
+  if (!mounted) {
+    return (
+      <Button
+        variant="ghost"
+        size="icon"
+        className="relative overflow-hidden group"
+        aria-label="Toggle theme"
+        disabled
+      >
+        <Moon className="w-5 h-5" />
+      </Button>
+    )
+  }
 
   const toggleTheme = () => {
     const newTheme = !isDark
