@@ -39,6 +39,12 @@ export function ContainerPriceBreakdown({ priceSummary, quantity = 1 }) {
           <h5 className="font-medium text-xs mb-2">20ft Container</h5>
           {has20ft ? (
             <div className="space-y-1.5">
+              {container20ft.space_occupied_cubic_meters !== undefined && (
+                <div className="flex justify-between items-center text-xs mb-1 pb-1 border-b border-border/30">
+                  <span className="text-muted-foreground">Space Occupied:</span>
+                  <span className="font-medium">{container20ft.space_occupied_cubic_meters.toFixed(2)} m³</span>
+                </div>
+              )}
               <div className="flex justify-between items-center text-xs">
                 <span className="text-muted-foreground">Product Price:</span>
                 <span className="font-medium">{formatCurrency(container20ft.product_price)}</span>
@@ -76,6 +82,12 @@ export function ContainerPriceBreakdown({ priceSummary, quantity = 1 }) {
           <h5 className="font-medium text-xs mb-2">40ft Container</h5>
           {has40ft ? (
             <div className="space-y-1.5">
+              {container40ft.space_occupied_cubic_meters !== undefined && (
+                <div className="flex justify-between items-center text-xs mb-1 pb-1 border-b border-border/30">
+                  <span className="text-muted-foreground">Space Occupied:</span>
+                  <span className="font-medium">{container40ft.space_occupied_cubic_meters.toFixed(2)} m³</span>
+                </div>
+              )}
               <div className="flex justify-between items-center text-xs">
                 <span className="text-muted-foreground">Product Price:</span>
                 <span className="font-medium">{formatCurrency(container40ft.product_price)}</span>

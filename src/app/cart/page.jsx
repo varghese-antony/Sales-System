@@ -15,6 +15,8 @@ import Link from "next/link"
 import { productNameToSlug } from "@/lib/utils/slug"
 import { getProductPriceSummaryPerUnit, getProductPriceSummary } from '@/lib/utils'
 import { ContainerPriceBreakdown } from '@/components/ContainerPriceBreakdown'
+import { PriceOptimizationDialog } from '@/components/PriceOptimizationDialog'
+import { Alert, AlertDescription } from '@/components/ui/alert'
 
 const MARKUP_PERCENTAGE_DEFAULT = 30 // 30% default markup
 
@@ -102,6 +104,7 @@ export default function CartPage() {
   // const [couponCode, setCouponCode] = useState('')
   const [selectedShipping, setSelectedShipping] = useState('boat')
   const [isEnquiryOpen, setIsEnquiryOpen] = useState(false)
+  const [isOptimizationOpen, setIsOptimizationOpen] = useState(false)
 
   const handleQuantityChange = (item, newQuantity) => {
     const productId = item.id || item.ID
@@ -228,6 +231,7 @@ export default function CartPage() {
         tarrif: 0,
         shipment_cost: 0,
         admin_consolidation_fee: 0,
+        space_occupied_cubic_meters: 0,
         total: 0
       },
       '40ft': {
@@ -235,6 +239,7 @@ export default function CartPage() {
         tarrif: 0,
         shipment_cost: 0,
         admin_consolidation_fee: 0,
+        space_occupied_cubic_meters: 0,
         total: 0
       }
     }
@@ -248,6 +253,7 @@ export default function CartPage() {
         totals['20ft'].tarrif += summary['20ft'].tarrif || 0
         totals['20ft'].shipment_cost += summary['20ft'].shipment_cost || 0
         totals['20ft'].admin_consolidation_fee += summary['20ft'].admin_consolidation_fee || 0
+        totals['20ft'].space_occupied_cubic_meters += summary['20ft'].space_occupied_cubic_meters || 0
       }
 
       // Process 40ft container
@@ -256,6 +262,7 @@ export default function CartPage() {
         totals['40ft'].tarrif += summary['40ft'].tarrif || 0
         totals['40ft'].shipment_cost += summary['40ft'].shipment_cost || 0
         totals['40ft'].admin_consolidation_fee += summary['40ft'].admin_consolidation_fee || 0
+        totals['40ft'].space_occupied_cubic_meters += summary['40ft'].space_occupied_cubic_meters || 0
       }
     })
 
@@ -771,6 +778,12 @@ export default function CartPage() {
                                 <div className="space-y-1">
                                   <h6 className="text-xs font-medium text-muted-foreground">20ft Container</h6>
                                   <div className="space-y-0.5 text-xs">
+                                    {summary['20ft'].space_occupied_cubic_meters !== undefined && (
+                                      <div className="flex justify-between mb-1 pb-1 border-b border-border/30">
+                                        <span className="text-muted-foreground">Space Occupied:</span>
+                                        <span className="font-medium">{summary['20ft'].space_occupied_cubic_meters.toFixed(2)} m³</span>
+                                      </div>
+                                    )}
                                     <div className="flex justify-between">
                                       <span className="text-muted-foreground">Product:</span>
                                       <span>{formatCurrency(summary['20ft'].product_price)}</span>
@@ -809,6 +822,12 @@ export default function CartPage() {
                                 <div className="space-y-1">
                                   <h6 className="text-xs font-medium text-muted-foreground">40ft Container</h6>
                                   <div className="space-y-0.5 text-xs">
+                                    {summary['40ft'].space_occupied_cubic_meters !== undefined && (
+                                      <div className="flex justify-between mb-1 pb-1 border-b border-border/30">
+                                        <span className="text-muted-foreground">Space Occupied:</span>
+                                        <span className="font-medium">{summary['40ft'].space_occupied_cubic_meters.toFixed(2)} m³</span>
+                                      </div>
+                                    )}
                                     <div className="flex justify-between">
                                       <span className="text-muted-foreground">Product:</span>
                                       <span>{formatCurrency(summary['40ft'].product_price)}</span>
@@ -855,6 +874,12 @@ export default function CartPage() {
                         <div className="space-y-1">
                           <h6 className="text-xs font-semibold text-muted-foreground">20ft Container Total</h6>
                           <div className="space-y-0.5 text-xs">
+                            {aggregatedTotals['20ft'].space_occupied_cubic_meters > 0 && (
+                              <div className="flex justify-between mb-1 pb-1 border-b border-border/30">
+                                <span className="text-muted-foreground">Total Space Occupied:</span>
+                                <span className="font-medium">{aggregatedTotals['20ft'].space_occupied_cubic_meters.toFixed(2)} m³</span>
+                              </div>
+                            )}
                             <div className="flex justify-between">
                               <span className="text-muted-foreground">Product Price:</span>
                               <span className="font-medium">{formatCurrency(aggregatedTotals['20ft'].product_price)}</span>
@@ -884,6 +909,12 @@ export default function CartPage() {
                         <div className="space-y-1">
                           <h6 className="text-xs font-semibold text-muted-foreground">40ft Container Total</h6>
                           <div className="space-y-0.5 text-xs">
+                            {aggregatedTotals['40ft'].space_occupied_cubic_meters > 0 && (
+                              <div className="flex justify-between mb-1 pb-1 border-b border-border/30">
+                                <span className="text-muted-foreground">Total Space Occupied:</span>
+                                <span className="font-medium">{aggregatedTotals['40ft'].space_occupied_cubic_meters.toFixed(2)} m³</span>
+                              </div>
+                            )}
                             <div className="flex justify-between">
                               <span className="text-muted-foreground">Product Price:</span>
                               <span className="font-medium">{formatCurrency(aggregatedTotals['40ft'].product_price)}</span>
@@ -910,25 +941,51 @@ export default function CartPage() {
                         </div>
                       </div>
                     </div>
+                    
+                    {/* Admin Consolidation Fee Explanation - Show once if any fee exists */}
+                    {(aggregatedTotals['20ft'].admin_consolidation_fee > 0 || aggregatedTotals['40ft'].admin_consolidation_fee > 0) && (
+                      <Alert className="mt-4 py-2 bg-blue-50 dark:bg-blue-950/20 border-blue-200 dark:border-blue-800">
+                        <AlertDescription className="text-xs text-blue-800 dark:text-blue-200">
+                          <strong>Admin Consolidation Fee:</strong> This fee covers administrative costs for consolidating your order with other shipments when your order doesn't fill a full container (less than 97% utilization).
+                        </AlertDescription>
+                      </Alert>
+                    )}
                   </div>
                 )}
 
                 <div className="border-t pt-4 space-y-2">
-                  {/* Cart Total */}
-                  <div className="flex justify-between items-center py-3 border-b">
-                    <span className="text-lg font-semibold">Cart Total:</span>
-                    <span className="text-xl font-bold text-primary">
-                      {formatCurrency(cartTotal)}
-                    </span>
-                  </div>
+                  {/* Final Total - Always prioritize 20ft container, fallback to 40ft */}
+                  {cartPriceSummaries.length > 0 && (
+                    <div className="flex justify-between items-center py-3 border-t-2 border-primary/20">
+                      <span className="text-lg font-semibold">Total:</span>
+                      <span className="text-2xl font-bold text-primary">
+                        {(() => {
+                          const total20ft = aggregatedTotals['20ft'].total
+                          const total40ft = aggregatedTotals['40ft'].total
+                          const has20ft = aggregatedTotals['20ft'].space_occupied_cubic_meters > 0
+                          const has40ft = aggregatedTotals['40ft'].space_occupied_cubic_meters > 0
+                          
+                          // Always prioritize 20ft container cost
+                          if (has20ft) {
+                            return formatCurrency(total20ft)
+                          } else if (has40ft) {
+                            return formatCurrency(total40ft)
+                          } else {
+                            return formatCurrency(finalTotal)
+                          }
+                        })()}
+                      </span>
+                    </div>
+                  )}
                   
-                  {/* Final Total */}
-                  <div className="flex justify-between items-center py-3 border-t-2 border-primary/20">
-                    <span className="text-lg font-semibold">Total:</span>
-                    <span className="text-2xl font-bold text-primary">
-                      {formatCurrency(finalTotal)}
-                    </span>
-                  </div>
+                  {cartPriceSummaries.length === 0 && (
+                    <div className="flex justify-between items-center py-3 border-t-2 border-primary/20">
+                      <span className="text-lg font-semibold">Total:</span>
+                      <span className="text-2xl font-bold text-primary">
+                        {formatCurrency(finalTotal)}
+                      </span>
+                    </div>
+                  )}
                   
                   {/* Item Count */}
                   <div className="flex justify-between items-center text-sm text-muted-foreground pt-2">
@@ -962,7 +1019,7 @@ export default function CartPage() {
                   className="w-full"
                   size="lg"
                   onClick={() => {
-                    setIsEnquiryOpen(true)
+                    setIsOptimizationOpen(true)
                   }}
                   // disabled={appliedCoupon && isCouponExpired(appliedCoupon)}
                 >
@@ -984,6 +1041,25 @@ export default function CartPage() {
         </div>
       </div>
 
+
+      {/* Price Optimization Dialog */}
+      <PriceOptimizationDialog
+        isOpen={isOptimizationOpen}
+        onClose={() => setIsOptimizationOpen(false)}
+        cartItems={items}
+        onApplySuggestion={(suggestion) => {
+          // Apply the suggestion by updating quantities
+          suggestion.changes.forEach(change => {
+            const item = items.find(i => (i.id || i.ID) === change.productId)
+            if (item) {
+              updateQuantity(change.productId, change.newQuantity)
+            }
+          })
+        }}
+        onContinueToEnquiry={() => {
+          setIsEnquiryOpen(true)
+        }}
+      />
 
       {/* Enquiry Form Modal */}
       <EnquiryForm
