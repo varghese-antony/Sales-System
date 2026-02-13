@@ -94,7 +94,7 @@ function deriveSensorSelection(product) {
 export function ProductDetails({ product: productProp, onBack: onBackProp, sensorSelection: sensorSelectionProp = null }) {
   const params = useParams()
   const pathname = usePathname()
-  const { addToCart, items } = useCart()
+  const { addToCart, items, updateQuantity: updateCartQuantity } = useCart()
   const [isAdded, setIsAdded] = useState(false)
   const [product, setProduct] = useState(productProp)
   const [isLoadingProduct, setIsLoadingProduct] = useState(!productProp)
@@ -182,42 +182,35 @@ export function ProductDetails({ product: productProp, onBack: onBackProp, senso
     const parsed = typeof value === 'number' ? value : parseInt(value)
     return Number.isFinite(parsed) && parsed > 0 ? parsed : 1
   }, [product?.pcs_per_box])
+
+  // Get cart item for this product
+  const cartItem = useMemo(() => {
+    if (!product) return null
+    return items.find(item => (item.id || item.ID) === (product.id || product.ID))
+  }, [items, product?.id, product?.ID])
+
+  // Initialize quantity: use cart quantity if product is in cart, otherwise use pcsPerBox
+  const initialQuantity = useMemo(() => {
+    if (cartItem && cartItem.quantity) {
+      return cartItem.quantity
+    }
+    return pcsPerBox
+  }, [cartItem, pcsPerBox])
   
-  const [quantity, setQuantity] = useState(pcsPerBox)
+  const [quantity, setQuantity] = useState(initialQuantity)
   const [isImageModalOpen, setIsImageModalOpen] = useState(false)
 
-  // Update quantity when pcsPerBox changes (e.g., when product changes)
+  // Update quantity when cart item changes or pcsPerBox changes
   useEffect(() => {
-    if (product && pcsPerBox > 0) {
+    if (cartItem && cartItem.quantity) {
+      // Product is in cart, use cart quantity
+      setQuantity(cartItem.quantity)
+    } else if (product && pcsPerBox > 0) {
+      // Product not in cart, use pcsPerBox
       setQuantity(pcsPerBox)
     }
-  }, [product, pcsPerBox])
+  }, [cartItem, product, pcsPerBox])
 
-  // Show loading state
-  if (isLoadingProduct) {
-    return (
-      <div className='min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50/50 via-indigo-50/30 to-purple-50/50 dark:from-blue-950/20 dark:via-indigo-950/10 dark:to-purple-950/20'>
-        <div className="text-center space-y-4 flex items-center justify-center flex-col">
-          <LoadingSpinner size="lg" />
-          <p className="text-muted-foreground">Loading product details...</p>
-        </div>
-      </div>
-    )
-  }
-
-  // Show error state
-  if (productError || !product) {
-    return (
-      <div className='min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50/50 via-indigo-50/30 to-purple-50/50 dark:from-blue-950/20 dark:via-indigo-950/10 dark:to-purple-950/20'>
-        <Alert variant="destructive" className="max-w-2xl">
-          <AlertDescription>
-            {productError || 'Product not found'}
-          </AlertDescription>
-        </Alert>
-      </div>
-    )
-  }
-  
   // Convert database field names to frontend field names for display
   const reverseFieldMapping = useMemo(() => {
     const mapping = {};
@@ -228,6 +221,7 @@ export function ProductDetails({ product: productProp, onBack: onBackProp, senso
   }, []);
 
   const mappedProduct = useMemo(() => {
+    if (!product) return {}
     const mapped = {}
     Object.entries(product).forEach(([key, value]) => {
       const frontendKey = reverseFieldMapping[key] || key
@@ -237,11 +231,13 @@ export function ProductDetails({ product: productProp, onBack: onBackProp, senso
   }, [product, reverseFieldMapping])
 
   const baseCost = useMemo(() => {
+    if (!product) return 0
     const rawBase = product.cost_china_ddp_usa ?? product.cost_thailand_vietnam ?? 0
     return parseCostValue(rawBase)
-  }, [product.cost_china_ddp_usa, product.cost_thailand_vietnam])
+  }, [product?.cost_china_ddp_usa, product?.cost_thailand_vietnam])
 
   const addonCostData = useMemo(() => {
+    if (!product) return { entries: [], totalAddons: 0 }
     const entries = addonCostFields.map(({ key, label }) => {
       const value = parseCostValue(product[key])
       return { key, label, value }
@@ -252,6 +248,7 @@ export function ProductDetails({ product: productProp, onBack: onBackProp, senso
 
   // Get markup percentage: use product.markup_percentage if it exists and is > 0, otherwise use default 30%
   const markupPercentage = useMemo(() => {
+    if (!product) return MARKUP_PERCENTAGE_DEFAULT
     const productMarkup = product.markup_percentage
     if (productMarkup !== null && productMarkup !== undefined) {
       const parsed = typeof productMarkup === 'number' 
@@ -262,7 +259,7 @@ export function ProductDetails({ product: productProp, onBack: onBackProp, senso
       }
     }
     return MARKUP_PERCENTAGE_DEFAULT
-  }, [product.markup_percentage])
+  }, [product?.markup_percentage])
 
   // Calculate markup breakdown for base cost
   const baseCostBreakdown = useMemo(() => {
@@ -311,6 +308,7 @@ export function ProductDetails({ product: productProp, onBack: onBackProp, senso
 
   // Calculate shipping cost based on quantity (including consolidation fee)
   const { shippingCost, consolidationFee, effectiveShippingCost } = useMemo(() => {
+    if (!product) return { shippingCost: 0, consolidationFee: 0, effectiveShippingCost: 0 }
     const cubicMPerPc = parseCubicMValue(product.cubic_m_per_pc)
     if (cubicMPerPc === 0) return { shippingCost: 0, consolidationFee: 0, effectiveShippingCost: 0 }
 
@@ -358,7 +356,7 @@ export function ProductDetails({ product: productProp, onBack: onBackProp, senso
         effectiveShippingCost: baseShippingCost + fee
       }
     }
-  }, [product.cubic_m_per_pc, quantity])
+  }, [product?.cubic_m_per_pc, quantity])
 
   // Calculate tariff amount (35% of product total)
   const tariffAmount = useMemo(() => {
@@ -390,6 +388,7 @@ export function ProductDetails({ product: productProp, onBack: onBackProp, senso
   )
 
   const optimizedImageUrl = useMemo(() => {
+    if (!product) return '/placeholder-product.svg';
     // Check for image fields in order of priority (v2 tables use 'photo')
     const imageFields = ['photo', 'Photo', 'image', 'image_url', 'thumbnail'];
     for (const field of imageFields) {
@@ -414,7 +413,10 @@ export function ProductDetails({ product: productProp, onBack: onBackProp, senso
     }
   }, [])
   
-  const isInCart = items.some(item => (item.id || item.ID) === (product.id || product.ID))
+  const isInCart = useMemo(() => {
+    if (!product) return false
+    return items.some(item => (item.id || item.ID) === (product.id || product.ID))
+  }, [items, product?.id, product?.ID])
   
   // Transform product for cart: set pir/microwave based on user's selection and remove pir_microwave
   const transformProductForCart = (productData) => {
@@ -473,6 +475,14 @@ export function ProductDetails({ product: productProp, onBack: onBackProp, senso
 
   const handleQuantityChange = (newQuantity) => {
     setQuantity(newQuantity)
+    
+    // If product is already in cart, update cart quantity
+    if (product && isInCart) {
+      const productId = product.id || product.ID
+      if (productId) {
+        updateCartQuantity(productId, newQuantity)
+      }
+    }
   }
   
   // Excluded keys - hide costs, logistics, and internal fields from users
@@ -498,6 +508,7 @@ export function ProductDetails({ product: productProp, onBack: onBackProp, senso
   ]
   // Create a display product with corrected pir/microwave values based on selection
   const displayProduct = useMemo(() => {
+    if (!product) return {}
     const display = { ...product }
     
     // Ensure pir and microwave fields always exist in display
@@ -567,6 +578,31 @@ export function ProductDetails({ product: productProp, onBack: onBackProp, senso
 
   if (hasAddonData && !groupedKeys.addons) {
     groupedKeys.addons = []
+  }
+
+  // Show loading state - AFTER all hooks are called
+  if (isLoadingProduct) {
+    return (
+      <div className='min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50/50 via-indigo-50/30 to-purple-50/50 dark:from-blue-950/20 dark:via-indigo-950/10 dark:to-purple-950/20'>
+        <div className="text-center space-y-4 flex items-center justify-center flex-col">
+          <LoadingSpinner size="lg" />
+          <p className="text-muted-foreground">Loading product details...</p>
+        </div>
+      </div>
+    )
+  }
+
+  // Show error state - AFTER all hooks are called
+  if (productError || !product) {
+    return (
+      <div className='min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50/50 via-indigo-50/30 to-purple-50/50 dark:from-blue-950/20 dark:via-indigo-950/10 dark:to-purple-950/20'>
+        <Alert variant="destructive" className="max-w-2xl">
+          <AlertDescription>
+            {productError || 'Product not found'}
+          </AlertDescription>
+        </Alert>
+      </div>
+    )
   }
 
   const categoryTitles = {

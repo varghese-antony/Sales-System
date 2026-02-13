@@ -13,6 +13,7 @@ import { useCart } from "@/contexts/CartContext"
 // import { useCoupon } from "@/contexts/CouponContext"
 import { Input } from "@/components/ui/input"
 import Link from "next/link"
+import { productNameToSlug } from "@/lib/utils/slug"
 
 const MARKUP_PERCENTAGE_DEFAULT = 30 // 30% default markup
 const TARIFF_PERCENTAGE = 35 // 35% global tariff
@@ -122,6 +123,25 @@ export default function CartPage() {
   const handleQuantityChange = (item, newQuantity) => {
     const productId = item.id || item.ID
     updateQuantity(productId, newQuantity)
+  }
+
+  // Helper function to get product link
+  const getProductLink = (item) => {
+    const productId = item.id || item.ID
+    if (!productId) return null
+
+    // Determine product type (indoor or outdoor)
+    const productType = item.type?.toLowerCase() === 'outdoor' || 
+                       item.indoor_outdoor?.toLowerCase() === 'outdoor' 
+                       ? 'outdoor' 
+                       : 'indoor'
+
+    // Get product name and convert to slug
+    const productName = item.name || item.product_name || item.producttype
+    if (!productName) return null
+
+    const slug = productNameToSlug(productName)
+    return `/${productType}/${slug}/product-details/${productId}`
   }
 
   // const handleApplyCoupon = (e) => {
@@ -735,18 +755,35 @@ export default function CartPage() {
                   <CardContent className="p-6">
                     <div className="flex items-start gap-4">
                       {/* Product Image Placeholder */}
-                      <div className="w-20 h-20 rounded-lg bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center flex-shrink-0">
-                        <Package className="w-8 h-8 text-white" />
-                      </div>
+                      {getProductLink(item) ? (
+                        <Link href={getProductLink(item)} className="flex-shrink-0">
+                          <div className="w-20 h-20 rounded-lg bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center cursor-pointer hover:opacity-80 transition-opacity">
+                            <Package className="w-8 h-8 text-white" />
+                          </div>
+                        </Link>
+                      ) : (
+                        <div className="w-20 h-20 rounded-lg bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center flex-shrink-0">
+                          <Package className="w-8 h-8 text-white" />
+                        </div>
+                      )}
 
                       {/* Product Details */}
                       <div className="flex-1 min-w-0">
                         <div className="flex justify-between items-start mb-2">
                           <div>
-                            <h3 className="font-semibold text-lg">
-                              {item.name || item.product_name || item.producttype || 'Lighting Product'}
-                              {!item.name && !item.product_name && !item.producttype && item.id && ` #${item.id}`}
-                            </h3>
+                            {getProductLink(item) ? (
+                              <Link href={getProductLink(item)}>
+                                <h3 className="font-semibold text-lg hover:text-primary transition-colors cursor-pointer">
+                                  {item.name || item.product_name || item.producttype || 'Lighting Product'}
+                                  {!item.name && !item.product_name && !item.producttype && item.id && ` #${item.id}`}
+                                </h3>
+                              </Link>
+                            ) : (
+                              <h3 className="font-semibold text-lg">
+                                {item.name || item.product_name || item.producttype || 'Lighting Product'}
+                                {!item.name && !item.product_name && !item.producttype && item.id && ` #${item.id}`}
+                              </h3>
+                            )}
                             {item.model_number && (
                               <p className="text-sm text-muted-foreground mt-0.5">{item.model_number}</p>
                             )}
