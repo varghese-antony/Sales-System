@@ -16,61 +16,7 @@ const SHIPMENT_CONTAINER_DETAILS = [
     }
 ]
 
-const getProductPriceSummaryPerUnit = () => {
-    const product = {
-        "id": "47178501-e2e6-4e57-9c42-32701fc95b64",
-        "cct": "2.7-5k, Tunable",
-        "moq": "2000",
-        "pir": null,
-        "size": "14''",
-        "lumen": "560/840/120/1400lm",
-        "photo": "https://drive.google.com/file/d/1HAQ1Iucv7BC33ha5qeNLEMKZjthzdT4j/view?usp=sharing",
-        "width": 380,
-        "cri_ra": 80,
-        "height": 505,
-        "length": 375,
-        "power_w": "8/12/16/20W",
-        "voltage": "AC120V",
-        "bi_level": null,
-        "mounting": "Surface",
-        "warranty": "5 Yr",
-        "cut_sheet": "https://drive.google.com/file/d/1IjSMBWujd7BkgZvzmfSjgLYArSJZYIVy/view?usp=drive_link",
-        "ip_rating": null,
-        "lead_time": "75 days",
-        "microwave": null,
-        "occupancy": null,
-        "created_at": "2026-02-02T17:52:08.132308+00:00",
-        "updated_at": "2026-02-02T18:04:45.681653+00:00",
-        "pcs_per_box": 6,
-        "sensor_cost": null,
-        "dimming_type": "Triac",
-        "model_number": "BHD-DRINGC-14in4CCT",
-        "product_name": "LED Double Ring Ceiling Light",
-        "sub_category": "LED Flush Mount Light",
-        "pir_microwave": null,
-        "plugin_sensor": false,
-        "certifications": "ETL T24",
-        "cubic_m_per_pc": 0.01199375,
-        "junction_cover": null,
-        "adjustment_dial": null,
-        "material_finish": "Brush Nickel/Metal",
-        "pcs_per_cubic_m": 83.3767587285044,
-        "price_per_piece": null,
-        "installation_kits": null,
-        "markup_percentage": 0,
-        "cost_china_ddp_usa": "$21.00(DDP)",
-        "plugin_sensor_cost": null,
-        "efficacy_lumen_per_w": "70lm/w",
-        "sensors_and_controls": false,
-        "cost_thailand_vietnam": null,
-        "model_number_internal": "DM-CL14IN20W5CCT",
-        "installation_kits_cost": null,
-        "emergency_backup_battery": false,
-        "remote_control_bluetooth": false,
-        "emergency_backup_battery_cost": null,
-        "remote_control_bluetooth_cost": null
-    }
-    const quantity = 20;
+const getProductPriceSummaryPerUnit = (product:any, quantity:number) => {
     const product_price_per_unit = {}
   
 
@@ -97,6 +43,13 @@ const getProductPriceSummaryPerUnit = () => {
 
     for (let i = 0; i < SHIPMENT_CONTAINER_DETAILS.length; i++) {
         const container = SHIPMENT_CONTAINER_DETAILS[i];
+        
+        // If total cubic meters needed exceeds container space, return empty object
+        if (total_cubic_meters_needed > container.container_size_in_cubic_meters) {
+            product_price_per_unit[container.container_type] = {}
+            continue
+        }
+        
         const container_maximum_utilization_space = container.container_size_in_cubic_meters * MAXIMUM_CONTAINER_UTILIZATION_PERCENTAGE;
         let admin_consolidation_fee = ADMIN_CONSOLIDATION_FEE;
 
@@ -138,6 +91,13 @@ const getProductPriceSummary = (product: any, quantity: number) => {
 
     for (let i = 0; i < SHIPMENT_CONTAINER_DETAILS.length; i++) {
         const container = SHIPMENT_CONTAINER_DETAILS[i];
+        
+        // If total cubic meters needed exceeds container space, return empty object
+        if (total_cubic_meters_needed > container.container_size_in_cubic_meters) {
+            product_price_summary[container.container_type] = {}
+            continue
+        }
+        
         const container_maximum_utilization_space = container.container_size_in_cubic_meters * MAXIMUM_CONTAINER_UTILIZATION_PERCENTAGE;
         let admin_consolidation_fee = ADMIN_CONSOLIDATION_FEE;
 
