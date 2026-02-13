@@ -8,27 +8,17 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { QuantitySelector } from "@/components/ui/quantity-selector"
 import { EnquiryForm } from "@/components/EnquiryForm"
-import { OptimizationSuggestionsDialog } from "@/components/OptimizationSuggestionsDialog"
 import { useCart } from "@/contexts/CartContext"
 // import { useCoupon } from "@/contexts/CouponContext"
 import { Input } from "@/components/ui/input"
 import Link from "next/link"
+import { productNameToSlug } from "@/lib/utils/slug"
+import { getProductPriceSummaryPerUnit, getProductPriceSummary } from "../../../lib/utils.js"
+import { ContainerPriceBreakdown } from '@/components/ContainerPriceBreakdown'
+import { PriceOptimizationDialog } from '@/components/PriceOptimizationDialog'
+import { Alert, AlertDescription } from '@/components/ui/alert'
 
 const MARKUP_PERCENTAGE_DEFAULT = 30 // 30% default markup
-const TARIFF_PERCENTAGE = 35 // 35% global tariff
-
-// Container constants
-const CONTAINER_20FT = {
-  totalCubicM: 33,
-  price: 2000,
-  maxCapacity: 33 * 0.97 // 97% utilization = 32.01 cubic meters
-}
-
-const CONTAINER_40FT = {
-  totalCubicM: 67,
-  price: 4000,
-  maxCapacity: 67 * 0.97 // 97% utilization = 64.99 cubic meters
-}
 
 const addonCostFields = [
   { key: 'sensor_cost', label: 'Sensor' },
@@ -63,9 +53,6 @@ const formatInteger = (value) => {
   return n.toLocaleString('en-US')
 }
 
-const CUBIC_M_TO_CUBIC_FT = 35.3147
-const SHIPPING_MIN_THRESHOLD = 3000
-const CONSOLIDATION_FEE = 650
 
 const calculateItemPrice = (item) => {
   // Base cost: cost_china_ddp_usa or cost_thailand_vietnam
@@ -115,13 +102,32 @@ export default function CartPage() {
   const { items, removeFromCart, updateQuantity, clearCart } = useCart()
   // const { coupons, loading, error, appliedCoupon, applyCoupon, removeCoupon } = useCoupon()
   // const [couponCode, setCouponCode] = useState('')
-  const [selectedShipping, setSelectedShipping] = useState('air')
+  const [selectedShipping, setSelectedShipping] = useState('boat')
   const [isEnquiryOpen, setIsEnquiryOpen] = useState(false)
-  const [showOptimizationDialog, setShowOptimizationDialog] = useState(false)
+  const [isOptimizationOpen, setIsOptimizationOpen] = useState(false)
 
   const handleQuantityChange = (item, newQuantity) => {
     const productId = item.id || item.ID
     updateQuantity(productId, newQuantity)
+  }
+
+  // Helper function to get product link
+  const getProductLink = (item) => {
+    const productId = item.id || item.ID
+    if (!productId) return null
+
+    // Determine product type (indoor or outdoor)
+    const productType = item.type?.toLowerCase() === 'outdoor' || 
+                       item.indoor_outdoor?.toLowerCase() === 'outdoor' 
+                       ? 'outdoor' 
+                       : 'indoor'
+
+    // Get product name and convert to slug
+    const productName = item.name || item.product_name || item.producttype
+    if (!productName) return null
+
+    const slug = productNameToSlug(productName)
+    return `/${productType}/${slug}/product-details/${productId}`
   }
 
   // const handleApplyCoupon = (e) => {
@@ -185,460 +191,87 @@ export default function CartPage() {
     }, 0)
   }, [items])
 
-  // Parse cubic meters per piece value
-  const parseCubicMValue = (value) => {
-    if (value === null || value === undefined) return 0
-    if (typeof value === 'number') {
-      return Number.isFinite(value) && value > 0 ? value : 0
-    }
-    if (typeof value !== 'string') return 0
-    const cleaned = value.toString().trim()
-    if (cleaned === '') return 0
-    const parsed = parseFloat(cleaned)
-    return Number.isFinite(parsed) && parsed > 0 ? parsed : 0
-  }
-
-  // Calculate total cubic meters required for all items
-  const totalCubicMeters = useMemo(() => {
-    return items.reduce((total, item) => {
-      const cubicMPerPc = parseCubicMValue(item.cubic_m_per_pc)
-      if (cubicMPerPc > 0) {
-        return total + (cubicMPerPc * item.quantity)
-      }
-      return total
-    }, 0)
-  }, [items])
-
   const totalPieces = useMemo(() => items.reduce((s, i) => s + i.quantity, 0), [items])
 
-  // Calculate container allocation and shipping costs
-  const containerAllocation = useMemo(() => {
-    if (totalCubicMeters === 0) {
-      return {
-        hasValidItems: false,
-        totalCubicMeters: 0,
-        container20ft: null,
-        container40ft: null,
-        shippingCost: 0,
-        consolidationFee: 0,
-        effectiveShippingCost: 0,
-        shippingPerUnit: 0
-      }
-    }
+  // Container allocation removed - shipping calculations removed
+  const containerAllocation = { hasValidItems: false }
 
-    // Filter items that have valid cubic_m_per_pc
-    const itemsWithCubicM = items.filter(item => parseCubicMValue(item.cubic_m_per_pc) > 0)
-    
-    if (itemsWithCubicM.length === 0) {
-      return {
-        hasValidItems: false,
-        totalCubicMeters: 0,
-        container20ft: null,
-        container40ft: null,
-        shippingCost: 0,
-        consolidationFee: 0,
-        effectiveShippingCost: 0,
-        shippingPerUnit: 0
-      }
-    }
-
-    // Find the smallest cubic_m_per_pc to check if adding one more piece would overflow
-    const smallestCubicMPerPc = Math.min(...itemsWithCubicM.map(item => parseCubicMValue(item.cubic_m_per_pc)))
-    
-    // 97% threshold for consolidation fee (97% of total container size)
-    const CONTAINER_20FT_97_PERCENT = CONTAINER_20FT.totalCubicM * 0.97
-    const CONTAINER_40FT_97_PERCENT = CONTAINER_40FT.totalCubicM * 0.97
-
-    // Always prioritize 20ft container first
-    // Check if items fit in 20ft container
-    if (totalCubicMeters <= CONTAINER_20FT.maxCapacity) {
-      // Check if adding one more piece would cause overflow
-      const wouldOverflow = (totalCubicMeters + smallestCubicMPerPc) > CONTAINER_20FT.maxCapacity
-      // Check if already overflowing (shouldn't happen in this branch, but just in case)
-      const isOverflowing = totalCubicMeters > CONTAINER_20FT.maxCapacity
-      // Only show full price if already overflowing OR if current total is at/above max capacity
-      // If there's still space for at least one more piece, use proportional pricing
-      const isAtMaxCapacity = totalCubicMeters >= CONTAINER_20FT.maxCapacity
-      
-      // Check if utilization is less than 97%
-      const utilizationPercentage = (totalCubicMeters / CONTAINER_20FT.maxCapacity) * 100
-      const isLessThan97Percent = totalCubicMeters < CONTAINER_20FT_97_PERCENT
-      
-      // If overflowing or at max capacity, use full container price
-      // If there's still room for one more piece, use proportional pricing
-      const shippingCost = (isOverflowing || isAtMaxCapacity) 
-        ? CONTAINER_20FT.price 
-        : (totalCubicMeters / CONTAINER_20FT.totalCubicM) * CONTAINER_20FT.price
-
-      const pieces = itemsWithCubicM.reduce((sum, item) => sum + item.quantity, 0)
-      
-      // Consolidation fee: only add if shipping cost is less than $3000
-      const consolidationFee = shippingCost < SHIPPING_MIN_THRESHOLD ? CONSOLIDATION_FEE : 0
-      const effectiveShippingCost = shippingCost + consolidationFee
-      const shippingPerUnit = pieces > 0 ? effectiveShippingCost / pieces : 0
-
-      // Calculate optimization suggestions
-      let optimizationSuggestions = null
-      
-      // Check for consolidation fee suggestion
-      let consolidationFeeSuggestion20ft = null
-      if (consolidationFee > 0) {
-        // Calculate how many pieces to add to reach 97% threshold (to remove consolidation fee)
-        const spaceTo97Percent = CONTAINER_20FT_97_PERCENT - totalCubicMeters
-        const piecesToAddFor97Percent = spaceTo97Percent > 0 && smallestCubicMPerPc > 0 
-          ? Math.ceil(spaceTo97Percent / smallestCubicMPerPc)
-          : 0
-        
-        // Calculate what the shipping cost would be with the additional pieces
-        let optimizedShippingCostNoFee = shippingCost
-        if (piecesToAddFor97Percent > 0) {
-          const newTotalCubicM = totalCubicMeters + (piecesToAddFor97Percent * smallestCubicMPerPc)
-          const newWouldOverflow = (newTotalCubicM + smallestCubicMPerPc) > CONTAINER_20FT.maxCapacity
-          const newIsOverflowing = newTotalCubicM > CONTAINER_20FT.maxCapacity
-          
-          // If adding pieces brings us to full container or would overflow, use full container price
-          optimizedShippingCostNoFee = (newIsOverflowing || newWouldOverflow)
-            ? CONTAINER_20FT.price
-            : (newTotalCubicM / CONTAINER_20FT.totalCubicM) * CONTAINER_20FT.price
-        }
-        
-        const newPieces = pieces + piecesToAddFor97Percent
-        const optimizedShippingPerUnitNoFee = newPieces > 0 ? optimizedShippingCostNoFee / newPieces : 0
-        
-        consolidationFeeSuggestion20ft = {
-          hasConsolidationFee: true,
-          piecesToAddToRemoveFee: piecesToAddFor97Percent > 0 ? piecesToAddFor97Percent : null,
-          currentShippingCost: effectiveShippingCost,
-          currentShippingPerUnit: shippingPerUnit,
-          optimizedShippingCost: optimizedShippingCostNoFee,
-          optimizedShippingPerUnit: optimizedShippingPerUnitNoFee,
-          savings: consolidationFee
-        }
-      }
-      
-      // Check if container is at or above 97% capacity (maximum capacity warning)
-      let maxCapacityWarning20ft = null
-      const utilizationPercentage20ft = (totalCubicMeters / CONTAINER_20FT.totalCubicM) * 100
-      const isAtOrAbove97Percent20ft = totalCubicMeters >= CONTAINER_20FT_97_PERCENT
-      
-      if (isAtOrAbove97Percent20ft && !consolidationFeeSuggestion20ft) {
-        // Calculate how many pieces to reduce to get below 97%
-        const excessOver97Percent = totalCubicMeters - CONTAINER_20FT_97_PERCENT
-        const piecesToReduceFor97Percent = excessOver97Percent > 0 && smallestCubicMPerPc > 0
-          ? Math.ceil(excessOver97Percent / smallestCubicMPerPc)
-          : null
-        
-        if (piecesToReduceFor97Percent && piecesToReduceFor97Percent > 0) {
-          const newTotalCubicM = totalCubicMeters - (piecesToReduceFor97Percent * smallestCubicMPerPc)
-          const newPieces = pieces - piecesToReduceFor97Percent
-          const newWouldOverflow = (newTotalCubicM + smallestCubicMPerPc) > CONTAINER_20FT.maxCapacity
-          const newIsOverflowing = newTotalCubicM > CONTAINER_20FT.maxCapacity
-          const newIsAtMaxCapacity = newTotalCubicM >= CONTAINER_20FT.maxCapacity
-          
-          const newShippingCost = (newIsOverflowing || newIsAtMaxCapacity)
-            ? CONTAINER_20FT.price
-            : (newTotalCubicM / CONTAINER_20FT.totalCubicM) * CONTAINER_20FT.price
-          
-          const newConsolidationFee = newShippingCost < SHIPPING_MIN_THRESHOLD ? CONSOLIDATION_FEE : 0
-          const newEffectiveShippingCost = newShippingCost + newConsolidationFee
-          const newShippingPerUnit = newPieces > 0 ? newEffectiveShippingCost / newPieces : 0
-          
-          const potentialSavings20ft = effectiveShippingCost - newEffectiveShippingCost
-          
-          // Only create warning if reducing pieces would save money
-          if (potentialSavings20ft > 0) {
-            maxCapacityWarning20ft = {
-              atMaxCapacity: true,
-              piecesToReduceForMaxCapacity: piecesToReduceFor97Percent,
-              currentShippingCost: effectiveShippingCost,
-              currentShippingPerUnit: shippingPerUnit,
-              optimizedShippingCost: newEffectiveShippingCost,
-              optimizedShippingPerUnit: newShippingPerUnit,
-              savings: potentialSavings20ft,
-              utilizationPercentage: utilizationPercentage20ft
-            }
-          } else {
-            // Still show informational warning that container is at max capacity
-            maxCapacityWarning20ft = {
-              atMaxCapacity: true,
-              piecesToReduceForMaxCapacity: null, // Don't suggest reduction
-              currentShippingCost: effectiveShippingCost,
-              currentShippingPerUnit: shippingPerUnit,
-              utilizationPercentage: utilizationPercentage20ft,
-              wouldCostMoreToReduce: true
-            }
-          }
-        }
-      }
-      
-      // Combine suggestions
-      if (consolidationFeeSuggestion20ft || maxCapacityWarning20ft) {
-        optimizationSuggestions = {
-          ...(consolidationFeeSuggestion20ft || {}),
-          ...(maxCapacityWarning20ft || {}),
-          consolidationFeeOptimizedShippingCost: consolidationFeeSuggestion20ft?.optimizedShippingCost,
-          consolidationFeeOptimizedShippingPerUnit: consolidationFeeSuggestion20ft?.optimizedShippingPerUnit,
-          consolidationFeeSavings: consolidationFeeSuggestion20ft?.savings,
-          maxCapacityWarningOptimizedShippingCost: maxCapacityWarning20ft?.optimizedShippingCost,
-          maxCapacityWarningOptimizedShippingPerUnit: maxCapacityWarning20ft?.optimizedShippingPerUnit,
-          maxCapacityWarningSavings: maxCapacityWarning20ft?.savings
-        }
-      }
-
-      return {
-        hasValidItems: true,
-        totalCubicMeters,
-        container20ft: {
-          used: totalCubicMeters,
-          capacity: CONTAINER_20FT.maxCapacity,
-          totalCapacity: CONTAINER_20FT.totalCubicM,
-          pieces,
-          cost: shippingCost,
-          percentage: (totalCubicMeters / CONTAINER_20FT.totalCubicM) * 100,
-          isFullPrice: isOverflowing || isAtMaxCapacity,
-          utilizationPercentage
-        },
-        container40ft: null,
-        shippingCost,
-        consolidationFee,
-        effectiveShippingCost,
-        shippingPerUnit,
-        optimizationSuggestions
-      }
-    } else {
-      // Quantities exceed 20ft container - use 40ft container (not split)
-      // Check if adding one more piece would cause overflow in 40ft
-      const wouldOverflow40ft = (totalCubicMeters + smallestCubicMPerPc) > CONTAINER_40FT.maxCapacity
-      const isOverflowing40ft = totalCubicMeters > CONTAINER_40FT.maxCapacity
-      // Only show full price if already overflowing OR if current total is at/above max capacity
-      // If there's still space for at least one more piece, use proportional pricing
-      const isAtMaxCapacity = totalCubicMeters >= CONTAINER_40FT.maxCapacity
-      
-      const isLessThan97Percent40ft = totalCubicMeters < CONTAINER_40FT_97_PERCENT
-      
-      // Calculate shipping cost for 40ft container
-      // Only use full price if already overflowing or at max capacity
-      // If there's still room for one more piece, use proportional pricing
-      const shippingCost = (isOverflowing40ft || isAtMaxCapacity) 
-        ? CONTAINER_40FT.price 
-        : (totalCubicMeters / CONTAINER_40FT.totalCubicM) * CONTAINER_40FT.price
-
-      const pieces = itemsWithCubicM.reduce((sum, item) => sum + item.quantity, 0)
-      
-      // Consolidation fee: only add if shipping cost is less than $3000
-      const consolidationFee = shippingCost < SHIPPING_MIN_THRESHOLD ? CONSOLIDATION_FEE : 0
-      const effectiveShippingCost = shippingCost + consolidationFee
-      const shippingPerUnit = pieces > 0 ? effectiveShippingCost / pieces : 0
-
-      // Calculate optimization suggestions
-      let optimizationSuggestions = null
-      
-      // Check for consolidation fee suggestion
-      let consolidationFeeSuggestion = null
-      if (consolidationFee > 0) {
-        // Calculate how many pieces to add to reach 97% threshold (to remove consolidation fee)
-        const spaceTo97Percent = CONTAINER_40FT_97_PERCENT - totalCubicMeters
-        const piecesToAddFor97Percent = spaceTo97Percent > 0 && smallestCubicMPerPc > 0 
-          ? Math.ceil(spaceTo97Percent / smallestCubicMPerPc)
-          : null
-        
-        // Calculate what the shipping cost would be with the additional pieces
-        let optimizedShippingCostNoFee = shippingCost
-        if (piecesToAddFor97Percent && piecesToAddFor97Percent > 0) {
-          const newTotalCubicM = totalCubicMeters + (piecesToAddFor97Percent * smallestCubicMPerPc)
-          const newWouldOverflow = (newTotalCubicM + smallestCubicMPerPc) > CONTAINER_40FT.maxCapacity
-          const newIsOverflowing = newTotalCubicM > CONTAINER_40FT.maxCapacity
-          
-          // If adding pieces brings us to full container or would overflow, use full container price
-          optimizedShippingCostNoFee = (newIsOverflowing || newWouldOverflow)
-            ? CONTAINER_40FT.price
-            : (newTotalCubicM / CONTAINER_40FT.totalCubicM) * CONTAINER_40FT.price
-        }
-        
-        const newPieces = pieces + (piecesToAddFor97Percent || 0)
-        const optimizedShippingPerUnitNoFee = newPieces > 0 ? optimizedShippingCostNoFee / newPieces : 0
-        
-        consolidationFeeSuggestion = {
-          hasConsolidationFee: true,
-          piecesToAddToRemoveFee: piecesToAddFor97Percent,
-          currentShippingCost: effectiveShippingCost,
-          currentShippingPerUnit: shippingPerUnit,
-          optimizedShippingCost: optimizedShippingCostNoFee,
-          optimizedShippingPerUnit: optimizedShippingPerUnitNoFee,
-          savings: consolidationFee
-        }
-      }
-      
-      // Check for 40ft to 20ft container suggestion (always check when using 40ft)
-      let containerDowngradeSuggestion = null
-      const spaceAvailableIn20ft = CONTAINER_20FT.maxCapacity
-      const excessCubicM = totalCubicMeters - spaceAvailableIn20ft
-      
-      if (excessCubicM > 0 && smallestCubicMPerPc > 0) {
-        // Calculate how many pieces to reduce to fit in 20ft container
-        const piecesToReduce = Math.ceil(excessCubicM / smallestCubicMPerPc)
-        const newPieces = pieces - piecesToReduce
-        
-        if (newPieces > 0) {
-          // Calculate what shipping cost would be with 20ft only
-          const newTotalCubicM = totalCubicMeters - (piecesToReduce * smallestCubicMPerPc)
-          const wouldOverflow20ft = (newTotalCubicM + smallestCubicMPerPc) > CONTAINER_20FT.maxCapacity
-          const newShippingCost20ft = wouldOverflow20ft 
-            ? CONTAINER_20FT.price 
-            : (newTotalCubicM / CONTAINER_20FT.totalCubicM) * CONTAINER_20FT.price
-          
-          const newConsolidationFee20ft = newShippingCost20ft < SHIPPING_MIN_THRESHOLD ? CONSOLIDATION_FEE : 0
-          const newEffectiveShippingCost20ft = newShippingCost20ft + newConsolidationFee20ft
-          const newShippingPerUnit20ft = newPieces > 0 ? newEffectiveShippingCost20ft / newPieces : 0
-          
-          // Only suggest if per-piece cost is lower with 20ft
-          if (newShippingPerUnit20ft < shippingPerUnit) {
-            containerDowngradeSuggestion = {
-              using40ftContainer: true,
-              piecesToReduceFor20ft: piecesToReduce,
-              currentShippingCost: effectiveShippingCost,
-              currentShippingPerUnit: shippingPerUnit,
-              optimizedShippingCost: newEffectiveShippingCost20ft,
-              optimizedShippingPerUnit: newShippingPerUnit20ft,
-              savings: effectiveShippingCost - newEffectiveShippingCost20ft
-            }
-          }
-        }
-      }
-      
-      // Check if container is at or above 97% capacity (maximum capacity warning)
-      let maxCapacityWarning = null
-      const utilizationPercentage = (totalCubicMeters / CONTAINER_40FT.totalCubicM) * 100
-      const isAtOrAbove97Percent = totalCubicMeters >= CONTAINER_40FT_97_PERCENT
-      
-      if (isAtOrAbove97Percent && !consolidationFeeSuggestion) {
-        // Calculate how many pieces to reduce to get below 97%
-        const excessOver97Percent = totalCubicMeters - CONTAINER_40FT_97_PERCENT
-        const piecesToReduceFor97Percent = excessOver97Percent > 0 && smallestCubicMPerPc > 0
-          ? Math.ceil(excessOver97Percent / smallestCubicMPerPc)
-          : null
-        
-        if (piecesToReduceFor97Percent && piecesToReduceFor97Percent > 0) {
-          const newTotalCubicM = totalCubicMeters - (piecesToReduceFor97Percent * smallestCubicMPerPc)
-          const newPieces = pieces - piecesToReduceFor97Percent
-          const newWouldOverflow = (newTotalCubicM + smallestCubicMPerPc) > CONTAINER_40FT.maxCapacity
-          const newIsOverflowing = newTotalCubicM > CONTAINER_40FT.maxCapacity
-          const newIsAtMaxCapacity = newTotalCubicM >= CONTAINER_40FT.maxCapacity
-          
-          const newShippingCost = (newIsOverflowing || newIsAtMaxCapacity)
-            ? CONTAINER_40FT.price
-            : (newTotalCubicM / CONTAINER_40FT.totalCubicM) * CONTAINER_40FT.price
-          
-          const newConsolidationFee = newShippingCost < SHIPPING_MIN_THRESHOLD ? CONSOLIDATION_FEE : 0
-          const newEffectiveShippingCost = newShippingCost + newConsolidationFee
-          const newShippingPerUnit = newPieces > 0 ? newEffectiveShippingCost / newPieces : 0
-          
-          // Only show warning if reducing pieces actually saves money
-          // If reducing pieces adds consolidation fee back and costs more, don't suggest it
-          const potentialSavings = effectiveShippingCost - newEffectiveShippingCost
-          
-          // Only create warning if reducing pieces would save money
-          if (potentialSavings > 0) {
-            maxCapacityWarning = {
-              atMaxCapacity: true,
-              piecesToReduceForMaxCapacity: piecesToReduceFor97Percent,
-              currentShippingCost: effectiveShippingCost,
-              currentShippingPerUnit: shippingPerUnit,
-              optimizedShippingCost: newEffectiveShippingCost,
-              optimizedShippingPerUnit: newShippingPerUnit,
-              savings: potentialSavings,
-              utilizationPercentage: utilizationPercentage
-            }
-          } else {
-            // Still show informational warning that container is at max capacity
-            // but don't suggest reducing pieces if it would cost more
-            maxCapacityWarning = {
-              atMaxCapacity: true,
-              piecesToReduceForMaxCapacity: null, // Don't suggest reduction
-              currentShippingCost: effectiveShippingCost,
-              currentShippingPerUnit: shippingPerUnit,
-              utilizationPercentage: utilizationPercentage,
-              wouldCostMoreToReduce: true
-            }
-          }
-        }
-      }
-      
-      // Combine suggestions if both exist (keep both sets of values separate)
-      if (consolidationFeeSuggestion || containerDowngradeSuggestion || maxCapacityWarning) {
-        optimizationSuggestions = {
-          // Consolidation fee suggestion values
-          ...(consolidationFeeSuggestion || {}),
-          // Container downgrade suggestion values (don't overwrite consolidation fee values)
-          ...(containerDowngradeSuggestion || {}),
-          // Max capacity warning values
-          ...(maxCapacityWarning || {}),
-          // Keep separate optimized costs for each suggestion
-          consolidationFeeOptimizedShippingCost: consolidationFeeSuggestion?.optimizedShippingCost,
-          consolidationFeeOptimizedShippingPerUnit: consolidationFeeSuggestion?.optimizedShippingPerUnit,
-          consolidationFeeSavings: consolidationFeeSuggestion?.savings,
-          containerDowngradeOptimizedShippingCost: containerDowngradeSuggestion?.optimizedShippingCost,
-          containerDowngradeOptimizedShippingPerUnit: containerDowngradeSuggestion?.optimizedShippingPerUnit,
-          containerDowngradeSavings: containerDowngradeSuggestion?.savings,
-          maxCapacityWarningOptimizedShippingCost: maxCapacityWarning?.optimizedShippingCost,
-          maxCapacityWarningOptimizedShippingPerUnit: maxCapacityWarning?.optimizedShippingPerUnit,
-          maxCapacityWarningSavings: maxCapacityWarning?.savings
-        }
-      }
-
-      return {
-        hasValidItems: true,
-        totalCubicMeters,
-        container20ft: null,
-        container40ft: {
-          used: totalCubicMeters,
-          capacity: CONTAINER_40FT.maxCapacity,
-          totalCapacity: CONTAINER_40FT.totalCubicM,
-          pieces,
-          cost: shippingCost,
-          percentage: (totalCubicMeters / CONTAINER_40FT.totalCubicM) * 100,
-          isFullPrice: isOverflowing40ft || isAtMaxCapacity
-        },
-        shippingCost,
-        consolidationFee,
-        effectiveShippingCost,
-        shippingPerUnit,
-        optimizationSuggestions
-      }
-    }
-  }, [items, totalCubicMeters])
-
-  // Calculate tariff amount (35% of cart total)
-  const tariffAmount = useMemo(() => {
-    return cartTotal * (TARIFF_PERCENTAGE / 100)
+  // Calculate final total (cart total only)
+  const finalTotal = useMemo(() => {
+    return cartTotal
   }, [cartTotal])
 
-  // Calculate final total (cart total + tariff + effective shipping including consolidation when < $3000)
-  const finalTotal = useMemo(() => {
-    return cartTotal + tariffAmount + (containerAllocation.effectiveShippingCost ?? containerAllocation.shippingCost ?? 0)
-  }, [cartTotal, tariffAmount, containerAllocation.effectiveShippingCost, containerAllocation.shippingCost])
-
-  // Calculate per-piece charges
-  const perPieceCharges = useMemo(() => {
-    const totalPieces = items.reduce((sum, item) => sum + item.quantity, 0)
-    if (totalPieces === 0) {
-      return {
-        withoutShippingAndTariff: 0,
-        withTariffOnly: 0,
-        withTariffAndShipping: 0
-      }
-    }
-    return {
-      withoutShippingAndTariff: cartTotal / totalPieces,
-      withTariffOnly: (cartTotal + tariffAmount) / totalPieces,
-      withTariffAndShipping: finalTotal / totalPieces
-    }
-  }, [cartTotal, tariffAmount, finalTotal, items])
+  // Helper function to get price per unit summary for a cart item
+  const getItemPricePerUnitSummary = (item) => {
+    if (!item || !item.cubic_m_per_pc) return null
+    return getProductPriceSummaryPerUnit(item, item.quantity)
+  }
 
   // Calculate price breakdown for each item
   const getItemPriceData = (item) => {
     return calculateItemPrice(item)
   }
+
+  // Calculate price summaries for all products in cart
+  const cartPriceSummaries = useMemo(() => {
+    return items.map(item => {
+      if (!item || !item.cubic_m_per_pc) return null
+      return {
+        item,
+        summary: getProductPriceSummary(item, item.quantity)
+      }
+    }).filter(Boolean)
+  }, [items])
+
+  // Calculate aggregated totals for each container type
+  const aggregatedTotals = useMemo(() => {
+    const totals = {
+      '20ft': {
+        product_price: 0,
+        tarrif: 0,
+        shipment_cost: 0,
+        admin_consolidation_fee: 0,
+        space_occupied_cubic_meters: 0,
+        total: 0
+      },
+      '40ft': {
+        product_price: 0,
+        tarrif: 0,
+        shipment_cost: 0,
+        admin_consolidation_fee: 0,
+        space_occupied_cubic_meters: 0,
+        total: 0
+      }
+    }
+
+    cartPriceSummaries.forEach(({ summary }) => {
+      if (!summary) return
+
+      // Process 20ft container
+      if (summary['20ft'] && Object.keys(summary['20ft']).length > 0) {
+        totals['20ft'].product_price += summary['20ft'].product_price || 0
+        totals['20ft'].tarrif += summary['20ft'].tarrif || 0
+        totals['20ft'].shipment_cost += summary['20ft'].shipment_cost || 0
+        totals['20ft'].admin_consolidation_fee += summary['20ft'].admin_consolidation_fee || 0
+        totals['20ft'].space_occupied_cubic_meters += summary['20ft'].space_occupied_cubic_meters || 0
+      }
+
+      // Process 40ft container
+      if (summary['40ft'] && Object.keys(summary['40ft']).length > 0) {
+        totals['40ft'].product_price += summary['40ft'].product_price || 0
+        totals['40ft'].tarrif += summary['40ft'].tarrif || 0
+        totals['40ft'].shipment_cost += summary['40ft'].shipment_cost || 0
+        totals['40ft'].admin_consolidation_fee += summary['40ft'].admin_consolidation_fee || 0
+        totals['40ft'].space_occupied_cubic_meters += summary['40ft'].space_occupied_cubic_meters || 0
+      }
+    })
+
+    // Calculate totals
+    totals['20ft'].total = totals['20ft'].product_price + totals['20ft'].tarrif + totals['20ft'].shipment_cost + totals['20ft'].admin_consolidation_fee
+    totals['40ft'].total = totals['40ft'].product_price + totals['40ft'].tarrif + totals['40ft'].shipment_cost + totals['40ft'].admin_consolidation_fee
+
+    return totals
+  }, [cartPriceSummaries])
 
   if (items.length === 0) {
     return (
@@ -735,18 +368,35 @@ export default function CartPage() {
                   <CardContent className="p-6">
                     <div className="flex items-start gap-4">
                       {/* Product Image Placeholder */}
-                      <div className="w-20 h-20 rounded-lg bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center flex-shrink-0">
-                        <Package className="w-8 h-8 text-white" />
-                      </div>
+                      {getProductLink(item) ? (
+                        <Link href={getProductLink(item)} className="flex-shrink-0">
+                          <div className="w-20 h-20 rounded-lg bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center cursor-pointer hover:opacity-80 transition-opacity">
+                            <Package className="w-8 h-8 text-white" />
+                          </div>
+                        </Link>
+                      ) : (
+                        <div className="w-20 h-20 rounded-lg bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center flex-shrink-0">
+                          <Package className="w-8 h-8 text-white" />
+                        </div>
+                      )}
 
                       {/* Product Details */}
                       <div className="flex-1 min-w-0">
                         <div className="flex justify-between items-start mb-2">
                           <div>
-                            <h3 className="font-semibold text-lg">
-                              {item.name || item.product_name || item.producttype || 'Lighting Product'}
-                              {!item.name && !item.product_name && !item.producttype && item.id && ` #${item.id}`}
-                            </h3>
+                            {getProductLink(item) ? (
+                              <Link href={getProductLink(item)}>
+                                <h3 className="font-semibold text-lg hover:text-primary transition-colors cursor-pointer">
+                                  {item.name || item.product_name || item.producttype || 'Lighting Product'}
+                                  {!item.name && !item.product_name && !item.producttype && item.id && ` #${item.id}`}
+                                </h3>
+                              </Link>
+                            ) : (
+                              <h3 className="font-semibold text-lg">
+                                {item.name || item.product_name || item.producttype || 'Lighting Product'}
+                                {!item.name && !item.product_name && !item.producttype && item.id && ` #${item.id}`}
+                              </h3>
+                            )}
                             {item.model_number && (
                               <p className="text-sm text-muted-foreground mt-0.5">{item.model_number}</p>
                             )}
@@ -851,25 +501,22 @@ export default function CartPage() {
                         {/* Quantity Controls */}
                         <div className="flex items-center justify-between">
                           <div className="flex items-center gap-3">
-                            <div className="flex items-center gap-2">
-                              <span className="text-sm text-muted-foreground">Qty:</span>
-                              <QuantitySelector
-                                value={item.quantity}
-                                onChange={(newQuantity) => handleQuantityChange(item, newQuantity)}
-                                size="sm"
-                                min={1}
-                              />
-                            </div>
-                            <div className="flex flex-col gap-1 text-xs text-muted-foreground">
-                              <div>
-                                <span className="font-medium">Product:</span> {formatCurrency(perPieceCharges.withoutShippingAndTariff)}/pc
+                            <div className="flex flex-col gap-1">
+                              <div className="flex items-center gap-2">
+                                <span className="text-sm text-muted-foreground">Qty:</span>
+                                <QuantitySelector
+                                  value={item.quantity}
+                                  onChange={(newQuantity) => handleQuantityChange(item, newQuantity)}
+                                  size="sm"
+                                  min={1}
+                                  step={item.pcs_per_box && item.pcs_per_box > 0 ? item.pcs_per_box : 1}
+                                />
                               </div>
-                              <div>
-                                <span className="font-medium">+ Tariff:</span> {formatCurrency(perPieceCharges.withTariffOnly)}/pc
-                              </div>
-                              <div>
-                                <span className="font-medium">+ Shipping:</span> {formatCurrency(perPieceCharges.withTariffAndShipping)}/pc
-                              </div>
+                              {item.pcs_per_box && item.pcs_per_box > 0 && (
+                                <span className="text-xs text-muted-foreground ml-12">
+                                  Increments by {item.pcs_per_box} pcs/box
+                                </span>
+                              )}
                             </div>
                           </div>
 
@@ -883,6 +530,16 @@ export default function CartPage() {
                             Remove
                           </Button>
                         </div>
+
+                        {/* Container Price Breakdown */}
+                        {getItemPricePerUnitSummary(item) && (
+                          <div className="mt-4">
+                            <ContainerPriceBreakdown 
+                              priceSummary={getItemPricePerUnitSummary(item)} 
+                              quantity={item.quantity} 
+                            />
+                          </div>
+                        )}
                       </div>
                     </div>
                   </CardContent>
@@ -1080,24 +737,6 @@ export default function CartPage() {
                         </div>
                       )}
 
-                      {/* Shipping per unit and consolidation fee */}
-                      {containerAllocation.shippingPerUnit != null && containerAllocation.shippingPerUnit > 0 && (
-                        <div className="p-3 border rounded-lg bg-muted/50">
-                          <div className="text-sm">
-                            <span className="font-medium text-muted-foreground">Shipping per unit: </span>
-                            <span className="font-semibold">{formatCurrency(containerAllocation.shippingPerUnit)}</span>
-                          </div>
-                          {containerAllocation.consolidationFee > 0 && (
-                            <div className="text-sm mt-1">
-                              <span className="font-medium text-muted-foreground">Consolidation fee: </span>
-                              <span className="font-semibold">{formatCurrency(containerAllocation.consolidationFee)}</span>
-                              <div className="text-xs text-muted-foreground mt-1">
-                                <span className="font-medium text-orange-600">⚠️ Consolidation fee applies when shipping cost is less than $3,000</span>
-                              </div>
-                            </div>
-                          )}
-                        </div>
-                      )}
                     </div>
                   </div>
                 )}
@@ -1112,57 +751,241 @@ export default function CartPage() {
                   </div>
                 )}
 
+                {/* Price Breakdown by Container */}
+                {cartPriceSummaries.length > 0 && (
+                  <div className="space-y-4 border-t pt-4">
+                    <h4 className="font-medium flex items-center gap-2">
+                      <Package className="w-4 h-4" />
+                      Price Breakdown by Container
+                    </h4>
+
+                    {/* Individual Product Breakdowns */}
+                    <div className="space-y-3">
+                      {cartPriceSummaries.map(({ item, summary }, index) => {
+                        if (!summary) return null
+                        const productName = item.name || item.product_name || item.producttype || `Product ${index + 1}`
+                        const has20ft = summary['20ft'] && Object.keys(summary['20ft']).length > 0
+                        const has40ft = summary['40ft'] && Object.keys(summary['40ft']).length > 0
+
+                        if (!has20ft && !has40ft) return null
+
+                        return (
+                          <div key={item.id || item.ID} className="p-3 border rounded-lg bg-muted/30">
+                            <h5 className="text-sm font-semibold mb-2">{productName}</h5>
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                              {/* 20ft Container */}
+                              {has20ft && (
+                                <div className="space-y-1">
+                                  <h6 className="text-xs font-medium text-muted-foreground">20ft Container</h6>
+                                  <div className="space-y-0.5 text-xs">
+                                    {summary['20ft'].space_occupied_cubic_meters !== undefined && (
+                                      <div className="flex justify-between mb-1 pb-1 border-b border-border/30">
+                                        <span className="text-muted-foreground">Space Occupied:</span>
+                                        <span className="font-medium">{summary['20ft'].space_occupied_cubic_meters.toFixed(2)} m³</span>
+                                      </div>
+                                    )}
+                                    <div className="flex justify-between">
+                                      <span className="text-muted-foreground">Product:</span>
+                                      <span>{formatCurrency(summary['20ft'].product_price)}</span>
+                                    </div>
+                                    <div className="flex justify-between">
+                                      <span className="text-muted-foreground">Tariff:</span>
+                                      <span>{formatCurrency(summary['20ft'].tarrif)}</span>
+                                    </div>
+                                    <div className="flex justify-between">
+                                      <span className="text-muted-foreground">Shipping:</span>
+                                      <span>{formatCurrency(summary['20ft'].shipment_cost)}</span>
+                                    </div>
+                                    {summary['20ft'].admin_consolidation_fee > 0 && (
+                                      <div className="flex justify-between">
+                                        <span className="text-muted-foreground">Admin Fee:</span>
+                                        <span>{formatCurrency(summary['20ft'].admin_consolidation_fee)}</span>
+                                      </div>
+                                    )}
+                                    <div className="flex justify-between pt-1 border-t border-border/50">
+                                      <span className="font-medium">Subtotal:</span>
+                                      <span className="font-semibold">
+                                        {formatCurrency(
+                                          summary['20ft'].product_price +
+                                          summary['20ft'].tarrif +
+                                          summary['20ft'].shipment_cost +
+                                          summary['20ft'].admin_consolidation_fee
+                                        )}
+                                      </span>
+                                    </div>
+                                  </div>
+                                </div>
+                              )}
+
+                              {/* 40ft Container */}
+                              {has40ft && (
+                                <div className="space-y-1">
+                                  <h6 className="text-xs font-medium text-muted-foreground">40ft Container</h6>
+                                  <div className="space-y-0.5 text-xs">
+                                    {summary['40ft'].space_occupied_cubic_meters !== undefined && (
+                                      <div className="flex justify-between mb-1 pb-1 border-b border-border/30">
+                                        <span className="text-muted-foreground">Space Occupied:</span>
+                                        <span className="font-medium">{summary['40ft'].space_occupied_cubic_meters.toFixed(2)} m³</span>
+                                      </div>
+                                    )}
+                                    <div className="flex justify-between">
+                                      <span className="text-muted-foreground">Product:</span>
+                                      <span>{formatCurrency(summary['40ft'].product_price)}</span>
+                                    </div>
+                                    <div className="flex justify-between">
+                                      <span className="text-muted-foreground">Tariff:</span>
+                                      <span>{formatCurrency(summary['40ft'].tarrif)}</span>
+                                    </div>
+                                    <div className="flex justify-between">
+                                      <span className="text-muted-foreground">Shipping:</span>
+                                      <span>{formatCurrency(summary['40ft'].shipment_cost)}</span>
+                                    </div>
+                                    {summary['40ft'].admin_consolidation_fee > 0 && (
+                                      <div className="flex justify-between">
+                                        <span className="text-muted-foreground">Admin Fee:</span>
+                                        <span>{formatCurrency(summary['40ft'].admin_consolidation_fee)}</span>
+                                      </div>
+                                    )}
+                                    <div className="flex justify-between pt-1 border-t border-border/50">
+                                      <span className="font-medium">Subtotal:</span>
+                                      <span className="font-semibold">
+                                        {formatCurrency(
+                                          summary['40ft'].product_price +
+                                          summary['40ft'].tarrif +
+                                          summary['40ft'].shipment_cost +
+                                          summary['40ft'].admin_consolidation_fee
+                                        )}
+                                      </span>
+                                    </div>
+                                  </div>
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        )
+                      })}
+                    </div>
+
+                    {/* Aggregated Totals */}
+                    <div className="p-3 border-2 border-primary/30 rounded-lg bg-primary/5">
+                      <h5 className="text-sm font-semibold mb-3">Total Summary</h5>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        {/* 20ft Total */}
+                        <div className="space-y-1">
+                          <h6 className="text-xs font-semibold text-muted-foreground">20ft Container Total</h6>
+                          <div className="space-y-0.5 text-xs">
+                            {aggregatedTotals['20ft'].space_occupied_cubic_meters > 0 && (
+                              <div className="flex justify-between mb-1 pb-1 border-b border-border/30">
+                                <span className="text-muted-foreground">Total Space Occupied:</span>
+                                <span className="font-medium">{aggregatedTotals['20ft'].space_occupied_cubic_meters.toFixed(2)} m³</span>
+                              </div>
+                            )}
+                            <div className="flex justify-between">
+                              <span className="text-muted-foreground">Product Price:</span>
+                              <span className="font-medium">{formatCurrency(aggregatedTotals['20ft'].product_price)}</span>
+                            </div>
+                            <div className="flex justify-between">
+                              <span className="text-muted-foreground">Tariff:</span>
+                              <span className="font-medium">{formatCurrency(aggregatedTotals['20ft'].tarrif)}</span>
+                            </div>
+                            <div className="flex justify-between">
+                              <span className="text-muted-foreground">Shipping:</span>
+                              <span className="font-medium">{formatCurrency(aggregatedTotals['20ft'].shipment_cost)}</span>
+                            </div>
+                            {aggregatedTotals['20ft'].admin_consolidation_fee > 0 && (
+                              <div className="flex justify-between">
+                                <span className="text-muted-foreground">Admin Consolidation:</span>
+                                <span className="font-medium">{formatCurrency(aggregatedTotals['20ft'].admin_consolidation_fee)}</span>
+                              </div>
+                            )}
+                            <div className="flex justify-between pt-1.5 border-t border-border">
+                              <span className="font-semibold">Total:</span>
+                              <span className="font-bold text-primary">{formatCurrency(aggregatedTotals['20ft'].total)}</span>
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* 40ft Total */}
+                        <div className="space-y-1">
+                          <h6 className="text-xs font-semibold text-muted-foreground">40ft Container Total</h6>
+                          <div className="space-y-0.5 text-xs">
+                            {aggregatedTotals['40ft'].space_occupied_cubic_meters > 0 && (
+                              <div className="flex justify-between mb-1 pb-1 border-b border-border/30">
+                                <span className="text-muted-foreground">Total Space Occupied:</span>
+                                <span className="font-medium">{aggregatedTotals['40ft'].space_occupied_cubic_meters.toFixed(2)} m³</span>
+                              </div>
+                            )}
+                            <div className="flex justify-between">
+                              <span className="text-muted-foreground">Product Price:</span>
+                              <span className="font-medium">{formatCurrency(aggregatedTotals['40ft'].product_price)}</span>
+                            </div>
+                            <div className="flex justify-between">
+                              <span className="text-muted-foreground">Tariff:</span>
+                              <span className="font-medium">{formatCurrency(aggregatedTotals['40ft'].tarrif)}</span>
+                            </div>
+                            <div className="flex justify-between">
+                              <span className="text-muted-foreground">Shipping:</span>
+                              <span className="font-medium">{formatCurrency(aggregatedTotals['40ft'].shipment_cost)}</span>
+                            </div>
+                            {aggregatedTotals['40ft'].admin_consolidation_fee > 0 && (
+                              <div className="flex justify-between">
+                                <span className="text-muted-foreground">Admin Consolidation:</span>
+                                <span className="font-medium">{formatCurrency(aggregatedTotals['40ft'].admin_consolidation_fee)}</span>
+                              </div>
+                            )}
+                            <div className="flex justify-between pt-1.5 border-t border-border">
+                              <span className="font-semibold">Total:</span>
+                              <span className="font-bold text-primary">{formatCurrency(aggregatedTotals['40ft'].total)}</span>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                    
+                    {/* Admin Consolidation Fee Explanation - Show once if any fee exists */}
+                    {(aggregatedTotals['20ft'].admin_consolidation_fee > 0 || aggregatedTotals['40ft'].admin_consolidation_fee > 0) && (
+                      <Alert className="mt-4 py-2 bg-blue-50 dark:bg-blue-950/20 border-blue-200 dark:border-blue-800">
+                        <AlertDescription className="text-xs text-blue-800 dark:text-blue-200">
+                          <strong>Admin Consolidation Fee:</strong> This fee covers administrative costs for consolidating your order with other shipments when your order doesn't fill a full container (less than 97% utilization).
+                        </AlertDescription>
+                      </Alert>
+                    )}
+                  </div>
+                )}
+
                 <div className="border-t pt-4 space-y-2">
-                  {/* Cart Total */}
-                  <div className="flex justify-between items-center py-3 border-b">
-                    <span className="text-lg font-semibold">Cart Total:</span>
-                    <span className="text-xl font-bold text-primary">
-                      {formatCurrency(cartTotal)}
-                    </span>
-                  </div>
-                  
-                  {/* Tariff */}
-                  <div className="flex justify-between items-center py-2 border-b">
-                    <span className="text-sm font-medium text-muted-foreground">Tariff:</span>
-                    <span className="text-sm font-semibold">
-                      {formatCurrency(tariffAmount)}
-                    </span>
-                  </div>
-                  
-                  {/* Shipping Cost and Consolidation Fee */}
-                  {containerAllocation.hasValidItems && (containerAllocation.shippingCost > 0 || (containerAllocation.consolidationFee ?? 0) > 0) && (
-                    <>
-                      {containerAllocation.shippingCost > 0 && (
-                        <div className="flex justify-between items-center py-2 border-b">
-                          <span className="text-sm font-medium text-muted-foreground">Shipping:</span>
-                          <span className="text-sm font-semibold">
-                            {formatCurrency(containerAllocation.shippingCost)}
-                          </span>
-                        </div>
-                      )}
-                      {(containerAllocation.consolidationFee ?? 0) > 0 && (
-                        <div className="flex flex-col py-2 border-b">
-                          <div className="flex justify-between items-center">
-                            <span className="text-sm font-medium text-muted-foreground">Consolidation fee:</span>
-                            <span className="text-sm font-semibold">
-                              {formatCurrency(containerAllocation.consolidationFee)}
-                            </span>
-                          </div>
-                          <div className="text-xs text-orange-600 font-medium mt-1">
-                            ⚠️ Applies when shipping cost is less than $3,000
-                          </div>
-                        </div>
-                      )}
-                    </>
+                  {/* Final Total - Always prioritize 20ft container, fallback to 40ft */}
+                  {cartPriceSummaries.length > 0 && (
+                    <div className="flex justify-between items-center py-3 border-t-2 border-primary/20">
+                      <span className="text-lg font-semibold">Total:</span>
+                      <span className="text-2xl font-bold text-primary">
+                        {(() => {
+                          const total20ft = aggregatedTotals['20ft'].total
+                          const total40ft = aggregatedTotals['40ft'].total
+                          const has20ft = aggregatedTotals['20ft'].space_occupied_cubic_meters > 0
+                          const has40ft = aggregatedTotals['40ft'].space_occupied_cubic_meters > 0
+                          
+                          // Always prioritize 20ft container cost
+                          if (has20ft) {
+                            return formatCurrency(total20ft)
+                          } else if (has40ft) {
+                            return formatCurrency(total40ft)
+                          } else {
+                            return formatCurrency(finalTotal)
+                          }
+                        })()}
+                      </span>
+                    </div>
                   )}
                   
-                  {/* Final Total */}
-                  <div className="flex justify-between items-center py-3 border-t-2 border-primary/20">
-                    <span className="text-lg font-semibold">Total:</span>
-                    <span className="text-2xl font-bold text-primary">
-                      {formatCurrency(finalTotal)}
-                    </span>
-                  </div>
+                  {cartPriceSummaries.length === 0 && (
+                    <div className="flex justify-between items-center py-3 border-t-2 border-primary/20">
+                      <span className="text-lg font-semibold">Total:</span>
+                      <span className="text-2xl font-bold text-primary">
+                        {formatCurrency(finalTotal)}
+                      </span>
+                    </div>
+                  )}
                   
                   {/* Item Count */}
                   <div className="flex justify-between items-center text-sm text-muted-foreground pt-2">
@@ -1170,25 +993,6 @@ export default function CartPage() {
                     <span>{formatInteger(getTotalItems())} {getTotalItems() === 1 ? 'item' : 'items'}</span>
                   </div>
 
-                  {/* Per-Piece Charges Breakdown */}
-                  <div className="border-t pt-4 space-y-2 mt-4">
-                    <h5 className="text-sm font-semibold mb-2">Per-Piece Charges:</h5>
-                    <div className="space-y-1.5 text-xs">
-                      <div className="flex justify-between items-center">
-                        <span className="text-muted-foreground">Product only:</span>
-                        <span className="font-medium">{formatCurrency(perPieceCharges.withoutShippingAndTariff)}</span>
-                      </div>
-                      <div className="flex justify-between items-center">
-                        <span className="text-muted-foreground">+ Tariff:</span>
-                        <span className="font-medium">{formatCurrency(perPieceCharges.withTariffOnly)}</span>
-                      </div>
-                      <div className="flex justify-between items-center">
-                        <span className="text-muted-foreground">+ Shipping:</span>
-                        <span className="font-semibold text-primary">{formatCurrency(perPieceCharges.withTariffAndShipping)}</span>
-                      </div>
-                    </div>
-                  </div>
-                  
                   {/* {appliedCoupon && !isCouponExpired(appliedCoupon) && (
                     <div className="flex justify-between items-center py-2 border-t border-dashed">
                       <span className="text-lg font-semibold">Total:</span>
@@ -1215,12 +1019,7 @@ export default function CartPage() {
                   className="w-full"
                   size="lg"
                   onClick={() => {
-                    // Show optimization dialog if there are suggestions, otherwise go directly to enquiry form
-                    if (containerAllocation.optimizationSuggestions) {
-                      setShowOptimizationDialog(true)
-                    } else {
-                      setIsEnquiryOpen(true)
-                    }
+                    setIsOptimizationOpen(true)
                   }}
                   // disabled={appliedCoupon && isCouponExpired(appliedCoupon)}
                 >
@@ -1242,16 +1041,22 @@ export default function CartPage() {
         </div>
       </div>
 
-      {/* Optimization Suggestions Dialog */}
-      <OptimizationSuggestionsDialog
-        open={showOptimizationDialog}
-        onOpenChange={setShowOptimizationDialog}
-        optimizationSuggestions={containerAllocation.optimizationSuggestions}
-        cartTotal={cartTotal}
-        tariffAmount={tariffAmount}
-        onContinue={() => setShowOptimizationDialog(false)}
-        onSubmitEnquiry={() => {
-          setShowOptimizationDialog(false)
+
+      {/* Price Optimization Dialog */}
+      <PriceOptimizationDialog
+        isOpen={isOptimizationOpen}
+        onClose={() => setIsOptimizationOpen(false)}
+        cartItems={items}
+        onApplySuggestion={(suggestion) => {
+          // Apply the suggestion by updating quantities
+          suggestion.changes.forEach(change => {
+            const item = items.find(i => (i.id || i.ID) === change.productId)
+            if (item) {
+              updateQuantity(change.productId, change.newQuantity)
+            }
+          })
+        }}
+        onContinueToEnquiry={() => {
           setIsEnquiryOpen(true)
         }}
       />

@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useEffect, useMemo } from 'react'
+import { useParams, usePathname } from 'next/navigation'
 import { motion } from "framer-motion"
 import { ArrowLeft, Download, FileText, Award, ExternalLink, Zap, Shield, Settings, Info, ShoppingCart, Check, Image as ImageIcon, ZoomIn } from "lucide-react"
 import { Button } from "@/components/ui/button"
@@ -12,25 +13,13 @@ import { ImageModal } from "@/components/ui/image-modal"
 import { getOptimizedImageUrl } from "@/lib/image-utils"
 import { ImageWithLoading } from "@/components/ui/image-with-loading"
 import { fieldMapping } from '@/lib/database/products'
+import { getProductByIdV2 } from '@/lib/database/products-v2'
+import { LoadingSpinner } from '@/components/ui/loading'
+import { Alert, AlertDescription } from '@/components/ui/alert'
+import { getProductPriceSummaryPerUnit } from '../../lib/utils.js'
+import { ContainerPriceBreakdown } from '@/components/ContainerPriceBreakdown'
 
 const MARKUP_PERCENTAGE_DEFAULT = 30 // 30% default markup
-const TARIFF_PERCENTAGE = 35 // 35% global tariff
-
-// Container constants
-const CONTAINER_20FT = {
-  totalCubicM: 33,
-  price: 2000,
-  maxCapacity: 33 * 0.97 // 97% utilization = 32.01 cubic meters
-}
-
-const CONTAINER_40FT = {
-  totalCubicM: 67,
-  price: 4000,
-  maxCapacity: 67 * 0.97 // 97% utilization = 64.99 cubic meters
-}
-
-const CONSOLIDATION_FEE = 650
-const SHIPPING_MIN_THRESHOLD = 3000
 
 const addonCostFields = [
   { key: 'sensor_cost', label: 'Sensor' },
@@ -56,12 +45,157 @@ const formatCurrency = (value) => {
   return `$${numeric.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
 }
 
-export function ProductDetails({ product, onBack, sensorSelection = null }) {
-  const { addToCart, items } = useCart()
+// Helper to derive sensorSelection from product data
+function deriveSensorSelection(product) {
+  if (!product) return null
+
+  // Determine sensorsAndControls
+  let sensorsAndControls = 'None'
+  if (product.sensors_and_controls === true || product.sensorsAndControls === true) {
+    if (product.occupancy === true) {
+      sensorsAndControls = 'Occupancy'
+    } else if (product.bi_level === true || product.biLevel === true) {
+      sensorsAndControls = 'Bi-Level'
+    }
+  }
+
+  // Determine sensorType
+  let sensorType = 'None'
+  if (product.pir === true) {
+    sensorType = 'PIR'
+  } else if (product.microwave === true) {
+    sensorType = 'Microwave'
+  }
+
+  return {
+    sensorsAndControls,
+    sensorType,
+    remoteControl: product.remote_control_bluetooth === true || product.remoteControl === true,
+    emergencyBackupBattery: product.emergency_backup_battery === true || product.emergencyBackupBattery === true,
+    pluginSensor: product.plugin_sensor === true || product.pluginSensor === true
+  }
+}
+
+export function ProductDetails({ product: productProp, onBack: onBackProp, sensorSelection: sensorSelectionProp = null }) {
+  const params = useParams()
+  const pathname = usePathname()
+  const { addToCart, items, updateQuantity: updateCartQuantity } = useCart()
   const [isAdded, setIsAdded] = useState(false)
-  const [quantity, setQuantity] = useState(1)
-  const [isImageModalOpen, setIsImageModalOpen] = useState(false)
+  const [product, setProduct] = useState(productProp)
+  const [isLoadingProduct, setIsLoadingProduct] = useState(!productProp)
+  const [productError, setProductError] = useState(null)
   
+  // Fetch product from URL if not provided as prop
+  useEffect(() => {
+    if (productProp) {
+      setProduct(productProp)
+      setIsLoadingProduct(false)
+      return
+    }
+
+    // Extract product ID from pathname
+    // Path format: /indoor/[slug]/product-details/[id]
+    const pathParts = pathname?.split('/') || []
+    const productIdIndex = pathParts.indexOf('product-details')
+    const productId = productIdIndex >= 0 && pathParts[productIdIndex + 1] ? pathParts[productIdIndex + 1] : null
+
+    if (!productId) {
+      setProductError('Product ID not found in URL')
+      setIsLoadingProduct(false)
+      return
+    }
+
+    const fetchProduct = async () => {
+      setIsLoadingProduct(true)
+      setProductError(null)
+      
+      try {
+        // Try indoor first, then outdoor
+        const [indoorRes, outdoorRes] = await Promise.allSettled([
+          getProductByIdV2('indoor', productId),
+          getProductByIdV2('outdoor', productId)
+        ])
+
+        const fetchedProduct =
+          indoorRes.status === 'fulfilled' && indoorRes.value.data
+            ? indoorRes.value.data
+            : outdoorRes.status === 'fulfilled' && outdoorRes.value.data
+            ? outdoorRes.value.data
+            : null
+
+        if (!fetchedProduct) {
+          setProductError('Product not found')
+          return
+        }
+
+        setProduct(fetchedProduct)
+      } catch (err) {
+        console.error('Error fetching product:', err)
+        setProductError(err.message || 'Failed to load product')
+      } finally {
+        setIsLoadingProduct(false)
+      }
+    }
+
+    fetchProduct()
+  }, [productProp, pathname])
+
+  // Derive sensorSelection from product if not provided
+  const sensorSelection = sensorSelectionProp || (product ? deriveSensorSelection(product) : null)
+
+  // Default onBack handler
+  const onBack = onBackProp || (() => {
+    if (pathname?.includes('/indoor/')) {
+      const pathParts = pathname.split('/')
+      const slugIndex = pathParts.indexOf('indoor')
+      const slug = slugIndex >= 0 && pathParts[slugIndex + 1] ? pathParts[slugIndex + 1] : null
+      if (slug) {
+        window.location.href = `/indoor/${slug}`
+      } else {
+        window.history.back()
+      }
+    } else {
+      window.history.back()
+    }
+  })
+  
+  // Get pcs_per_box value, default to 1 if null or 0
+  const pcsPerBox = useMemo(() => {
+    if (!product) return 1
+    const value = product.pcs_per_box
+    if (value === null || value === undefined || value === 0) return 1
+    const parsed = typeof value === 'number' ? value : parseInt(value)
+    return Number.isFinite(parsed) && parsed > 0 ? parsed : 1
+  }, [product?.pcs_per_box])
+
+  // Get cart item for this product
+  const cartItem = useMemo(() => {
+    if (!product) return null
+    return items.find(item => (item.id || item.ID) === (product.id || product.ID))
+  }, [items, product?.id, product?.ID])
+
+  // Initialize quantity: use cart quantity if product is in cart, otherwise use pcsPerBox
+  const initialQuantity = useMemo(() => {
+    if (cartItem && cartItem.quantity) {
+      return cartItem.quantity
+    }
+    return pcsPerBox
+  }, [cartItem, pcsPerBox])
+  
+  const [quantity, setQuantity] = useState(initialQuantity)
+  const [isImageModalOpen, setIsImageModalOpen] = useState(false)
+
+  // Update quantity when cart item changes or pcsPerBox changes
+  useEffect(() => {
+    if (cartItem && cartItem.quantity) {
+      // Product is in cart, use cart quantity
+      setQuantity(cartItem.quantity)
+    } else if (product && pcsPerBox > 0) {
+      // Product not in cart, use pcsPerBox
+      setQuantity(pcsPerBox)
+    }
+  }, [cartItem, product, pcsPerBox])
+
   // Convert database field names to frontend field names for display
   const reverseFieldMapping = useMemo(() => {
     const mapping = {};
@@ -72,6 +206,7 @@ export function ProductDetails({ product, onBack, sensorSelection = null }) {
   }, []);
 
   const mappedProduct = useMemo(() => {
+    if (!product) return {}
     const mapped = {}
     Object.entries(product).forEach(([key, value]) => {
       const frontendKey = reverseFieldMapping[key] || key
@@ -81,11 +216,13 @@ export function ProductDetails({ product, onBack, sensorSelection = null }) {
   }, [product, reverseFieldMapping])
 
   const baseCost = useMemo(() => {
+    if (!product) return 0
     const rawBase = product.cost_china_ddp_usa ?? product.cost_thailand_vietnam ?? 0
     return parseCostValue(rawBase)
-  }, [product.cost_china_ddp_usa, product.cost_thailand_vietnam])
+  }, [product?.cost_china_ddp_usa, product?.cost_thailand_vietnam])
 
   const addonCostData = useMemo(() => {
+    if (!product) return { entries: [], totalAddons: 0 }
     const entries = addonCostFields.map(({ key, label }) => {
       const value = parseCostValue(product[key])
       return { key, label, value }
@@ -96,6 +233,7 @@ export function ProductDetails({ product, onBack, sensorSelection = null }) {
 
   // Get markup percentage: use product.markup_percentage if it exists and is > 0, otherwise use default 30%
   const markupPercentage = useMemo(() => {
+    if (!product) return MARKUP_PERCENTAGE_DEFAULT
     const productMarkup = product.markup_percentage
     if (productMarkup !== null && productMarkup !== undefined) {
       const parsed = typeof productMarkup === 'number' 
@@ -106,7 +244,7 @@ export function ProductDetails({ product, onBack, sensorSelection = null }) {
       }
     }
     return MARKUP_PERCENTAGE_DEFAULT
-  }, [product.markup_percentage])
+  }, [product?.markup_percentage])
 
   // Calculate markup breakdown for base cost
   const baseCostBreakdown = useMemo(() => {
@@ -140,93 +278,16 @@ export function ProductDetails({ product, onBack, sensorSelection = null }) {
     return baseCostBreakdown.final + addonBreakdowns.reduce((sum, addon) => sum + addon.final, 0)
   }, [baseCostBreakdown.final, addonBreakdowns])
 
-  // Parse cubic meters per piece value
-  const parseCubicMValue = (value) => {
-    if (value === null || value === undefined) return 0
-    if (typeof value === 'number') {
-      return Number.isFinite(value) && value > 0 ? value : 0
-    }
-    if (typeof value !== 'string') return 0
-    const cleaned = value.toString().trim()
-    if (cleaned === '') return 0
-    const parsed = parseFloat(cleaned)
-    return Number.isFinite(parsed) && parsed > 0 ? parsed : 0
-  }
-
-  // Calculate shipping cost based on quantity (including consolidation fee)
-  const { shippingCost, consolidationFee, effectiveShippingCost } = useMemo(() => {
-    const cubicMPerPc = parseCubicMValue(product.cubic_m_per_pc)
-    if (cubicMPerPc === 0) return { shippingCost: 0, consolidationFee: 0, effectiveShippingCost: 0 }
-
-    const totalCubicMeters = cubicMPerPc * quantity
-    const CONTAINER_20FT_97_PERCENT = CONTAINER_20FT.totalCubicM * 0.97
-    const CONTAINER_40FT_97_PERCENT = CONTAINER_40FT.totalCubicM * 0.97
-
-    if (totalCubicMeters <= CONTAINER_20FT.maxCapacity) {
-      const smallestCubicMPerPc = cubicMPerPc
-      const wouldOverflow = (totalCubicMeters + smallestCubicMPerPc) > CONTAINER_20FT.maxCapacity
-      const isOverflowing = totalCubicMeters > CONTAINER_20FT.maxCapacity
-      const isAtMaxCapacity = totalCubicMeters >= CONTAINER_20FT.maxCapacity
-      const isLessThan97Percent = totalCubicMeters < CONTAINER_20FT_97_PERCENT
-      
-      const baseShippingCost = (isOverflowing || isAtMaxCapacity) 
-        ? CONTAINER_20FT.price 
-        : (totalCubicMeters / CONTAINER_20FT.totalCubicM) * CONTAINER_20FT.price
-      
-      // Consolidation fee: only add if shipping cost is less than $3000
-      const fee = baseShippingCost < SHIPPING_MIN_THRESHOLD ? CONSOLIDATION_FEE : 0
-      
-      return {
-        shippingCost: baseShippingCost,
-        consolidationFee: fee,
-        effectiveShippingCost: baseShippingCost + fee
-      }
-    } else {
-      // Need 40ft container
-      const smallestCubicMPerPc = cubicMPerPc
-      const isOverflowing = totalCubicMeters > CONTAINER_40FT.maxCapacity
-      const wouldOverflow = (totalCubicMeters + smallestCubicMPerPc) > CONTAINER_40FT.maxCapacity
-      const isAtMaxCapacity = totalCubicMeters >= CONTAINER_40FT.maxCapacity
-      const isLessThan97Percent = totalCubicMeters < CONTAINER_40FT_97_PERCENT
-      
-      const baseShippingCost = (isOverflowing || isAtMaxCapacity)
-        ? CONTAINER_40FT.price
-        : (totalCubicMeters / CONTAINER_40FT.totalCubicM) * CONTAINER_40FT.price
-      
-      // Consolidation fee: only add if shipping cost is less than $3000
-      const fee = baseShippingCost < SHIPPING_MIN_THRESHOLD ? CONSOLIDATION_FEE : 0
-      
-      return {
-        shippingCost: baseShippingCost,
-        consolidationFee: fee,
-        effectiveShippingCost: baseShippingCost + fee
-      }
-    }
-  }, [product.cubic_m_per_pc, quantity])
-
-  // Calculate tariff amount (35% of product total)
-  const tariffAmount = useMemo(() => {
-    return totalCostWithAddons * quantity * (TARIFF_PERCENTAGE / 100)
+  // Calculate final total (product total only)
+  const finalTotal = useMemo(() => {
+    return totalCostWithAddons * quantity
   }, [totalCostWithAddons, quantity])
 
-  // Calculate final total (product total + tariff + effective shipping including consolidation fee)
-  const finalTotal = useMemo(() => {
-    const productTotal = totalCostWithAddons * quantity
-    return productTotal + tariffAmount + effectiveShippingCost
-  }, [totalCostWithAddons, quantity, tariffAmount, effectiveShippingCost])
-
-  // Calculate per-piece charges
-  const perPieceCharges = useMemo(() => {
-    const unitPrice = totalCostWithAddons
-    const tariffPerUnit = unitPrice * (TARIFF_PERCENTAGE / 100)
-    const shippingPerUnit = quantity > 0 ? effectiveShippingCost / quantity : 0
-    
-    return {
-      unitPriceOnly: unitPrice,
-      unitPriceWithTariff: unitPrice + tariffPerUnit,
-      unitPriceWithTariffAndShipping: unitPrice + tariffPerUnit + shippingPerUnit
-    }
-  }, [totalCostWithAddons, effectiveShippingCost, quantity])
+  // Calculate price per unit for containers
+  const pricePerUnitSummary = useMemo(() => {
+    if (!product || !product.cubic_m_per_pc) return null
+    return getProductPriceSummaryPerUnit(product, quantity)
+  }, [product, quantity])
 
   const hasAddonData = useMemo(
     () => baseCost > 0 || addonCostData.entries.some((entry) => entry.value > 0),
@@ -234,6 +295,7 @@ export function ProductDetails({ product, onBack, sensorSelection = null }) {
   )
 
   const optimizedImageUrl = useMemo(() => {
+    if (!product) return '/placeholder-product.svg';
     // Check for image fields in order of priority (v2 tables use 'photo')
     const imageFields = ['photo', 'Photo', 'image', 'image_url', 'thumbnail'];
     for (const field of imageFields) {
@@ -258,7 +320,10 @@ export function ProductDetails({ product, onBack, sensorSelection = null }) {
     }
   }, [])
   
-  const isInCart = items.some(item => (item.id || item.ID) === (product.id || product.ID))
+  const isInCart = useMemo(() => {
+    if (!product) return false
+    return items.some(item => (item.id || item.ID) === (product.id || product.ID))
+  }, [items, product?.id, product?.ID])
   
   // Transform product for cart: set pir/microwave based on user's selection and remove pir_microwave
   const transformProductForCart = (productData) => {
@@ -309,15 +374,22 @@ export function ProductDetails({ product, onBack, sensorSelection = null }) {
   
   const handleAddToCart = (selectedQuantity = quantity) => {
     const transformedProduct = transformProductForCart(product)
-    for (let i = 0; i < selectedQuantity; i++) {
-      addToCart(transformedProduct)
-    }
+    // Pass quantity directly instead of looping
+    addToCart({ ...transformedProduct, quantity: selectedQuantity })
     setIsAdded(true)
     setTimeout(() => setIsAdded(false), 2000)
   }
 
   const handleQuantityChange = (newQuantity) => {
     setQuantity(newQuantity)
+    
+    // If product is already in cart, update cart quantity
+    if (product && isInCart) {
+      const productId = product.id || product.ID
+      if (productId) {
+        updateCartQuantity(productId, newQuantity)
+      }
+    }
   }
   
   // Excluded keys - hide costs, logistics, and internal fields from users
@@ -343,6 +415,7 @@ export function ProductDetails({ product, onBack, sensorSelection = null }) {
   ]
   // Create a display product with corrected pir/microwave values based on selection
   const displayProduct = useMemo(() => {
+    if (!product) return {}
     const display = { ...product }
     
     // Ensure pir and microwave fields always exist in display
@@ -414,6 +487,31 @@ export function ProductDetails({ product, onBack, sensorSelection = null }) {
     groupedKeys.addons = []
   }
 
+  // Show loading state - AFTER all hooks are called
+  if (isLoadingProduct) {
+    return (
+      <div className='min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50/50 via-indigo-50/30 to-purple-50/50 dark:from-blue-950/20 dark:via-indigo-950/10 dark:to-purple-950/20'>
+        <div className="text-center space-y-4 flex items-center justify-center flex-col">
+          <LoadingSpinner size="lg" />
+          <p className="text-muted-foreground">Loading product details...</p>
+        </div>
+      </div>
+    )
+  }
+
+  // Show error state - AFTER all hooks are called
+  if (productError || !product) {
+    return (
+      <div className='min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50/50 via-indigo-50/30 to-purple-50/50 dark:from-blue-950/20 dark:via-indigo-950/10 dark:to-purple-950/20'>
+        <Alert variant="destructive" className="max-w-2xl">
+          <AlertDescription>
+            {productError || 'Product not found'}
+          </AlertDescription>
+        </Alert>
+      </div>
+    )
+  }
+
   const categoryTitles = {
     power: 'Power & Performance',
     design: 'Design & Specifications',
@@ -443,11 +541,19 @@ export function ProductDetails({ product, onBack, sensorSelection = null }) {
             {/* View Cut Sheet moved to Downloads box */}
             
             {/* Quantity Selector */}
-            <QuantitySelector
-              value={quantity}
-              onChange={handleQuantityChange}
-              size="sm"
-            />
+            <div className="flex flex-col items-end gap-1">
+              <QuantitySelector
+                value={quantity}
+                onChange={handleQuantityChange}
+                size="sm"
+                step={pcsPerBox}
+              />
+              {pcsPerBox > 1 && (
+                <span className="text-xs text-muted-foreground">
+                  Increments by {pcsPerBox} pcs/box
+                </span>
+              )}
+            </div>
 
             <Button 
               variant="default"
@@ -578,24 +684,6 @@ export function ProductDetails({ product, onBack, sensorSelection = null }) {
                   <CardContent>
                     <div className="space-y-3">
                       <div className="space-y-3">
-                        {/* Per-Piece Charges Breakdown */}
-                        <div className="space-y-2 p-3 bg-muted/30 rounded-lg border border-border/60">
-                          <h5 className="text-sm font-semibold mb-2">Per-Piece Charges:</h5>
-                          <div className="space-y-1.5">
-                            <div className="flex items-center justify-between text-sm">
-                              <span className="text-muted-foreground">Unit Price:</span>
-                              <span className="font-semibold">{formatCurrency(perPieceCharges.unitPriceOnly)}</span>
-                            </div>
-                            <div className="flex items-center justify-between text-sm">
-                              <span className="text-muted-foreground">Unit Price + Tariff:</span>
-                              <span className="font-semibold">{formatCurrency(perPieceCharges.unitPriceWithTariff)}</span>
-                            </div>
-                            <div className="flex items-center justify-between text-sm border-t border-border/60 pt-1.5">
-                              <span className="font-medium text-foreground">Unit Price + Tariff + Shipping:</span>
-                              <span className="font-bold text-primary">{formatCurrency(perPieceCharges.unitPriceWithTariffAndShipping)}</span>
-                            </div>
-                          </div>
-                        </div>
                         {quantity > 1 && (
                           <div className="flex items-center justify-between p-2 bg-muted/20 rounded-lg">
                             <span className="text-sm font-medium text-muted-foreground">Total ({quantity} units):</span>
@@ -622,34 +710,18 @@ export function ProductDetails({ product, onBack, sensorSelection = null }) {
                         ))}
                       </div>
 
-                      {/* Shipping Cost */}
-                      {effectiveShippingCost > 0 && (
+                      {/* Final Total */}
+                      <div className="mt-4 pt-4 border-t">
+                        <div className="flex items-center justify-between rounded-lg border-2 border-primary/30 bg-primary/5 px-3 py-2">
+                          <span className="text-sm font-semibold">Final Total</span>
+                          <span className="text-base font-bold text-primary">{formatCurrency(finalTotal)}</span>
+                        </div>
+                      </div>
+
+                      {/* Container Price Breakdown */}
+                      {pricePerUnitSummary && (
                         <div className="mt-4 pt-4 border-t">
-                          <div className="flex items-center justify-between rounded-lg border border-border/60 bg-muted/40 px-3 py-2 mb-2">
-                            <span className="text-sm font-medium text-muted-foreground">Shipping Cost</span>
-                            <span className="text-sm font-semibold">{formatCurrency(shippingCost)}</span>
-                          </div>
-                          {consolidationFee > 0 && (
-                            <>
-                              <div className="flex items-center justify-between rounded-lg border border-border/60 bg-muted/40 px-3 py-2 mb-2">
-                                <span className="text-sm font-medium text-muted-foreground">Consolidation Fee</span>
-                                <span className="text-sm font-semibold">{formatCurrency(consolidationFee)}</span>
-                              </div>
-                              <div className="text-xs text-orange-600 font-medium px-3 py-1">
-                                ⚠️ Applies when shipping cost is less than $3,000
-                              </div>
-                            </>
-                          )}
-                          {tariffAmount > 0 && (
-                            <div className="flex items-center justify-between rounded-lg border border-border/60 bg-muted/40 px-3 py-2 mb-2">
-                              <span className="text-sm font-medium text-muted-foreground">Tariff ({TARIFF_PERCENTAGE}%)</span>
-                              <span className="text-sm font-semibold">{formatCurrency(tariffAmount)}</span>
-                            </div>
-                          )}
-                          <div className="flex items-center justify-between rounded-lg border-2 border-primary/30 bg-primary/5 px-3 py-2">
-                            <span className="text-sm font-semibold">Final Total</span>
-                            <span className="text-base font-bold text-primary">{formatCurrency(finalTotal)}</span>
-                          </div>
+                          <ContainerPriceBreakdown priceSummary={pricePerUnitSummary} quantity={quantity} />
                         </div>
                       )}
                     </div>
@@ -716,13 +788,21 @@ export function ProductDetails({ product, onBack, sensorSelection = null }) {
                 
                 <div className="flex items-center gap-4">
                   {/* Quantity Selector */}
-                  <div className="flex items-center gap-2">
-                    <span className="text-sm font-medium text-muted-foreground">Qty:</span>
-                    <QuantitySelector
-                      value={quantity}
-                      onChange={handleQuantityChange}
-                      size="default"
-                    />
+                  <div className="flex flex-col gap-2">
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm font-medium text-muted-foreground">Qty:</span>
+                      <QuantitySelector
+                        value={quantity}
+                        onChange={handleQuantityChange}
+                        size="default"
+                        step={pcsPerBox}
+                      />
+                    </div>
+                    {pcsPerBox > 1 && (
+                      <span className="text-xs text-muted-foreground ml-12">
+                        Increments by {pcsPerBox} pcs/box
+                      </span>
+                    )}
                   </div>
 
                   {/* Add to Cart Button */}

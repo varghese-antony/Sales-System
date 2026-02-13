@@ -23,3 +23,20 @@ export function slugToProductName(slug) {
     })
     .join(' ');
 }
+
+/**
+ * Convert a product name to a URL slug
+ * @param {string} productName - The product name (e.g., "LED Ultra Slim Downlight")
+ * @returns {string} - The URL slug (e.g., "led-ultra-slim-downlight")
+ */
+export function productNameToSlug(productName) {
+  if (!productName) return '';
+  
+  return productName
+    .toLowerCase()
+    .trim()
+    .replace(/[^\w\s-]/g, '') // Remove special characters
+    .replace(/\s+/g, '-') // Replace spaces with hyphens
+    .replace(/-+/g, '-') // Replace multiple hyphens with single hyphen
+    .replace(/^-+|-+$/g, ''); // Remove leading/trailing hyphens
+}

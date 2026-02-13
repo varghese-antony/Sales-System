@@ -12,6 +12,7 @@ export function QuantitySelector({
   min = 1, 
   max = 99999, 
   size = "default",
+  step = 1,
   className 
 }) {
   const [inputValue, setInputValue] = useState(value.toString())
@@ -50,26 +51,45 @@ export function QuantitySelector({
       return
     }
     
-    const numValue = parseInt(inputValue)
+    let numValue = parseInt(inputValue)
+    
+    // Round up to nearest step (pcs_per_box) if step > 1
+    if (step > 1 && numValue > 0) {
+      numValue = Math.ceil(numValue / step) * step
+    }
+    
+    // Ensure minimum
     if (numValue < min) {
-      setInputValue(min.toString())
-      onChange(min)
-    } else if (numValue > max) {
-      setInputValue(max.toString())
-      onChange(max)
-    } else if (numValue !== value) {
-      // Ensure the value is properly set
+      numValue = min
+      // If step > 1, round up min to nearest step
+      if (step > 1 && min > 0) {
+        numValue = Math.ceil(min / step) * step
+      }
+    }
+    
+    // Ensure maximum
+    if (numValue > max) {
+      numValue = max
+      // If step > 1, round down max to nearest step
+      if (step > 1) {
+        numValue = Math.floor(max / step) * step
+      }
+    }
+    
+    // Update the input value and notify parent
+    setInputValue(numValue.toString())
+    if (numValue !== value) {
       onChange(numValue)
     }
   }
 
   const handleDecrement = () => {
-    const newValue = Math.max(min, value - 1)
+    const newValue = Math.max(min, value - step)
     onChange(newValue)
   }
 
   const handleIncrement = () => {
-    const newValue = Math.min(max, value + 1)
+    const newValue = Math.min(max, value + step)
     onChange(newValue)
   }
 

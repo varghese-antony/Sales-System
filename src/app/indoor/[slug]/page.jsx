@@ -1,9 +1,9 @@
 "use client"
 import React, { useState, useEffect } from 'react'
+import { useRouter } from 'next/navigation'
 import { motion } from "framer-motion"
 import { DynamicSensorSelector } from "@/components/DynamicSensorSelector"
 import { OptionSelector } from "@/components/OptionSelector"
-import { ProductDetails } from "@/components/ProductDetails"
 import { LoadingSpinner } from "@/components/ui/loading"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Button } from "@/components/ui/button"
@@ -17,12 +17,12 @@ import { slugToProductName } from '@/lib/utils/slug'
 const costSelections = ['size', 'power_w','wattage']
 
 export default function IndoorProductPage({ params }) {
+  const router = useRouter()
   const [slug, setSlug] = useState(null)
   const [products, setProducts] = useState([])
   const [sensorSelection, setSensorSelection] = useState(null)
   const [selectedFilters, setSelectedFilters] = useState({})
   const [currentStep, setCurrentStep] = useState(0)
-  const [finalProduct, setFinalProduct] = useState(null)
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState(null)
 
@@ -30,8 +30,7 @@ export default function IndoorProductPage({ params }) {
 
   const desiredKeys = [
     'size', 'power_w',
-    'dimming_type', 'material_finish', 'installation_kits', 
-    'adjustment_dial', 'certifications'
+    'dimming_type', 'material_finish', 'installation_kits'
   ]
 
   useEffect(() => {
@@ -46,7 +45,6 @@ export default function IndoorProductPage({ params }) {
   // Ensures we never show the previous product or stale selection.
   useEffect(() => {
     if (!slug) return
-    setFinalProduct(null)
     setProducts([])
     setSensorSelection(null)
     setSelectedFilters({})
@@ -125,8 +123,11 @@ export default function IndoorProductPage({ params }) {
       if (fetchError) throw new Error(fetchError)
       
       if (data && data.length === 1) {
-        // If only one product matches, automatically show it as final product
-        setFinalProduct(data[0])
+        // If only one product matches, navigate to product details page
+        const productId = data[0].id || data[0].ID
+        if (productId && slug) {
+          router.push(`/indoor/${slug}/product-details/${productId}`)
+        }
         setProducts([])
       } else if (data && data.length > 1) {
         // If more than one product, show selection step (including empty values)
@@ -199,8 +200,11 @@ export default function IndoorProductPage({ params }) {
       if (fetchError) throw new Error(fetchError)
 
       if (data && data.length === 1) {
-        // If only one product matches all filters, show it as final product
-        setFinalProduct(data[0])
+        // If only one product matches all filters, navigate to product details page
+        const productId = data[0].id || data[0].ID
+        if (productId && slug) {
+          router.push(`/indoor/${slug}/product-details/${productId}`)
+        }
         setProducts([])
       } else if (data && data.length > 1) {
         // If more than one product, continue to next step (show selection including empty values)
@@ -210,8 +214,11 @@ export default function IndoorProductPage({ params }) {
           setProducts(data)
           setCurrentStep(nextStep)
         } else {
-          // If no more filters but still multiple products, show the first one
-          setFinalProduct(data[0])
+          // If no more filters but still multiple products, navigate to first product details page
+          const productId = data[0].id || data[0].ID
+          if (productId && slug) {
+            router.push(`/indoor/${slug}/product-details/${productId}`)
+          }
           setProducts([])
         }
       } else {
@@ -230,17 +237,11 @@ export default function IndoorProductPage({ params }) {
     setSensorSelection(null)
     setSelectedFilters({})
     setCurrentStep(0)
-    setFinalProduct(null)
     setProducts([])
     setError(null)
   }
 
   const goBack = () => {
-    if (finalProduct) {
-      setFinalProduct(null)
-      return
-    }
-
     if (currentStep > 0) {
       const newStep = currentStep - 1
       const newFilters = { ...selectedFilters }
@@ -256,12 +257,6 @@ export default function IndoorProductPage({ params }) {
       setSensorSelection(null)
       setProducts([])
     }
-  }
-
-  console.log("*********** finalProduct", JSON.stringify(finalProduct))
-
-  if (finalProduct) {
-    return <ProductDetails product={finalProduct} onBack={goBack} sensorSelection={sensorSelection} />
   }
 
   if (isLoading && !sensorSelection) {

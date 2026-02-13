@@ -1,5 +1,6 @@
 'use client'
 import { useState, useEffect } from 'react'
+import { usePathname } from 'next/navigation'
 import { getDistinctCategoriesV2, getProductNamesByCategoryV2, getProductsByCategoryV2 } from '@/lib/database/products-v2'
 import { ProductCard } from "@/components/ProductCard"
 import { Sun, Home, ArrowLeft, Shield, Star } from 'lucide-react'
@@ -70,6 +71,7 @@ const calculateBasePriceWithMarkup = (product) => {
 }
 
 export default function Outdoor() {
+  const pathname = usePathname()
   const [categories, setCategories] = useState([])
   const [categoriesWithProducts, setCategoriesWithProducts] = useState([])
   const [categoryMinPrices, setCategoryMinPrices] = useState({})
@@ -327,7 +329,7 @@ export default function Outdoor() {
         categoriesWithProducts={categoriesWithProducts}
         isOpen={isSidebarOpen}
         onToggle={() => setIsSidebarOpen(!isSidebarOpen)}
-        currentPath={typeof window !== 'undefined' ? window.location.pathname : '/outdoor'}
+        currentPath={pathname || '/outdoor'}
         currentCategory={currentCategory}
         activeSection={activeSection}
       />
