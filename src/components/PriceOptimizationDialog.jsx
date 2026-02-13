@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { TrendingDown, TrendingUp, X, CheckCircle2 } from "lucide-react"
-import { getPriceOptimizationSuggestions } from "@/lib/utils"
+import { getPriceOptimizationSuggestions } from "../../lib/utils.js"
 
 const formatCurrency = (value) => {
   const numeric = Number.isFinite(value) ? value : 0

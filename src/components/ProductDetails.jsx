@@ -16,7 +16,7 @@ import { fieldMapping } from '@/lib/database/products'
 import { getProductByIdV2 } from '@/lib/database/products-v2'
 import { LoadingSpinner } from '@/components/ui/loading'
 import { Alert, AlertDescription } from '@/components/ui/alert'
-import { getProductPriceSummaryPerUnit } from '@/lib/utils'
+import { getProductPriceSummaryPerUnit } from '../../lib/utils.js'
 import { ContainerPriceBreakdown } from '@/components/ContainerPriceBreakdown'
 
 const MARKUP_PERCENTAGE_DEFAULT = 30 // 30% default markup

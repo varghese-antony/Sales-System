@@ -13,7 +13,7 @@ import { useCart } from "@/contexts/CartContext"
 import { Input } from "@/components/ui/input"
 import Link from "next/link"
 import { productNameToSlug } from "@/lib/utils/slug"
-import { getProductPriceSummaryPerUnit, getProductPriceSummary } from '@/lib/utils'
+import { getProductPriceSummaryPerUnit, getProductPriceSummary } from "../../../lib/utils.js"
 import { ContainerPriceBreakdown } from '@/components/ContainerPriceBreakdown'
 import { PriceOptimizationDialog } from '@/components/PriceOptimizationDialog'
 import { Alert, AlertDescription } from '@/components/ui/alert'
