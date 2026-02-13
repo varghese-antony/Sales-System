@@ -18,23 +18,6 @@ import { LoadingSpinner } from '@/components/ui/loading'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 
 const MARKUP_PERCENTAGE_DEFAULT = 30 // 30% default markup
-const TARIFF_PERCENTAGE = 35 // 35% global tariff
-
-// Container constants
-const CONTAINER_20FT = {
-  totalCubicM: 33,
-  price: 2000,
-  maxCapacity: 33 * 0.97 // 97% utilization = 32.01 cubic meters
-}
-
-const CONTAINER_40FT = {
-  totalCubicM: 67,
-  price: 4000,
-  maxCapacity: 67 * 0.97 // 97% utilization = 64.99 cubic meters
-}
-
-const CONSOLIDATION_FEE = 650
-const SHIPPING_MIN_THRESHOLD = 3000
 
 const addonCostFields = [
   { key: 'sensor_cost', label: 'Sensor' },
@@ -293,94 +276,10 @@ export function ProductDetails({ product: productProp, onBack: onBackProp, senso
     return baseCostBreakdown.final + addonBreakdowns.reduce((sum, addon) => sum + addon.final, 0)
   }, [baseCostBreakdown.final, addonBreakdowns])
 
-  // Parse cubic meters per piece value
-  const parseCubicMValue = (value) => {
-    if (value === null || value === undefined) return 0
-    if (typeof value === 'number') {
-      return Number.isFinite(value) && value > 0 ? value : 0
-    }
-    if (typeof value !== 'string') return 0
-    const cleaned = value.toString().trim()
-    if (cleaned === '') return 0
-    const parsed = parseFloat(cleaned)
-    return Number.isFinite(parsed) && parsed > 0 ? parsed : 0
-  }
-
-  // Calculate shipping cost based on quantity (including consolidation fee)
-  const { shippingCost, consolidationFee, effectiveShippingCost } = useMemo(() => {
-    if (!product) return { shippingCost: 0, consolidationFee: 0, effectiveShippingCost: 0 }
-    const cubicMPerPc = parseCubicMValue(product.cubic_m_per_pc)
-    if (cubicMPerPc === 0) return { shippingCost: 0, consolidationFee: 0, effectiveShippingCost: 0 }
-
-    const totalCubicMeters = cubicMPerPc * quantity
-    const CONTAINER_20FT_97_PERCENT = CONTAINER_20FT.totalCubicM * 0.97
-    const CONTAINER_40FT_97_PERCENT = CONTAINER_40FT.totalCubicM * 0.97
-
-    if (totalCubicMeters <= CONTAINER_20FT.maxCapacity) {
-      const smallestCubicMPerPc = cubicMPerPc
-      const wouldOverflow = (totalCubicMeters + smallestCubicMPerPc) > CONTAINER_20FT.maxCapacity
-      const isOverflowing = totalCubicMeters > CONTAINER_20FT.maxCapacity
-      const isAtMaxCapacity = totalCubicMeters >= CONTAINER_20FT.maxCapacity
-      const isLessThan97Percent = totalCubicMeters < CONTAINER_20FT_97_PERCENT
-      
-      const baseShippingCost = (isOverflowing || isAtMaxCapacity) 
-        ? CONTAINER_20FT.price 
-        : (totalCubicMeters / CONTAINER_20FT.totalCubicM) * CONTAINER_20FT.price
-      
-      // Consolidation fee: only add if shipping cost is less than $3000
-      const fee = baseShippingCost < SHIPPING_MIN_THRESHOLD ? CONSOLIDATION_FEE : 0
-      
-      return {
-        shippingCost: baseShippingCost,
-        consolidationFee: fee,
-        effectiveShippingCost: baseShippingCost + fee
-      }
-    } else {
-      // Need 40ft container
-      const smallestCubicMPerPc = cubicMPerPc
-      const isOverflowing = totalCubicMeters > CONTAINER_40FT.maxCapacity
-      const wouldOverflow = (totalCubicMeters + smallestCubicMPerPc) > CONTAINER_40FT.maxCapacity
-      const isAtMaxCapacity = totalCubicMeters >= CONTAINER_40FT.maxCapacity
-      const isLessThan97Percent = totalCubicMeters < CONTAINER_40FT_97_PERCENT
-      
-      const baseShippingCost = (isOverflowing || isAtMaxCapacity)
-        ? CONTAINER_40FT.price
-        : (totalCubicMeters / CONTAINER_40FT.totalCubicM) * CONTAINER_40FT.price
-      
-      // Consolidation fee: only add if shipping cost is less than $3000
-      const fee = baseShippingCost < SHIPPING_MIN_THRESHOLD ? CONSOLIDATION_FEE : 0
-      
-      return {
-        shippingCost: baseShippingCost,
-        consolidationFee: fee,
-        effectiveShippingCost: baseShippingCost + fee
-      }
-    }
-  }, [product?.cubic_m_per_pc, quantity])
-
-  // Calculate tariff amount (35% of product total)
-  const tariffAmount = useMemo(() => {
-    return totalCostWithAddons * quantity * (TARIFF_PERCENTAGE / 100)
-  }, [totalCostWithAddons, quantity])
-
-  // Calculate final total (product total + tariff + effective shipping including consolidation fee)
+  // Calculate final total (product total only)
   const finalTotal = useMemo(() => {
-    const productTotal = totalCostWithAddons * quantity
-    return productTotal + tariffAmount + effectiveShippingCost
-  }, [totalCostWithAddons, quantity, tariffAmount, effectiveShippingCost])
-
-  // Calculate per-piece charges
-  const perPieceCharges = useMemo(() => {
-    const unitPrice = totalCostWithAddons
-    const tariffPerUnit = unitPrice * (TARIFF_PERCENTAGE / 100)
-    const shippingPerUnit = quantity > 0 ? effectiveShippingCost / quantity : 0
-    
-    return {
-      unitPriceOnly: unitPrice,
-      unitPriceWithTariff: unitPrice + tariffPerUnit,
-      unitPriceWithTariffAndShipping: unitPrice + tariffPerUnit + shippingPerUnit
-    }
-  }, [totalCostWithAddons, effectiveShippingCost, quantity])
+    return totalCostWithAddons * quantity
+  }, [totalCostWithAddons, quantity])
 
   const hasAddonData = useMemo(
     () => baseCost > 0 || addonCostData.entries.some((entry) => entry.value > 0),
@@ -777,24 +676,6 @@ export function ProductDetails({ product: productProp, onBack: onBackProp, senso
                   <CardContent>
                     <div className="space-y-3">
                       <div className="space-y-3">
-                        {/* Per-Piece Charges Breakdown */}
-                        <div className="space-y-2 p-3 bg-muted/30 rounded-lg border border-border/60">
-                          <h5 className="text-sm font-semibold mb-2">Per-Piece Charges:</h5>
-                          <div className="space-y-1.5">
-                            <div className="flex items-center justify-between text-sm">
-                              <span className="text-muted-foreground">Unit Price:</span>
-                              <span className="font-semibold">{formatCurrency(perPieceCharges.unitPriceOnly)}</span>
-                            </div>
-                            <div className="flex items-center justify-between text-sm">
-                              <span className="text-muted-foreground">Unit Price + Tariff:</span>
-                              <span className="font-semibold">{formatCurrency(perPieceCharges.unitPriceWithTariff)}</span>
-                            </div>
-                            <div className="flex items-center justify-between text-sm border-t border-border/60 pt-1.5">
-                              <span className="font-medium text-foreground">Unit Price + Tariff + Shipping:</span>
-                              <span className="font-bold text-primary">{formatCurrency(perPieceCharges.unitPriceWithTariffAndShipping)}</span>
-                            </div>
-                          </div>
-                        </div>
                         {quantity > 1 && (
                           <div className="flex items-center justify-between p-2 bg-muted/20 rounded-lg">
                             <span className="text-sm font-medium text-muted-foreground">Total ({quantity} units):</span>
@@ -821,36 +702,13 @@ export function ProductDetails({ product: productProp, onBack: onBackProp, senso
                         ))}
                       </div>
 
-                      {/* Shipping Cost */}
-                      {effectiveShippingCost > 0 && (
-                        <div className="mt-4 pt-4 border-t">
-                          <div className="flex items-center justify-between rounded-lg border border-border/60 bg-muted/40 px-3 py-2 mb-2">
-                            <span className="text-sm font-medium text-muted-foreground">Shipping Cost</span>
-                            <span className="text-sm font-semibold">{formatCurrency(shippingCost)}</span>
-                          </div>
-                          {consolidationFee > 0 && (
-                            <>
-                              <div className="flex items-center justify-between rounded-lg border border-border/60 bg-muted/40 px-3 py-2 mb-2">
-                                <span className="text-sm font-medium text-muted-foreground">Consolidation Fee</span>
-                                <span className="text-sm font-semibold">{formatCurrency(consolidationFee)}</span>
-                              </div>
-                              <div className="text-xs text-orange-600 font-medium px-3 py-1">
-                                ⚠️ Applies when shipping cost is less than $3,000
-                              </div>
-                            </>
-                          )}
-                          {tariffAmount > 0 && (
-                            <div className="flex items-center justify-between rounded-lg border border-border/60 bg-muted/40 px-3 py-2 mb-2">
-                              <span className="text-sm font-medium text-muted-foreground">Tariff ({TARIFF_PERCENTAGE}%)</span>
-                              <span className="text-sm font-semibold">{formatCurrency(tariffAmount)}</span>
-                            </div>
-                          )}
-                          <div className="flex items-center justify-between rounded-lg border-2 border-primary/30 bg-primary/5 px-3 py-2">
-                            <span className="text-sm font-semibold">Final Total</span>
-                            <span className="text-base font-bold text-primary">{formatCurrency(finalTotal)}</span>
-                          </div>
+                      {/* Final Total */}
+                      <div className="mt-4 pt-4 border-t">
+                        <div className="flex items-center justify-between rounded-lg border-2 border-primary/30 bg-primary/5 px-3 py-2">
+                          <span className="text-sm font-semibold">Final Total</span>
+                          <span className="text-base font-bold text-primary">{formatCurrency(finalTotal)}</span>
                         </div>
-                      )}
+                      </div>
                     </div>
                   </CardContent>
                 </Card>
