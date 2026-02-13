@@ -16,6 +16,8 @@ import { fieldMapping } from '@/lib/database/products'
 import { getProductByIdV2 } from '@/lib/database/products-v2'
 import { LoadingSpinner } from '@/components/ui/loading'
 import { Alert, AlertDescription } from '@/components/ui/alert'
+import { getProductPriceSummaryPerUnit } from '@/lib/utils'
+import { ContainerPriceBreakdown } from '@/components/ContainerPriceBreakdown'
 
 const MARKUP_PERCENTAGE_DEFAULT = 30 // 30% default markup
 
@@ -280,6 +282,12 @@ export function ProductDetails({ product: productProp, onBack: onBackProp, senso
   const finalTotal = useMemo(() => {
     return totalCostWithAddons * quantity
   }, [totalCostWithAddons, quantity])
+
+  // Calculate price per unit for containers
+  const pricePerUnitSummary = useMemo(() => {
+    if (!product || !product.cubic_m_per_pc) return null
+    return getProductPriceSummaryPerUnit(product, quantity)
+  }, [product, quantity])
 
   const hasAddonData = useMemo(
     () => baseCost > 0 || addonCostData.entries.some((entry) => entry.value > 0),
@@ -709,6 +717,13 @@ export function ProductDetails({ product: productProp, onBack: onBackProp, senso
                           <span className="text-base font-bold text-primary">{formatCurrency(finalTotal)}</span>
                         </div>
                       </div>
+
+                      {/* Container Price Breakdown */}
+                      {pricePerUnitSummary && (
+                        <div className="mt-4 pt-4 border-t">
+                          <ContainerPriceBreakdown priceSummary={pricePerUnitSummary} quantity={quantity} />
+                        </div>
+                      )}
                     </div>
                   </CardContent>
                 </Card>

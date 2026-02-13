@@ -1,3 +1,10 @@
+import { clsx } from "clsx";
+import { twMerge } from "tailwind-merge"
+
+export function cn(...inputs) {
+  return twMerge(clsx(inputs));
+}
+
 const MAXIMUM_CONTAINER_UTILIZATION_PERCENTAGE = 0.97; // 97%
 const TARRIF_PERCENTAGE = 0.35; // 35%
 const DEFAULT_MARKUP_PERCENTAGE = 0.30; // 30%
@@ -67,7 +74,6 @@ export const getProductPriceSummaryPerUnit = (product:any, quantity:number) => {
     
     return product_price_per_unit
 }
-
 
 export const getProductPriceSummary = (product: any, quantity: number) => {
     const product_price_summary = {}

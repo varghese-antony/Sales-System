@@ -13,6 +13,8 @@ import { useCart } from "@/contexts/CartContext"
 import { Input } from "@/components/ui/input"
 import Link from "next/link"
 import { productNameToSlug } from "@/lib/utils/slug"
+import { getProductPriceSummaryPerUnit, getProductPriceSummary } from '@/lib/utils'
+import { ContainerPriceBreakdown } from '@/components/ContainerPriceBreakdown'
 
 const MARKUP_PERCENTAGE_DEFAULT = 30 // 30% default markup
 
@@ -196,10 +198,73 @@ export default function CartPage() {
     return cartTotal
   }, [cartTotal])
 
+  // Helper function to get price per unit summary for a cart item
+  const getItemPricePerUnitSummary = (item) => {
+    if (!item || !item.cubic_m_per_pc) return null
+    return getProductPriceSummaryPerUnit(item, item.quantity)
+  }
+
   // Calculate price breakdown for each item
   const getItemPriceData = (item) => {
     return calculateItemPrice(item)
   }
+
+  // Calculate price summaries for all products in cart
+  const cartPriceSummaries = useMemo(() => {
+    return items.map(item => {
+      if (!item || !item.cubic_m_per_pc) return null
+      return {
+        item,
+        summary: getProductPriceSummary(item, item.quantity)
+      }
+    }).filter(Boolean)
+  }, [items])
+
+  // Calculate aggregated totals for each container type
+  const aggregatedTotals = useMemo(() => {
+    const totals = {
+      '20ft': {
+        product_price: 0,
+        tarrif: 0,
+        shipment_cost: 0,
+        admin_consolidation_fee: 0,
+        total: 0
+      },
+      '40ft': {
+        product_price: 0,
+        tarrif: 0,
+        shipment_cost: 0,
+        admin_consolidation_fee: 0,
+        total: 0
+      }
+    }
+
+    cartPriceSummaries.forEach(({ summary }) => {
+      if (!summary) return
+
+      // Process 20ft container
+      if (summary['20ft'] && Object.keys(summary['20ft']).length > 0) {
+        totals['20ft'].product_price += summary['20ft'].product_price || 0
+        totals['20ft'].tarrif += summary['20ft'].tarrif || 0
+        totals['20ft'].shipment_cost += summary['20ft'].shipment_cost || 0
+        totals['20ft'].admin_consolidation_fee += summary['20ft'].admin_consolidation_fee || 0
+      }
+
+      // Process 40ft container
+      if (summary['40ft'] && Object.keys(summary['40ft']).length > 0) {
+        totals['40ft'].product_price += summary['40ft'].product_price || 0
+        totals['40ft'].tarrif += summary['40ft'].tarrif || 0
+        totals['40ft'].shipment_cost += summary['40ft'].shipment_cost || 0
+        totals['40ft'].admin_consolidation_fee += summary['40ft'].admin_consolidation_fee || 0
+      }
+    })
+
+    // Calculate totals
+    totals['20ft'].total = totals['20ft'].product_price + totals['20ft'].tarrif + totals['20ft'].shipment_cost + totals['20ft'].admin_consolidation_fee
+    totals['40ft'].total = totals['40ft'].product_price + totals['40ft'].tarrif + totals['40ft'].shipment_cost + totals['40ft'].admin_consolidation_fee
+
+    return totals
+  }, [cartPriceSummaries])
 
   if (items.length === 0) {
     return (
@@ -458,6 +523,16 @@ export default function CartPage() {
                             Remove
                           </Button>
                         </div>
+
+                        {/* Container Price Breakdown */}
+                        {getItemPricePerUnitSummary(item) && (
+                          <div className="mt-4">
+                            <ContainerPriceBreakdown 
+                              priceSummary={getItemPricePerUnitSummary(item)} 
+                              quantity={item.quantity} 
+                            />
+                          </div>
+                        )}
                       </div>
                     </div>
                   </CardContent>
@@ -665,6 +740,175 @@ export default function CartPage() {
                       <p className="text-xs text-yellow-800">
                         Container calculation requires cubic meter data (cubic_m_per_pc) for items. Some items in your cart may not have this information.
                       </p>
+                    </div>
+                  </div>
+                )}
+
+                {/* Price Breakdown by Container */}
+                {cartPriceSummaries.length > 0 && (
+                  <div className="space-y-4 border-t pt-4">
+                    <h4 className="font-medium flex items-center gap-2">
+                      <Package className="w-4 h-4" />
+                      Price Breakdown by Container
+                    </h4>
+
+                    {/* Individual Product Breakdowns */}
+                    <div className="space-y-3">
+                      {cartPriceSummaries.map(({ item, summary }, index) => {
+                        if (!summary) return null
+                        const productName = item.name || item.product_name || item.producttype || `Product ${index + 1}`
+                        const has20ft = summary['20ft'] && Object.keys(summary['20ft']).length > 0
+                        const has40ft = summary['40ft'] && Object.keys(summary['40ft']).length > 0
+
+                        if (!has20ft && !has40ft) return null
+
+                        return (
+                          <div key={item.id || item.ID} className="p-3 border rounded-lg bg-muted/30">
+                            <h5 className="text-sm font-semibold mb-2">{productName}</h5>
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                              {/* 20ft Container */}
+                              {has20ft && (
+                                <div className="space-y-1">
+                                  <h6 className="text-xs font-medium text-muted-foreground">20ft Container</h6>
+                                  <div className="space-y-0.5 text-xs">
+                                    <div className="flex justify-between">
+                                      <span className="text-muted-foreground">Product:</span>
+                                      <span>{formatCurrency(summary['20ft'].product_price)}</span>
+                                    </div>
+                                    <div className="flex justify-between">
+                                      <span className="text-muted-foreground">Tariff:</span>
+                                      <span>{formatCurrency(summary['20ft'].tarrif)}</span>
+                                    </div>
+                                    <div className="flex justify-between">
+                                      <span className="text-muted-foreground">Shipping:</span>
+                                      <span>{formatCurrency(summary['20ft'].shipment_cost)}</span>
+                                    </div>
+                                    {summary['20ft'].admin_consolidation_fee > 0 && (
+                                      <div className="flex justify-between">
+                                        <span className="text-muted-foreground">Admin Fee:</span>
+                                        <span>{formatCurrency(summary['20ft'].admin_consolidation_fee)}</span>
+                                      </div>
+                                    )}
+                                    <div className="flex justify-between pt-1 border-t border-border/50">
+                                      <span className="font-medium">Subtotal:</span>
+                                      <span className="font-semibold">
+                                        {formatCurrency(
+                                          summary['20ft'].product_price +
+                                          summary['20ft'].tarrif +
+                                          summary['20ft'].shipment_cost +
+                                          summary['20ft'].admin_consolidation_fee
+                                        )}
+                                      </span>
+                                    </div>
+                                  </div>
+                                </div>
+                              )}
+
+                              {/* 40ft Container */}
+                              {has40ft && (
+                                <div className="space-y-1">
+                                  <h6 className="text-xs font-medium text-muted-foreground">40ft Container</h6>
+                                  <div className="space-y-0.5 text-xs">
+                                    <div className="flex justify-between">
+                                      <span className="text-muted-foreground">Product:</span>
+                                      <span>{formatCurrency(summary['40ft'].product_price)}</span>
+                                    </div>
+                                    <div className="flex justify-between">
+                                      <span className="text-muted-foreground">Tariff:</span>
+                                      <span>{formatCurrency(summary['40ft'].tarrif)}</span>
+                                    </div>
+                                    <div className="flex justify-between">
+                                      <span className="text-muted-foreground">Shipping:</span>
+                                      <span>{formatCurrency(summary['40ft'].shipment_cost)}</span>
+                                    </div>
+                                    {summary['40ft'].admin_consolidation_fee > 0 && (
+                                      <div className="flex justify-between">
+                                        <span className="text-muted-foreground">Admin Fee:</span>
+                                        <span>{formatCurrency(summary['40ft'].admin_consolidation_fee)}</span>
+                                      </div>
+                                    )}
+                                    <div className="flex justify-between pt-1 border-t border-border/50">
+                                      <span className="font-medium">Subtotal:</span>
+                                      <span className="font-semibold">
+                                        {formatCurrency(
+                                          summary['40ft'].product_price +
+                                          summary['40ft'].tarrif +
+                                          summary['40ft'].shipment_cost +
+                                          summary['40ft'].admin_consolidation_fee
+                                        )}
+                                      </span>
+                                    </div>
+                                  </div>
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        )
+                      })}
+                    </div>
+
+                    {/* Aggregated Totals */}
+                    <div className="p-3 border-2 border-primary/30 rounded-lg bg-primary/5">
+                      <h5 className="text-sm font-semibold mb-3">Total Summary</h5>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        {/* 20ft Total */}
+                        <div className="space-y-1">
+                          <h6 className="text-xs font-semibold text-muted-foreground">20ft Container Total</h6>
+                          <div className="space-y-0.5 text-xs">
+                            <div className="flex justify-between">
+                              <span className="text-muted-foreground">Product Price:</span>
+                              <span className="font-medium">{formatCurrency(aggregatedTotals['20ft'].product_price)}</span>
+                            </div>
+                            <div className="flex justify-between">
+                              <span className="text-muted-foreground">Tariff:</span>
+                              <span className="font-medium">{formatCurrency(aggregatedTotals['20ft'].tarrif)}</span>
+                            </div>
+                            <div className="flex justify-between">
+                              <span className="text-muted-foreground">Shipping:</span>
+                              <span className="font-medium">{formatCurrency(aggregatedTotals['20ft'].shipment_cost)}</span>
+                            </div>
+                            {aggregatedTotals['20ft'].admin_consolidation_fee > 0 && (
+                              <div className="flex justify-between">
+                                <span className="text-muted-foreground">Admin Consolidation:</span>
+                                <span className="font-medium">{formatCurrency(aggregatedTotals['20ft'].admin_consolidation_fee)}</span>
+                              </div>
+                            )}
+                            <div className="flex justify-between pt-1.5 border-t border-border">
+                              <span className="font-semibold">Total:</span>
+                              <span className="font-bold text-primary">{formatCurrency(aggregatedTotals['20ft'].total)}</span>
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* 40ft Total */}
+                        <div className="space-y-1">
+                          <h6 className="text-xs font-semibold text-muted-foreground">40ft Container Total</h6>
+                          <div className="space-y-0.5 text-xs">
+                            <div className="flex justify-between">
+                              <span className="text-muted-foreground">Product Price:</span>
+                              <span className="font-medium">{formatCurrency(aggregatedTotals['40ft'].product_price)}</span>
+                            </div>
+                            <div className="flex justify-between">
+                              <span className="text-muted-foreground">Tariff:</span>
+                              <span className="font-medium">{formatCurrency(aggregatedTotals['40ft'].tarrif)}</span>
+                            </div>
+                            <div className="flex justify-between">
+                              <span className="text-muted-foreground">Shipping:</span>
+                              <span className="font-medium">{formatCurrency(aggregatedTotals['40ft'].shipment_cost)}</span>
+                            </div>
+                            {aggregatedTotals['40ft'].admin_consolidation_fee > 0 && (
+                              <div className="flex justify-between">
+                                <span className="text-muted-foreground">Admin Consolidation:</span>
+                                <span className="font-medium">{formatCurrency(aggregatedTotals['40ft'].admin_consolidation_fee)}</span>
+                              </div>
+                            )}
+                            <div className="flex justify-between pt-1.5 border-t border-border">
+                              <span className="font-semibold">Total:</span>
+                              <span className="font-bold text-primary">{formatCurrency(aggregatedTotals['40ft'].total)}</span>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
                     </div>
                   </div>
                 )}
