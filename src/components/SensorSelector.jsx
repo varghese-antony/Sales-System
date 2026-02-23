@@ -104,7 +104,7 @@ export function SensorSelector({
 }) {
   const [selectedControl, setSelectedControl] = useState(initialSelection?.sensorsAndControls || '')
   const [selectedSensor, setSelectedSensor] = useState(initialSelection?.sensorType || '')
-  const [hasRemote, setHasRemote] = useState(initialSelection?.remoteControl || false)
+  const [hasRemote, setHasRemote] = useState(initialSelection?.remote_control || false)
   const [hasEmergencyBackup, setHasEmergencyBackup] = useState(initialSelection?.emergencyBackupBattery || false)
   const [hasPluginSensor, setHasPluginSensor] = useState(initialSelection?.pluginSensor || false)
 
@@ -114,7 +114,7 @@ export function SensorSelector({
       onSelectionChange({
         sensorsAndControls: selectedControl,
         sensorType: selectedSensor,
-        remoteControl: hasRemote,
+        remote_control: hasRemote,
         emergencyBackupBattery: hasEmergencyBackup,
         pluginSensor: hasPluginSensor
       })

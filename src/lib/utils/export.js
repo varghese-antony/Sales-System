@@ -269,7 +269,7 @@ const PRODUCT_EXPORT_FIELD_CONFIG = [
   { label: 'Plug-in Sensor', key: 'pluginSensor' },
   { label: 'Sensor / Microwave / Bluetooth', key: 'sensorMicrowaveBluetooth' },
   { label: 'Junction Cover', key: 'junctionCover' },
-  { label: 'Remote Control', key: 'remoteControl' },
+  { label: 'Remote Control', key: 'remote_control' },
   { label: 'Installation Kits', key: 'installationKits' },
   { label: 'Adjustment Dial', key: 'adjustmentDial' },
   { label: 'Material Finish', key: 'materialFinish', formatType: 'finish' },

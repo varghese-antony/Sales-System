@@ -36,7 +36,7 @@ const gridItemVariants = {
 
 const TRUTHY_BOOLEAN_VALUES = new Set(['true', 'yes', '1', 'included', 'optional']);
 
-const BOOLEAN_FIELD_KEYS = ['occupancy', 'biLevel', 'remoteControl', 'pluginSensor', 'emergencyBackupBattery', 'junctionCover'];
+const BOOLEAN_FIELD_KEYS = ['occupancy', 'biLevel', 'remote_control', 'pluginSensor', 'emergencyBackupBattery', 'junctionCover'];
 
 const FORM_FIELD_KEYS = [
   'subCategory',
@@ -70,7 +70,7 @@ const FORM_FIELD_KEYS = [
   'ipRating',
   'occupancy',
   'biLevel',
-  'remoteControl',
+  'remote_control',
   'pluginSensor',
   'emergencyBackupBattery',
   'junctionCover',
@@ -668,7 +668,7 @@ export function EditProductModal({ product, isOpen, onClose, onSave, isCreate = 
                 {[
                   { key: 'occupancy', label: 'Occupancy Sensor' },
                   { key: 'biLevel', label: 'Bi-level Dimming' },
-                  { key: 'remoteControl', label: 'Remote Control' },
+                  { key: 'remote_control', label: 'Remote Control' },
                   { key: 'pluginSensor', label: 'Plug-in Sensor' },
                   { key: 'emergencyBackupBattery', label: 'Emergency Backup Battery' },
                   { key: 'junctionCover', label: 'Junction Cover' }

@@ -81,7 +81,7 @@ export default function TestSensorSelector() {
                     <div>
                       <h4 className="font-medium mb-2">Additional Features</h4>
                       <div className="flex flex-wrap gap-2">
-                        {sensorSelection.remoteControl && (
+                        {sensorSelection.remote_control && (
                           <Badge variant="outline">Remote Control</Badge>
                         )}
                         {sensorSelection.emergencyBackupBattery && (
@@ -90,7 +90,7 @@ export default function TestSensorSelector() {
                         {sensorSelection.pluginSensor && (
                           <Badge variant="outline">Plugin Sensor</Badge>
                         )}
-                        {!sensorSelection.remoteControl && 
+                        {!sensorSelection.remote_control && 
                          !sensorSelection.emergencyBackupBattery && 
                          !sensorSelection.pluginSensor && (
                           <span className="text-muted-foreground text-sm">None selected</span>
@@ -137,7 +137,7 @@ export default function TestSensorSelector() {
                   <div className="font-mono text-sm bg-muted p-3 rounded">
                     BASE-MODEL-{sensorSelection.sensorsAndControls.substring(0,3).toUpperCase()}-
                     {sensorSelection.sensorType.substring(0,3).toUpperCase()}-
-                    {sensorSelection.remoteControl ? 'RC' : 'NRC'}-
+                    {sensorSelection.remote_control ? 'RC' : 'NRC'}-
                     {sensorSelection.emergencyBackupBattery ? 'EB' : 'NEB'}-
                     {sensorSelection.pluginSensor ? 'PS' : 'NPS'}
                   </div>
@@ -176,7 +176,7 @@ export default function TestSensorSelector() {
                     <div>
                       <span className="font-medium">remote_control_bluetooth:</span> 
                       <code className="ml-2 bg-muted px-2 py-1 rounded">
-                        {sensorSelection.remoteControl.toString()}
+                        {sensorSelection.remote_control.toString()}
                       </code>
                     </div>
                     <div>

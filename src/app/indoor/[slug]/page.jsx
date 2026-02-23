@@ -101,10 +101,10 @@ export default function IndoorProductPage({ params }) {
 
       // Map boolean features to their database column names using fieldMappingV2
       // These are already booleans, so pass them as true/false
-      if (selection.remoteControl === true) {
-        filters.remoteControl = true // Maps to 'remote_control_bluetooth' column
+      if (selection.remote_control === true) {
+        filters.remote_control = true // Maps to 'remote_control_bluetooth' column
       }else{
-        filters.remoteControl = false
+        filters.remote_control = false
       }
       if (selection.emergencyBackupBattery === true) {
         filters.emergencyBackupBattery = true // Maps to 'emergency_backup_battery' column
@@ -185,8 +185,8 @@ export default function IndoorProductPage({ params }) {
       }
 
       // Map boolean features to their database column names using fieldMappingV2
-      if (sensorSelection.remoteControl === true) {
-        allFilters.remoteControl = true // Maps to 'remote_control_bluetooth' column
+      if (sensorSelection.remote_control === true) {
+        allFilters.remote_control = true // Maps to 'remote_control_bluetooth' column
       }
       if (sensorSelection.emergencyBackupBattery === true) {
         allFilters.emergencyBackupBattery = true // Maps to 'emergency_backup_battery' column

@@ -70,7 +70,7 @@ function deriveSensorSelection(product) {
   return {
     sensorsAndControls,
     sensorType,
-    remoteControl: product.remote_control_bluetooth === true || product.remoteControl === true,
+    remote_control: product.remote_control_bluetooth === true || product.remote_control === true,
     emergencyBackupBattery: product.emergency_backup_battery === true || product.emergencyBackupBattery === true,
     pluginSensor: product.plugin_sensor === true || product.pluginSensor === true
   }

@@ -83,7 +83,7 @@ export function BulkUpdateModal({ selectedProducts, action, isOpen, onClose, onC
       { key: 'pluginSensor', label: 'Plug-in Sensor', type: 'text' },
       { key: 'sensorMicrowaveBluetooth', label: 'Sensor (Microwave/Bluetooth)', type: 'text' },
       { key: 'junctionCover', label: 'Junction Cover', type: 'text' },
-      { key: 'remoteControl', label: 'Remote Control', type: 'text' },
+      { key: 'remote_control', label: 'Remote Control', type: 'text' },
       { key: 'installationKits', label: 'Installation Kits', type: 'text' },
       { key: 'adjustmentDial', label: 'Adjustment Dial', type: 'text' },
       { key: 'ipRating', label: 'IP Rating', type: 'text' },
