@@ -13,7 +13,7 @@ import { useCart } from "@/contexts/CartContext"
 import { Input } from "@/components/ui/input"
 import Link from "next/link"
 import { productNameToSlug } from "@/lib/utils/slug"
-import { getProductPriceSummaryPerUnit, getProductPriceSummary } from "../../../lib/utils.js"
+import { getProductPriceSummaryPerUnit, getProductPriceSummary, CONTAINER_TYPE_20FT, CONTAINER_TYPE_40FT_HQ } from "../../../lib/utils.js"
 import { ContainerPriceBreakdown } from '@/components/ContainerPriceBreakdown'
 import { PriceOptimizationDialog } from '@/components/PriceOptimizationDialog'
 import { Alert, AlertDescription } from '@/components/ui/alert'
@@ -226,7 +226,7 @@ export default function CartPage() {
   // Calculate aggregated totals for each container type
   const aggregatedTotals = useMemo(() => {
     const totals = {
-      '20ft': {
+      [CONTAINER_TYPE_20FT]: {
         product_price: 0,
         tarrif: 0,
         shipment_cost: 0,
@@ -234,7 +234,7 @@ export default function CartPage() {
         space_occupied_cubic_meters: 0,
         total: 0
       },
-      '40ft': {
+      [CONTAINER_TYPE_40FT_HQ]: {
         product_price: 0,
         tarrif: 0,
         shipment_cost: 0,
@@ -248,27 +248,27 @@ export default function CartPage() {
       if (!summary) return
 
       // Process 20ft container
-      if (summary['20ft'] && Object.keys(summary['20ft']).length > 0) {
-        totals['20ft'].product_price += summary['20ft'].product_price || 0
-        totals['20ft'].tarrif += summary['20ft'].tarrif || 0
-        totals['20ft'].shipment_cost += summary['20ft'].shipment_cost || 0
-        totals['20ft'].admin_consolidation_fee += summary['20ft'].admin_consolidation_fee || 0
-        totals['20ft'].space_occupied_cubic_meters += summary['20ft'].space_occupied_cubic_meters || 0
+      if (summary[CONTAINER_TYPE_20FT] && Object.keys(summary[CONTAINER_TYPE_20FT]).length > 0) {
+        totals[CONTAINER_TYPE_20FT].product_price += summary[CONTAINER_TYPE_20FT].product_price || 0
+        totals[CONTAINER_TYPE_20FT].tarrif += summary[CONTAINER_TYPE_20FT].tarrif || 0
+        totals[CONTAINER_TYPE_20FT].shipment_cost += summary[CONTAINER_TYPE_20FT].shipment_cost || 0
+        totals[CONTAINER_TYPE_20FT].admin_consolidation_fee += summary[CONTAINER_TYPE_20FT].admin_consolidation_fee || 0
+        totals[CONTAINER_TYPE_20FT].space_occupied_cubic_meters += summary[CONTAINER_TYPE_20FT].space_occupied_cubic_meters || 0
       }
 
       // Process 40ft container
-      if (summary['40ft'] && Object.keys(summary['40ft']).length > 0) {
-        totals['40ft'].product_price += summary['40ft'].product_price || 0
-        totals['40ft'].tarrif += summary['40ft'].tarrif || 0
-        totals['40ft'].shipment_cost += summary['40ft'].shipment_cost || 0
-        totals['40ft'].admin_consolidation_fee += summary['40ft'].admin_consolidation_fee || 0
-        totals['40ft'].space_occupied_cubic_meters += summary['40ft'].space_occupied_cubic_meters || 0
+      if (summary[CONTAINER_TYPE_40FT_HQ] && Object.keys(summary[CONTAINER_TYPE_40FT_HQ]).length > 0) {
+        totals[CONTAINER_TYPE_40FT_HQ].product_price += summary[CONTAINER_TYPE_40FT_HQ].product_price || 0
+        totals[CONTAINER_TYPE_40FT_HQ].tarrif += summary[CONTAINER_TYPE_40FT_HQ].tarrif || 0
+        totals[CONTAINER_TYPE_40FT_HQ].shipment_cost += summary[CONTAINER_TYPE_40FT_HQ].shipment_cost || 0
+        totals[CONTAINER_TYPE_40FT_HQ].admin_consolidation_fee += summary[CONTAINER_TYPE_40FT_HQ].admin_consolidation_fee || 0
+        totals[CONTAINER_TYPE_40FT_HQ].space_occupied_cubic_meters += summary[CONTAINER_TYPE_40FT_HQ].space_occupied_cubic_meters || 0
       }
     })
 
     // Calculate totals
-    totals['20ft'].total = totals['20ft'].product_price + totals['20ft'].tarrif + totals['20ft'].shipment_cost + totals['20ft'].admin_consolidation_fee
-    totals['40ft'].total = totals['40ft'].product_price + totals['40ft'].tarrif + totals['40ft'].shipment_cost + totals['40ft'].admin_consolidation_fee
+    totals[CONTAINER_TYPE_20FT].total = totals[CONTAINER_TYPE_20FT].product_price + totals[CONTAINER_TYPE_20FT].tarrif + totals[CONTAINER_TYPE_20FT].shipment_cost + totals[CONTAINER_TYPE_20FT].admin_consolidation_fee
+    totals[CONTAINER_TYPE_40FT_HQ].total = totals[CONTAINER_TYPE_40FT_HQ].product_price + totals[CONTAINER_TYPE_40FT_HQ].tarrif + totals[CONTAINER_TYPE_40FT_HQ].shipment_cost + totals[CONTAINER_TYPE_40FT_HQ].admin_consolidation_fee
 
     return totals
   }, [cartPriceSummaries])
@@ -764,8 +764,8 @@ export default function CartPage() {
                       {cartPriceSummaries.map(({ item, summary }, index) => {
                         if (!summary) return null
                         const productName = item.name || item.product_name || item.producttype || `Product ${index + 1}`
-                        const has20ft = summary['20ft'] && Object.keys(summary['20ft']).length > 0
-                        const has40ft = summary['40ft'] && Object.keys(summary['40ft']).length > 0
+                        const has20ft = summary[CONTAINER_TYPE_20FT] && Object.keys(summary[CONTAINER_TYPE_20FT]).length > 0
+                        const has40ft = summary[CONTAINER_TYPE_40FT_HQ] && Object.keys(summary[CONTAINER_TYPE_40FT_HQ]).length > 0
 
                         if (!has20ft && !has40ft) return null
 
@@ -778,38 +778,38 @@ export default function CartPage() {
                                 <div className="space-y-1">
                                   <h6 className="text-xs font-medium text-muted-foreground">20ft Container</h6>
                                   <div className="space-y-0.5 text-xs">
-                                    {summary['20ft'].space_occupied_cubic_meters !== undefined && (
+                                    {summary[CONTAINER_TYPE_20FT].space_occupied_cubic_meters !== undefined && (
                                       <div className="flex justify-between mb-1 pb-1 border-b border-border/30">
                                         <span className="text-muted-foreground">Space Occupied:</span>
-                                        <span className="font-medium">{summary['20ft'].space_occupied_cubic_meters.toFixed(2)} m³</span>
+                                        <span className="font-medium">{summary[CONTAINER_TYPE_20FT].space_occupied_cubic_meters.toFixed(2)} m³</span>
                                       </div>
                                     )}
                                     <div className="flex justify-between">
                                       <span className="text-muted-foreground">Product:</span>
-                                      <span>{formatCurrency(summary['20ft'].product_price)}</span>
+                                      <span>{formatCurrency(summary[CONTAINER_TYPE_20FT].product_price)}</span>
                                     </div>
                                     <div className="flex justify-between">
                                       <span className="text-muted-foreground">Tariff:</span>
-                                      <span>{formatCurrency(summary['20ft'].tarrif)}</span>
+                                      <span>{formatCurrency(summary[CONTAINER_TYPE_20FT].tarrif)}</span>
                                     </div>
                                     <div className="flex justify-between">
                                       <span className="text-muted-foreground">Shipping:</span>
-                                      <span>{formatCurrency(summary['20ft'].shipment_cost)}</span>
+                                      <span>{formatCurrency(summary[CONTAINER_TYPE_20FT].shipment_cost)}</span>
                                     </div>
-                                    {summary['20ft'].admin_consolidation_fee > 0 && (
+                                    {summary[CONTAINER_TYPE_20FT].admin_consolidation_fee > 0 && (
                                       <div className="flex justify-between">
                                         <span className="text-muted-foreground">Admin Fee:</span>
-                                        <span>{formatCurrency(summary['20ft'].admin_consolidation_fee)}</span>
+                                        <span>{formatCurrency(summary[CONTAINER_TYPE_20FT].admin_consolidation_fee)}</span>
                                       </div>
                                     )}
                                     <div className="flex justify-between pt-1 border-t border-border/50">
                                       <span className="font-medium">Subtotal:</span>
                                       <span className="font-semibold">
                                         {formatCurrency(
-                                          summary['20ft'].product_price +
-                                          summary['20ft'].tarrif +
-                                          summary['20ft'].shipment_cost +
-                                          summary['20ft'].admin_consolidation_fee
+                                          summary[CONTAINER_TYPE_20FT].product_price +
+                                          summary[CONTAINER_TYPE_20FT].tarrif +
+                                          summary[CONTAINER_TYPE_20FT].shipment_cost +
+                                          summary[CONTAINER_TYPE_20FT].admin_consolidation_fee
                                         )}
                                       </span>
                                     </div>
@@ -822,38 +822,38 @@ export default function CartPage() {
                                 <div className="space-y-1">
                                   <h6 className="text-xs font-medium text-muted-foreground">40ft Container</h6>
                                   <div className="space-y-0.5 text-xs">
-                                    {summary['40ft'].space_occupied_cubic_meters !== undefined && (
+                                    {summary[CONTAINER_TYPE_40FT_HQ].space_occupied_cubic_meters !== undefined && (
                                       <div className="flex justify-between mb-1 pb-1 border-b border-border/30">
                                         <span className="text-muted-foreground">Space Occupied:</span>
-                                        <span className="font-medium">{summary['40ft'].space_occupied_cubic_meters.toFixed(2)} m³</span>
+                                        <span className="font-medium">{summary[CONTAINER_TYPE_40FT_HQ].space_occupied_cubic_meters.toFixed(2)} m³</span>
                                       </div>
                                     )}
                                     <div className="flex justify-between">
                                       <span className="text-muted-foreground">Product:</span>
-                                      <span>{formatCurrency(summary['40ft'].product_price)}</span>
+                                      <span>{formatCurrency(summary[CONTAINER_TYPE_40FT_HQ].product_price)}</span>
                                     </div>
                                     <div className="flex justify-between">
                                       <span className="text-muted-foreground">Tariff:</span>
-                                      <span>{formatCurrency(summary['40ft'].tarrif)}</span>
+                                      <span>{formatCurrency(summary[CONTAINER_TYPE_40FT_HQ].tarrif)}</span>
                                     </div>
                                     <div className="flex justify-between">
                                       <span className="text-muted-foreground">Shipping:</span>
-                                      <span>{formatCurrency(summary['40ft'].shipment_cost)}</span>
+                                      <span>{formatCurrency(summary[CONTAINER_TYPE_40FT_HQ].shipment_cost)}</span>
                                     </div>
-                                    {summary['40ft'].admin_consolidation_fee > 0 && (
+                                    {summary[CONTAINER_TYPE_40FT_HQ].admin_consolidation_fee > 0 && (
                                       <div className="flex justify-between">
                                         <span className="text-muted-foreground">Admin Fee:</span>
-                                        <span>{formatCurrency(summary['40ft'].admin_consolidation_fee)}</span>
+                                        <span>{formatCurrency(summary[CONTAINER_TYPE_40FT_HQ].admin_consolidation_fee)}</span>
                                       </div>
                                     )}
                                     <div className="flex justify-between pt-1 border-t border-border/50">
                                       <span className="font-medium">Subtotal:</span>
                                       <span className="font-semibold">
                                         {formatCurrency(
-                                          summary['40ft'].product_price +
-                                          summary['40ft'].tarrif +
-                                          summary['40ft'].shipment_cost +
-                                          summary['40ft'].admin_consolidation_fee
+                                          summary[CONTAINER_TYPE_40FT_HQ].product_price +
+                                          summary[CONTAINER_TYPE_40FT_HQ].tarrif +
+                                          summary[CONTAINER_TYPE_40FT_HQ].shipment_cost +
+                                          summary[CONTAINER_TYPE_40FT_HQ].admin_consolidation_fee
                                         )}
                                       </span>
                                     </div>
@@ -874,33 +874,33 @@ export default function CartPage() {
                         <div className="space-y-1">
                           <h6 className="text-xs font-semibold text-muted-foreground">20ft Container Total</h6>
                           <div className="space-y-0.5 text-xs">
-                            {aggregatedTotals['20ft'].space_occupied_cubic_meters > 0 && (
+                            {aggregatedTotals[CONTAINER_TYPE_20FT].space_occupied_cubic_meters > 0 && (
                               <div className="flex justify-between mb-1 pb-1 border-b border-border/30">
                                 <span className="text-muted-foreground">Total Space Occupied:</span>
-                                <span className="font-medium">{aggregatedTotals['20ft'].space_occupied_cubic_meters.toFixed(2)} m³</span>
+                                <span className="font-medium">{aggregatedTotals[CONTAINER_TYPE_20FT].space_occupied_cubic_meters.toFixed(2)} m³</span>
                               </div>
                             )}
                             <div className="flex justify-between">
                               <span className="text-muted-foreground">Product Price:</span>
-                              <span className="font-medium">{formatCurrency(aggregatedTotals['20ft'].product_price)}</span>
+                              <span className="font-medium">{formatCurrency(aggregatedTotals[CONTAINER_TYPE_20FT].product_price)}</span>
                             </div>
                             <div className="flex justify-between">
                               <span className="text-muted-foreground">Tariff:</span>
-                              <span className="font-medium">{formatCurrency(aggregatedTotals['20ft'].tarrif)}</span>
+                              <span className="font-medium">{formatCurrency(aggregatedTotals[CONTAINER_TYPE_20FT].tarrif)}</span>
                             </div>
                             <div className="flex justify-between">
                               <span className="text-muted-foreground">Shipping:</span>
-                              <span className="font-medium">{formatCurrency(aggregatedTotals['20ft'].shipment_cost)}</span>
+                              <span className="font-medium">{formatCurrency(aggregatedTotals[CONTAINER_TYPE_20FT].shipment_cost)}</span>
                             </div>
-                            {aggregatedTotals['20ft'].admin_consolidation_fee > 0 && (
+                            {aggregatedTotals[CONTAINER_TYPE_20FT].admin_consolidation_fee > 0 && (
                               <div className="flex justify-between">
                                 <span className="text-muted-foreground">Admin Consolidation:</span>
-                                <span className="font-medium">{formatCurrency(aggregatedTotals['20ft'].admin_consolidation_fee)}</span>
+                                <span className="font-medium">{formatCurrency(aggregatedTotals[CONTAINER_TYPE_20FT].admin_consolidation_fee)}</span>
                               </div>
                             )}
                             <div className="flex justify-between pt-1.5 border-t border-border">
                               <span className="font-semibold">Total:</span>
-                              <span className="font-bold text-primary">{formatCurrency(aggregatedTotals['20ft'].total)}</span>
+                              <span className="font-bold text-primary">{formatCurrency(aggregatedTotals[CONTAINER_TYPE_20FT].total)}</span>
                             </div>
                           </div>
                         </div>
@@ -909,33 +909,33 @@ export default function CartPage() {
                         <div className="space-y-1">
                           <h6 className="text-xs font-semibold text-muted-foreground">40ft Container Total</h6>
                           <div className="space-y-0.5 text-xs">
-                            {aggregatedTotals['40ft'].space_occupied_cubic_meters > 0 && (
+                            {aggregatedTotals[CONTAINER_TYPE_40FT_HQ].space_occupied_cubic_meters > 0 && (
                               <div className="flex justify-between mb-1 pb-1 border-b border-border/30">
                                 <span className="text-muted-foreground">Total Space Occupied:</span>
-                                <span className="font-medium">{aggregatedTotals['40ft'].space_occupied_cubic_meters.toFixed(2)} m³</span>
+                                <span className="font-medium">{aggregatedTotals[CONTAINER_TYPE_40FT_HQ].space_occupied_cubic_meters.toFixed(2)} m³</span>
                               </div>
                             )}
                             <div className="flex justify-between">
                               <span className="text-muted-foreground">Product Price:</span>
-                              <span className="font-medium">{formatCurrency(aggregatedTotals['40ft'].product_price)}</span>
+                              <span className="font-medium">{formatCurrency(aggregatedTotals[CONTAINER_TYPE_40FT_HQ].product_price)}</span>
                             </div>
                             <div className="flex justify-between">
                               <span className="text-muted-foreground">Tariff:</span>
-                              <span className="font-medium">{formatCurrency(aggregatedTotals['40ft'].tarrif)}</span>
+                              <span className="font-medium">{formatCurrency(aggregatedTotals[CONTAINER_TYPE_40FT_HQ].tarrif)}</span>
                             </div>
                             <div className="flex justify-between">
                               <span className="text-muted-foreground">Shipping:</span>
-                              <span className="font-medium">{formatCurrency(aggregatedTotals['40ft'].shipment_cost)}</span>
+                              <span className="font-medium">{formatCurrency(aggregatedTotals[CONTAINER_TYPE_40FT_HQ].shipment_cost)}</span>
                             </div>
-                            {aggregatedTotals['40ft'].admin_consolidation_fee > 0 && (
+                            {aggregatedTotals[CONTAINER_TYPE_40FT_HQ].admin_consolidation_fee > 0 && (
                               <div className="flex justify-between">
                                 <span className="text-muted-foreground">Admin Consolidation:</span>
-                                <span className="font-medium">{formatCurrency(aggregatedTotals['40ft'].admin_consolidation_fee)}</span>
+                                <span className="font-medium">{formatCurrency(aggregatedTotals[CONTAINER_TYPE_40FT_HQ].admin_consolidation_fee)}</span>
                               </div>
                             )}
                             <div className="flex justify-between pt-1.5 border-t border-border">
                               <span className="font-semibold">Total:</span>
-                              <span className="font-bold text-primary">{formatCurrency(aggregatedTotals['40ft'].total)}</span>
+                              <span className="font-bold text-primary">{formatCurrency(aggregatedTotals[CONTAINER_TYPE_40FT_HQ].total)}</span>
                             </div>
                           </div>
                         </div>
@@ -943,7 +943,7 @@ export default function CartPage() {
                     </div>
                     
                     {/* Admin Consolidation Fee Explanation - Show once if any fee exists */}
-                    {(aggregatedTotals['20ft'].admin_consolidation_fee > 0 || aggregatedTotals['40ft'].admin_consolidation_fee > 0) && (
+                    {(aggregatedTotals[CONTAINER_TYPE_20FT].admin_consolidation_fee > 0 || aggregatedTotals[CONTAINER_TYPE_40FT_HQ].admin_consolidation_fee > 0) && (
                       <Alert className="mt-4 py-2 bg-blue-50 dark:bg-blue-950/20 border-blue-200 dark:border-blue-800">
                         <AlertDescription className="text-xs text-blue-800 dark:text-blue-200">
                           <strong>Admin Consolidation Fee:</strong> This fee covers administrative costs for consolidating your order with other shipments when your order doesn't fill a full container (less than 97% utilization).
@@ -960,10 +960,10 @@ export default function CartPage() {
                       <span className="text-lg font-semibold">Total:</span>
                       <span className="text-2xl font-bold text-primary">
                         {(() => {
-                          const total20ft = aggregatedTotals['20ft'].total
-                          const total40ft = aggregatedTotals['40ft'].total
-                          const has20ft = aggregatedTotals['20ft'].space_occupied_cubic_meters > 0
-                          const has40ft = aggregatedTotals['40ft'].space_occupied_cubic_meters > 0
+                          const total20ft = aggregatedTotals[CONTAINER_TYPE_20FT].total
+                          const total40ft = aggregatedTotals[CONTAINER_TYPE_40FT_HQ].total
+                          const has20ft = aggregatedTotals[CONTAINER_TYPE_20FT].space_occupied_cubic_meters > 0
+                          const has40ft = aggregatedTotals[CONTAINER_TYPE_40FT_HQ].space_occupied_cubic_meters > 0
                           
                           // Always prioritize 20ft container cost
                           if (has20ft) {

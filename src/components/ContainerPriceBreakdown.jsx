@@ -3,6 +3,7 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Package } from "lucide-react"
+import { CONTAINER_TYPE_20FT, CONTAINER_TYPE_40FT_HQ } from "../../lib/utils.js"
 
 const formatCurrency = (value) => {
   const numeric = Number.isFinite(value) ? value : 0
@@ -12,8 +13,10 @@ const formatCurrency = (value) => {
 export function ContainerPriceBreakdown({ priceSummary, quantity = 1 }) {
   if (!priceSummary) return null
 
-  const container20ft = priceSummary['20ft']
-  const container40ft = priceSummary['40ft']
+  console.log("Price summary", priceSummary)
+
+  const container20ft = priceSummary[CONTAINER_TYPE_20FT]
+  const container40ft = priceSummary[CONTAINER_TYPE_40FT_HQ]
 
   const has20ft = container20ft && Object.keys(container20ft).length > 0
   const has40ft = container40ft && Object.keys(container40ft).length > 0
