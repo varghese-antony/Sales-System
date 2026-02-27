@@ -57,15 +57,9 @@ export function ContainerPriceBreakdown({ priceSummary, quantity = 1 }) {
                 <span className="font-medium">{formatCurrency(container20ft.tarrif)}</span>
               </div>
               <div className="flex justify-between items-center text-xs">
-                <span className="text-muted-foreground">Shipping:</span>
-                <span className="font-medium">{formatCurrency(container20ft.shipment_cost)}</span>
+                <span className="text-muted-foreground">Shipping Fee:</span>
+                <span className="font-medium">{formatCurrency(container20ft.shipment_cost + container20ft.admin_consolidation_fee)}</span>
               </div>
-              {container20ft.admin_consolidation_fee > 0 && (
-                <div className="flex justify-between items-center text-xs">
-                  <span className="text-muted-foreground">Admin Consolidation Fee:</span>
-                  <span className="font-medium">{formatCurrency(container20ft.admin_consolidation_fee)}</span>
-                </div>
-              )}
               <div className="flex justify-between items-center pt-1.5 border-t border-border">
                 <span className="font-medium text-xs">Total Per Unit:</span>
                 <span className="font-semibold text-primary text-xs">{formatCurrency(total20ft)}</span>
@@ -100,15 +94,9 @@ export function ContainerPriceBreakdown({ priceSummary, quantity = 1 }) {
                 <span className="font-medium">{formatCurrency(container40ft.tarrif)}</span>
               </div>
               <div className="flex justify-between items-center text-xs">
-                <span className="text-muted-foreground">Shipping:</span>
-                <span className="font-medium">{formatCurrency(container40ft.shipment_cost)}</span>
+                <span className="text-muted-foreground">Shipping Fee:</span>
+                <span className="font-medium">{formatCurrency(container40ft.shipment_cost + container40ft.admin_consolidation_fee)}</span>
               </div>
-              {container40ft.admin_consolidation_fee > 0 && (
-                <div className="flex justify-between items-center text-xs">
-                  <span className="text-muted-foreground">Admin Consolidation Fee:</span>
-                  <span className="font-medium">{formatCurrency(container40ft.admin_consolidation_fee)}</span>
-                </div>
-              )}
               <div className="flex justify-between items-center pt-1.5 border-t border-border">
                 <span className="font-medium text-xs">Total Per Unit:</span>
                 <span className="font-semibold text-primary text-xs">{formatCurrency(total40ft)}</span>
