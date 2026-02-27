@@ -1,8 +1,9 @@
 "use client"
 
-import { useState, useEffect, useMemo } from "react"
+import { useState, useEffect, useMemo, useRef } from "react"
 import { motion } from "framer-motion"
-import { ShoppingCart, Trash2, ArrowLeft, Package, Percent, X } from "lucide-react"
+import { ShoppingCart, Trash2, ArrowLeft, Package, Percent, X, Download } from "lucide-react"
+import { useReactToPrint } from "react-to-print"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
@@ -15,7 +16,6 @@ import Link from "next/link"
 import { productNameToSlug } from "@/lib/utils/slug"
 import { getProductPriceSummaryPerUnit, getProductPriceSummary, CONTAINER_TYPE_20FT, CONTAINER_TYPE_40FT_HQ } from "../../../lib/utils.js"
 import { ContainerPriceBreakdown } from '@/components/ContainerPriceBreakdown'
-import { PriceOptimizationDialog } from '@/components/PriceOptimizationDialog'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 
 const MARKUP_PERCENTAGE_DEFAULT = 30 // 30% default markup
@@ -104,7 +104,183 @@ export default function CartPage() {
   // const [couponCode, setCouponCode] = useState('')
   const [selectedShipping, setSelectedShipping] = useState('boat')
   const [isEnquiryOpen, setIsEnquiryOpen] = useState(false)
-  const [isOptimizationOpen, setIsOptimizationOpen] = useState(false)
+  const [isDarkMode, setIsDarkMode] = useState(false)
+  const [customerDetails, setCustomerDetails] = useState(null)
+  const [isGeneratingPDF, setIsGeneratingPDF] = useState(false)
+  const componentRef = useRef(null)
+
+  useEffect(() => {
+    // Check if dark mode is active
+    setIsDarkMode(document.documentElement.classList.contains('dark'))
+    
+    // Watch for theme changes
+    const observer = new MutationObserver(() => {
+      setIsDarkMode(document.documentElement.classList.contains('dark'))
+    })
+    observer.observe(document.documentElement, {
+      attributes: true,
+      attributeFilter: ['class']
+    })
+    
+    return () => observer.disconnect()
+  }, [])
+  
+  const handlePrint = useReactToPrint({
+    contentRef: componentRef,
+    documentTitle: `cart-${new Date().toISOString().split('T')[0]}`,
+    onBeforeGetContent: () => {
+      // Ensure dark class is preserved on html element for printing
+      const isDark = document.documentElement.classList.contains('dark')
+      if (isDark) {
+        document.documentElement.classList.add('dark')
+      }
+      return Promise.resolve()
+    },
+    onAfterPrint: () => {
+      // Cleanup if needed
+    },
+    pageStyle: `
+      @page {
+        size: A4 landscape;
+        margin: 15mm;
+      }
+      @media print {
+        * {
+          -webkit-print-color-adjust: exact !important;
+          print-color-adjust: exact !important;
+          color-adjust: exact !important;
+        }
+        html.dark,
+        html.dark body,
+        .dark,
+        [data-theme="dark"],
+        [data-theme="dark"] * {
+          -webkit-print-color-adjust: exact !important;
+          print-color-adjust: exact !important;
+          color-adjust: exact !important;
+        }
+        html.dark .print-container,
+        .dark.print-container,
+        [data-theme="dark"].print-container {
+          background: oklch(0.08 0.02 264.376) !important;
+          color: oklch(0.98 0.005 106.423) !important;
+        }
+        html.dark [class*="bg-background"],
+        .dark [class*="bg-background"],
+        [data-theme="dark"] [class*="bg-background"] {
+          background: oklch(0.08 0.02 264.376) !important;
+        }
+        html.dark [class*="bg-card"],
+        .dark [class*="bg-card"],
+        [data-theme="dark"] [class*="bg-card"] {
+          background: oklch(0.12 0.02 264.376) !important;
+        }
+        html.dark [class*="text-foreground"],
+        html.dark [class*="text-muted-foreground"],
+        .dark [class*="text-foreground"],
+        .dark [class*="text-muted-foreground"],
+        [data-theme="dark"] [class*="text-foreground"],
+        [data-theme="dark"] [class*="text-muted-foreground"] {
+          color: oklch(0.98 0.005 106.423) !important;
+        }
+        html.dark [class*="border"],
+        .dark [class*="border"],
+        [data-theme="dark"] [class*="border"] {
+          border-color: oklch(0.2 0.02 264.376) !important;
+        }
+        html.dark [class*="bg-muted"],
+        .dark [class*="bg-muted"],
+        [data-theme="dark"] [class*="bg-muted"] {
+          background: oklch(0.16 0.02 264.376) !important;
+        }
+        body {
+          -webkit-print-color-adjust: exact;
+          print-color-adjust: exact;
+        }
+        .print-container {
+          max-width: 100% !important;
+          padding: 0 !important;
+        }
+        .print-grid {
+          display: grid !important;
+          grid-template-columns: 2fr 1fr !important;
+          gap: 1.5rem !important;
+        }
+        .print-cart-items {
+          grid-column: 1 !important;
+        }
+        .print-cart-summary {
+          grid-column: 2 !important;
+        }
+        .sticky {
+          position: relative !important;
+          top: 0 !important;
+        }
+        .break-inside-avoid {
+          page-break-inside: avoid;
+          break-inside: avoid;
+        }
+        .md\\:grid-cols-2 {
+          grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+        }
+        .print-title-container {
+          position: relative;
+        }
+        .print-hide-icon {
+          display: none !important;
+        }
+        .print-hide-subtitle {
+          display: none !important;
+        }
+        .print-order-summary {
+          display: none !important;
+        }
+        @media print {
+          .print-title-container {
+            margin-bottom: 1.5rem !important;
+            page-break-after: avoid !important;
+          }
+          .print-title-container h1 {
+            display: flex !important;
+            align-items: center !important;
+            justify-content: center !important;
+            gap: 0.75rem !important;
+            margin-bottom: 0 !important;
+          }
+          .print-title .title-text {
+            display: none !important;
+          }
+          .print-order-summary {
+            display: block !important;
+            font-size: 2.25rem !important;
+            font-weight: 700 !important;
+            margin: 0 !important;
+            padding: 0 !important;
+          }
+          button,
+          .print-hide-buttons,
+          .print-hide-buttons * {
+            display: none !important;
+            visibility: hidden !important;
+          }
+        }
+        .print-only {
+          display: none !important;
+        }
+        .print-customer-details {
+          display: block !important;
+          page-break-inside: avoid;
+          break-inside: avoid;
+        }
+        html.dark .print-customer-details,
+        .dark .print-customer-details,
+        [data-theme="dark"] .print-customer-details {
+          background: oklch(0.12 0.02 264.376) !important;
+          border-color: oklch(0.2 0.02 264.376) !important;
+        }
+      }
+    `
+  })
 
   const handleQuantityChange = (item, newQuantity) => {
     const productId = item.id || item.ID
@@ -317,7 +493,11 @@ export default function CartPage() {
 
   return (
     <div className="min-h-screen bg-background">
-      <div className="container mx-auto py-8 px-4 sm:px-6 lg:px-8">
+      <div 
+        ref={componentRef} 
+        className={`container mx-auto py-8 px-4 sm:px-6 lg:px-8 print-container ${isDarkMode ? 'dark' : ''}`}
+        data-theme={isDarkMode ? 'dark' : 'light'}
+      >
         {/* Header */}
         <div className="flex items-center justify-between mb-8">
           <Link href="/">
@@ -343,19 +523,63 @@ export default function CartPage() {
         </div>
 
         {/* Page Title */}
-        <div className="text-center mb-12">
-          <h1 className="text-4xl font-bold mb-4 flex items-center justify-center gap-3">
-            <ShoppingCart className="w-10 h-10 text-primary" />
-            Shopping Cart
+        <div className="text-center mb-12 print-title-container">
+          <h1 className="text-4xl font-bold mb-4 flex items-center justify-center gap-3 print-title">
+            <ShoppingCart className="w-10 h-10 text-primary print-hide-icon" />
+            <span className="title-text">Shopping Cart</span>
+            <span className="print-order-summary">Order Summary</span>
           </h1>
-          <p className="text-muted-foreground">
+          <p className="text-muted-foreground print-hide-subtitle">
             Review your selected lighting products and submit an enquiry
           </p>
         </div>
+        
+        {/* Customer Details Section - Only shown when generating PDF */}
+        {customerDetails && (
+          <div className="mb-8 p-4 border rounded-lg bg-card print-customer-details print-only">
+            <h2 className="text-xl font-semibold mb-4">Customer Details</h2>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+              <div>
+                <span className="font-medium">Name:</span> {customerDetails.name}
+              </div>
+              <div>
+                <span className="font-medium">Email:</span> {customerDetails.email}
+              </div>
+              <div>
+                <span className="font-medium">Phone:</span> {customerDetails.phone}
+              </div>
+              {customerDetails.company && (
+                <div>
+                  <span className="font-medium">Company:</span> {customerDetails.company}
+                </div>
+              )}
+              {customerDetails.address && (
+                <div className="md:col-span-2">
+                  <span className="font-medium">Address:</span> {customerDetails.address}
+                </div>
+              )}
+              {customerDetails.deliveryMethod && (
+                <div>
+                  <span className="font-medium">Delivery Method:</span> {customerDetails.deliveryMethod === 'air' ? 'Air Shipping' : 'Sea Shipping'}
+                </div>
+              )}
+              {customerDetails.deliveryTime && (
+                <div>
+                  <span className="font-medium">Delivery Time:</span> {customerDetails.deliveryTime}
+                </div>
+              )}
+              {customerDetails.message && (
+                <div className="md:col-span-2">
+                  <span className="font-medium">Message:</span> {customerDetails.message}
+                </div>
+              )}
+            </div>
+          </div>
+        )}
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 print-grid">
           {/* Cart Items */}
-          <div className="lg:col-span-2 space-y-4">
+          <div className="lg:col-span-2 space-y-4 print-cart-items">
             {items.map((item) => (
               <motion.div
                 key={item.id || item.ID}
@@ -549,8 +773,8 @@ export default function CartPage() {
           </div>
 
           {/* Cart Summary */}
-          <div className="lg:col-span-1">
-            <Card className="sticky top-8">
+          <div className="lg:col-span-1 print-cart-summary">
+            <Card className="sticky top-8 pb-6">
               <CardHeader>
                 <CardTitle>Cart Summary</CardTitle>
               </CardHeader>
@@ -741,7 +965,7 @@ export default function CartPage() {
                   </div>
                 )}
 
-                {!containerAllocation.hasValidItems && items.length > 0 && (
+                {items.length > 0 && items.some(item => !item.cubic_m_per_pc || item.cubic_m_per_pc === 0) && (
                   <div className="space-y-3 border-t pt-4">
                     <div className="p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
                       <p className="text-xs text-yellow-800">
@@ -793,15 +1017,9 @@ export default function CartPage() {
                                       <span>{formatCurrency(summary[CONTAINER_TYPE_20FT].tarrif)}</span>
                                     </div>
                                     <div className="flex justify-between">
-                                      <span className="text-muted-foreground">Shipping:</span>
-                                      <span>{formatCurrency(summary[CONTAINER_TYPE_20FT].shipment_cost)}</span>
+                                      <span className="text-muted-foreground">Shipping Fee:</span>
+                                      <span>{formatCurrency(summary[CONTAINER_TYPE_20FT].shipment_cost + summary[CONTAINER_TYPE_20FT].admin_consolidation_fee)}</span>
                                     </div>
-                                    {summary[CONTAINER_TYPE_20FT].admin_consolidation_fee > 0 && (
-                                      <div className="flex justify-between">
-                                        <span className="text-muted-foreground">Admin Fee:</span>
-                                        <span>{formatCurrency(summary[CONTAINER_TYPE_20FT].admin_consolidation_fee)}</span>
-                                      </div>
-                                    )}
                                     <div className="flex justify-between pt-1 border-t border-border/50">
                                       <span className="font-medium">Subtotal:</span>
                                       <span className="font-semibold">
@@ -837,15 +1055,9 @@ export default function CartPage() {
                                       <span>{formatCurrency(summary[CONTAINER_TYPE_40FT_HQ].tarrif)}</span>
                                     </div>
                                     <div className="flex justify-between">
-                                      <span className="text-muted-foreground">Shipping:</span>
-                                      <span>{formatCurrency(summary[CONTAINER_TYPE_40FT_HQ].shipment_cost)}</span>
+                                      <span className="text-muted-foreground">Shipping Fee:</span>
+                                      <span>{formatCurrency(summary[CONTAINER_TYPE_40FT_HQ].shipment_cost + summary[CONTAINER_TYPE_40FT_HQ].admin_consolidation_fee)}</span>
                                     </div>
-                                    {summary[CONTAINER_TYPE_40FT_HQ].admin_consolidation_fee > 0 && (
-                                      <div className="flex justify-between">
-                                        <span className="text-muted-foreground">Admin Fee:</span>
-                                        <span>{formatCurrency(summary[CONTAINER_TYPE_40FT_HQ].admin_consolidation_fee)}</span>
-                                      </div>
-                                    )}
                                     <div className="flex justify-between pt-1 border-t border-border/50">
                                       <span className="font-medium">Subtotal:</span>
                                       <span className="font-semibold">
@@ -871,74 +1083,34 @@ export default function CartPage() {
                       <h5 className="text-sm font-semibold mb-3">Total Summary</h5>
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         {/* 20ft Total */}
-                        <div className="space-y-1">
-                          <h6 className="text-xs font-semibold text-muted-foreground">20ft Container Total</h6>
-                          <div className="space-y-0.5 text-xs">
-                            {aggregatedTotals[CONTAINER_TYPE_20FT].space_occupied_cubic_meters > 0 && (
-                              <div className="flex justify-between mb-1 pb-1 border-b border-border/30">
-                                <span className="text-muted-foreground">Total Space Occupied:</span>
-                                <span className="font-medium">{aggregatedTotals[CONTAINER_TYPE_20FT].space_occupied_cubic_meters.toFixed(2)} m³</span>
-                              </div>
-                            )}
-                            <div className="flex justify-between">
-                              <span className="text-muted-foreground">Product Price:</span>
-                              <span className="font-medium">{formatCurrency(aggregatedTotals[CONTAINER_TYPE_20FT].product_price)}</span>
+                        {aggregatedTotals[CONTAINER_TYPE_20FT].space_occupied_cubic_meters > 0 && 
+                         aggregatedTotals[CONTAINER_TYPE_20FT].space_occupied_cubic_meters <= 33 && (
+                          <div className="space-y-1">
+                            <h6 className="text-xs font-semibold text-muted-foreground">20ft Container Total</h6>
+                            <div className="flex justify-between items-center mb-2">
+                              <span className="text-xs text-muted-foreground">Space Occupied:</span>
+                              <span className="text-xs font-medium">{aggregatedTotals[CONTAINER_TYPE_20FT].space_occupied_cubic_meters.toFixed(2)} m³</span>
                             </div>
-                            <div className="flex justify-between">
-                              <span className="text-muted-foreground">Tariff:</span>
-                              <span className="font-medium">{formatCurrency(aggregatedTotals[CONTAINER_TYPE_20FT].tarrif)}</span>
-                            </div>
-                            <div className="flex justify-between">
-                              <span className="text-muted-foreground">Shipping:</span>
-                              <span className="font-medium">{formatCurrency(aggregatedTotals[CONTAINER_TYPE_20FT].shipment_cost)}</span>
-                            </div>
-                            {aggregatedTotals[CONTAINER_TYPE_20FT].admin_consolidation_fee > 0 && (
-                              <div className="flex justify-between">
-                                <span className="text-muted-foreground">Admin Consolidation:</span>
-                                <span className="font-medium">{formatCurrency(aggregatedTotals[CONTAINER_TYPE_20FT].admin_consolidation_fee)}</span>
-                              </div>
-                            )}
-                            <div className="flex justify-between pt-1.5 border-t border-border">
-                              <span className="font-semibold">Total:</span>
-                              <span className="font-bold text-primary">{formatCurrency(aggregatedTotals[CONTAINER_TYPE_20FT].total)}</span>
+                            <div className="text-lg font-bold text-primary">
+                              {formatCurrency(aggregatedTotals[CONTAINER_TYPE_20FT].total)}
                             </div>
                           </div>
-                        </div>
+                        )}
 
                         {/* 40ft Total */}
-                        <div className="space-y-1">
-                          <h6 className="text-xs font-semibold text-muted-foreground">40ft Container Total</h6>
-                          <div className="space-y-0.5 text-xs">
-                            {aggregatedTotals[CONTAINER_TYPE_40FT_HQ].space_occupied_cubic_meters > 0 && (
-                              <div className="flex justify-between mb-1 pb-1 border-b border-border/30">
-                                <span className="text-muted-foreground">Total Space Occupied:</span>
-                                <span className="font-medium">{aggregatedTotals[CONTAINER_TYPE_40FT_HQ].space_occupied_cubic_meters.toFixed(2)} m³</span>
-                              </div>
-                            )}
-                            <div className="flex justify-between">
-                              <span className="text-muted-foreground">Product Price:</span>
-                              <span className="font-medium">{formatCurrency(aggregatedTotals[CONTAINER_TYPE_40FT_HQ].product_price)}</span>
+                        {aggregatedTotals[CONTAINER_TYPE_40FT_HQ].space_occupied_cubic_meters > 0 && 
+                         aggregatedTotals[CONTAINER_TYPE_40FT_HQ].space_occupied_cubic_meters <= 76.4 && (
+                          <div className="space-y-1">
+                            <h6 className="text-xs font-semibold text-muted-foreground">40ft Container Total</h6>
+                            <div className="flex justify-between items-center mb-2">
+                              <span className="text-xs text-muted-foreground">Space Occupied:</span>
+                              <span className="text-xs font-medium">{aggregatedTotals[CONTAINER_TYPE_40FT_HQ].space_occupied_cubic_meters.toFixed(2)} m³</span>
                             </div>
-                            <div className="flex justify-between">
-                              <span className="text-muted-foreground">Tariff:</span>
-                              <span className="font-medium">{formatCurrency(aggregatedTotals[CONTAINER_TYPE_40FT_HQ].tarrif)}</span>
-                            </div>
-                            <div className="flex justify-between">
-                              <span className="text-muted-foreground">Shipping:</span>
-                              <span className="font-medium">{formatCurrency(aggregatedTotals[CONTAINER_TYPE_40FT_HQ].shipment_cost)}</span>
-                            </div>
-                            {aggregatedTotals[CONTAINER_TYPE_40FT_HQ].admin_consolidation_fee > 0 && (
-                              <div className="flex justify-between">
-                                <span className="text-muted-foreground">Admin Consolidation:</span>
-                                <span className="font-medium">{formatCurrency(aggregatedTotals[CONTAINER_TYPE_40FT_HQ].admin_consolidation_fee)}</span>
-                              </div>
-                            )}
-                            <div className="flex justify-between pt-1.5 border-t border-border">
-                              <span className="font-semibold">Total:</span>
-                              <span className="font-bold text-primary">{formatCurrency(aggregatedTotals[CONTAINER_TYPE_40FT_HQ].total)}</span>
+                            <div className="text-lg font-bold text-primary">
+                              {formatCurrency(aggregatedTotals[CONTAINER_TYPE_40FT_HQ].total)}
                             </div>
                           </div>
-                        </div>
+                        )}
                       </div>
                     </div>
                     
@@ -962,8 +1134,10 @@ export default function CartPage() {
                         {(() => {
                           const total20ft = aggregatedTotals[CONTAINER_TYPE_20FT].total
                           const total40ft = aggregatedTotals[CONTAINER_TYPE_40FT_HQ].total
-                          const has20ft = aggregatedTotals[CONTAINER_TYPE_20FT].space_occupied_cubic_meters > 0
-                          const has40ft = aggregatedTotals[CONTAINER_TYPE_40FT_HQ].space_occupied_cubic_meters > 0
+                          const space20ft = aggregatedTotals[CONTAINER_TYPE_20FT].space_occupied_cubic_meters
+                          const space40ft = aggregatedTotals[CONTAINER_TYPE_40FT_HQ].space_occupied_cubic_meters
+                          const has20ft = space20ft > 0 && space20ft <= 33
+                          const has40ft = space40ft > 0 && space40ft <= 76.4
                           
                           // Always prioritize 20ft container cost
                           if (has20ft) {
@@ -1015,16 +1189,28 @@ export default function CartPage() {
                   </p>
                 </div>
 
-                <Button
-                  className="w-full"
-                  size="lg"
-                  onClick={() => {
-                    setIsOptimizationOpen(true)
-                  }}
-                  // disabled={appliedCoupon && isCouponExpired(appliedCoupon)}
-                >
-                  Submit Enquiry
-                </Button>
+                <div className="flex gap-3 print-hide-buttons">
+                  <Button
+                    className="flex-1"
+                    size="lg"
+                    onClick={() => {
+                      setIsEnquiryOpen(true)
+                    }}
+                    // disabled={appliedCoupon && isCouponExpired(appliedCoupon)}
+                  >
+                    Submit Enquiry
+                  </Button>
+                  <Button
+                    className="flex-1 gap-2"
+                    size="lg"
+                    variant="outline"
+                    onClick={handlePrint}
+                    disabled={items.length === 0}
+                  >
+                    <Download className="w-5 h-5" />
+                    Download Report
+                  </Button>
+                </div>
 
                 {/* {appliedCoupon && isCouponExpired(appliedCoupon) && (
                   <p className="text-xs text-red-600 text-center">
@@ -1042,31 +1228,30 @@ export default function CartPage() {
       </div>
 
 
-      {/* Price Optimization Dialog */}
-      <PriceOptimizationDialog
-        isOpen={isOptimizationOpen}
-        onClose={() => setIsOptimizationOpen(false)}
-        cartItems={items}
-        onApplySuggestion={(suggestion) => {
-          // Apply the suggestion by updating quantities
-          suggestion.changes.forEach(change => {
-            const item = items.find(i => (i.id || i.ID) === change.productId)
-            if (item) {
-              updateQuantity(change.productId, change.newQuantity)
-            }
-          })
-        }}
-        onContinueToEnquiry={() => {
-          setIsEnquiryOpen(true)
-        }}
-      />
 
       {/* Enquiry Form Modal */}
       <EnquiryForm
         isOpen={isEnquiryOpen}
         onClose={() => setIsEnquiryOpen(false)}
         cartItems={items}
-        onSuccess={clearCart}
+        onSuccess={(savedCustomerDetails) => {
+          if (savedCustomerDetails) {
+            // Save customer details for PDF
+            setCustomerDetails(savedCustomerDetails)
+            // Trigger PDF download after a short delay to ensure customer details are rendered
+            setTimeout(() => {
+              handlePrint()
+              // Clear cart and customer details after PDF is generated
+              setTimeout(() => {
+                clearCart()
+                setCustomerDetails(null)
+              }, 2000)
+            }, 1000)
+          } else {
+            // If no customer details, just clear cart
+            clearCart()
+          }
+        }}
         // appliedCoupon={appliedCoupon}
         selectedShipping={selectedShipping}
       />

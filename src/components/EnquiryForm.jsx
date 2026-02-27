@@ -30,6 +30,7 @@ export function EnquiryForm({ isOpen, onClose, product, cartItems, onSuccess, /*
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [submitStatus, setSubmitStatus] = useState(null)
   const [showSuccessAnimation, setShowSuccessAnimation] = useState(false)
+  const [savedCustomerDetails, setSavedCustomerDetails] = useState(null)
 
   // Prefill name and email when user/profile information becomes available
   useEffect(() => {
@@ -58,16 +59,19 @@ export function EnquiryForm({ isOpen, onClose, product, cartItems, onSuccess, /*
 
     try {
       // Prepare customer details with coupon and shipping information
-      const customerDetails = {
+      const customerDetailsData = {
         ...formData,
         // couponCode: appliedCoupon?.coupon_code || null,
         deliveryMethod: selectedShipping || null,
         deliveryTime: selectedShipping === 'air' ? '30 days' : selectedShipping === 'boat' ? '35 days' : null
       }
+      
+      // Store customer details in component state for passing to onSuccess
+      const customerDetails = customerDetailsData
 
       const payload = {
         cartItems: cartItems || [],
-        customerDetails
+        customerDetails: customerDetailsData
       }
 
       // Send to both n8n webhook and local Supabase API
@@ -94,6 +98,8 @@ export function EnquiryForm({ isOpen, onClose, product, cartItems, onSuccess, /*
 
       if (n8nSuccess || localSuccess) {
         setSubmitStatus("success")
+        // Store customer details in state for passing to onSuccess
+        setSavedCustomerDetails(customerDetailsData)
         // Close the dialog first
         onClose()
         // Show success animation (cart will be cleared when animation completes)
@@ -122,8 +128,10 @@ export function EnquiryForm({ isOpen, onClose, product, cartItems, onSuccess, /*
 
   const handleSuccessAnimationComplete = () => {
     setShowSuccessAnimation(false)
-    // Clear cart after animation completes
-    if (onSuccess) {
+    // Pass customer details to onSuccess callback
+    if (onSuccess && savedCustomerDetails) {
+      onSuccess(savedCustomerDetails)
+    } else if (onSuccess) {
       onSuccess()
     }
     // Reset form after animation completes
@@ -136,6 +144,7 @@ export function EnquiryForm({ isOpen, onClose, product, cartItems, onSuccess, /*
       message: ""
     })
     setSubmitStatus(null)
+    setSavedCustomerDetails(null)
   }
 
   return (
