@@ -328,7 +328,7 @@ export default function DataEntryPage() {
                 💡 <strong>Variation Builder:</strong> Use commas to list multiple values in text fields below. We'll create every combination automatically.
                 <br />
                 <span className="text-[10px] sm:text-xs">
-                  Example: Voltage "220V, 240V" × Power "15W, 20W" × CCT "3000K, 4000K" = 8 variations
+                  Example: Voltage "AC 120V" × Power "15W, 20W" × CCT "3000K, 4000K" = 8 variations
                 </span>
               </p>
               {variationCount > 0 && (
@@ -453,7 +453,7 @@ export default function DataEntryPage() {
                         id="voltage"
                         value={formState.voltage}
                         onChange={handleInputChange('voltage')}
-                        placeholder="e.g., 220V, 240V"
+                        placeholder="e.g., AC 120V"
                         className="bg-background border-border"
                       />
                     </div>

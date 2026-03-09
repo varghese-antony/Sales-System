@@ -167,7 +167,7 @@ export function EditProductModal({ product, isOpen, onClose, onSave, isCreate = 
   const readOnlyFieldClass = 'p-2 bg-gradient-to-r from-muted/50 to-muted rounded-md text-sm border border-border/50';
   const technicalFields = [
     { key: 'powerW', label: 'Power (W)', placeholder: 'e.g., 15W' },
-    { key: 'voltage', label: 'Voltage', placeholder: 'e.g., 220V' },
+    { key: 'voltage', label: 'Voltage', placeholder: 'e.g., AC 120V' },
     { key: 'cct', label: 'CCT (K)', placeholder: 'e.g., 3000K' },
     { key: 'criRa', label: 'CRI (Ra)', placeholder: 'e.g., 80' },
     { key: 'lumen', label: 'Lumen', placeholder: 'e.g., 1200' },

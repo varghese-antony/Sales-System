@@ -64,7 +64,7 @@ export const V2_SCHEMA = {
     model_number: { maxLength: 255 },
     description: { maxLength: 1000 },
     size: { maxLength: 100 },
-    voltage: { maxLength: 50, pattern: /^\d+(-\d+)?V$/i },
+    voltage: { maxLength: 50, pattern: /^(AC\s?)?\d+(-\d+)?V$/i },
     cct: { maxLength: 50, pattern: /^\d+K$/i },
     dimming_type: { maxLength: 100 },
     led_type: { maxLength: 100 },
