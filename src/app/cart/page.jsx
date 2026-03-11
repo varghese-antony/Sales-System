@@ -141,57 +141,21 @@ export default function CartPage() {
     },
     pageStyle: `
       @page {
-        size: A4 landscape;
+        size: A4;
         margin: 15mm;
       }
       @media print {
         * {
           -webkit-print-color-adjust: exact !important;
           print-color-adjust: exact !important;
-          color-adjust: exact !important;
         }
-        html.dark,
-        html.dark body,
-        .dark,
-        [data-theme="dark"],
-        [data-theme="dark"] * {
-          -webkit-print-color-adjust: exact !important;
-          print-color-adjust: exact !important;
-          color-adjust: exact !important;
+        html, body, .print-container, .print-container * {
+          background: white !important;
+          color: black !important;
         }
-        html.dark .print-container,
-        .dark.print-container,
-        [data-theme="dark"].print-container {
-          background: oklch(0.08 0.02 264.376) !important;
-          color: oklch(0.98 0.005 106.423) !important;
-        }
-        html.dark [class*="bg-background"],
-        .dark [class*="bg-background"],
-        [data-theme="dark"] [class*="bg-background"] {
-          background: oklch(0.08 0.02 264.376) !important;
-        }
-        html.dark [class*="bg-card"],
-        .dark [class*="bg-card"],
-        [data-theme="dark"] [class*="bg-card"] {
-          background: oklch(0.12 0.02 264.376) !important;
-        }
-        html.dark [class*="text-foreground"],
-        html.dark [class*="text-muted-foreground"],
-        .dark [class*="text-foreground"],
-        .dark [class*="text-muted-foreground"],
-        [data-theme="dark"] [class*="text-foreground"],
-        [data-theme="dark"] [class*="text-muted-foreground"] {
-          color: oklch(0.98 0.005 106.423) !important;
-        }
-        html.dark [class*="border"],
-        .dark [class*="border"],
-        [data-theme="dark"] [class*="border"] {
-          border-color: oklch(0.2 0.02 264.376) !important;
-        }
-        html.dark [class*="bg-muted"],
-        .dark [class*="bg-muted"],
-        [data-theme="dark"] [class*="bg-muted"] {
-          background: oklch(0.16 0.02 264.376) !important;
+        .print-container [class*="text-primary"],
+        .print-container [class*="text-muted"] {
+          color: black !important;
         }
         body {
           -webkit-print-color-adjust: exact;
@@ -202,15 +166,40 @@ export default function CartPage() {
           padding: 0 !important;
         }
         .print-grid {
-          display: grid !important;
-          grid-template-columns: 2fr 1fr !important;
-          gap: 1.5rem !important;
-        }
-        .print-cart-items {
-          grid-column: 1 !important;
+          display: block !important;
         }
         .print-cart-summary {
-          grid-column: 2 !important;
+          display: none !important;
+        }
+        .print-cart-items {
+          display: block !important;
+        }
+        .print-cart-items .group {
+          margin-bottom: 1.5rem !important;
+          break-inside: avoid;
+        }
+        .print-cart-items .border {
+          border: 1px solid #000 !important;
+        }
+        .print-container [data-slot="card"],
+        .print-container [class*="Card"] {
+          box-shadow: none !important;
+          border: 1px solid #000 !important;
+          margin-bottom: 1.25rem !important;
+          break-inside: avoid;
+        }
+        .print-container .bg-gradient-to-br,
+        .print-container [class*="gradient"] {
+          background: white !important;
+          border: 1px solid #000 !important;
+        }
+        .print-container .bg-gradient-to-br svg,
+        .print-container [class*="gradient"] svg {
+          color: black !important;
+          stroke: black !important;
+        }
+        .print-container a {
+          color: black !important;
         }
         .sticky {
           position: relative !important;
@@ -220,11 +209,29 @@ export default function CartPage() {
           page-break-inside: avoid;
           break-inside: avoid;
         }
-        .md\\:grid-cols-2 {
-          grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+        .print-hide-on-print {
+          display: none !important;
+        }
+        .print-summary-box {
+          display: block !important;
+          margin-top: 2rem !important;
+          padding: 1rem 1.5rem !important;
+          border: 2px solid #000 !important;
+          background: white !important;
+          color: black !important;
+          break-inside: avoid;
         }
         .print-title-container {
-          position: relative;
+          margin-bottom: 1.5rem !important;
+          page-break-after: avoid !important;
+        }
+        .print-title-container h1 {
+          display: flex !important;
+          align-items: center !important;
+          justify-content: center !important;
+          gap: 0.75rem !important;
+          margin-bottom: 0 !important;
+          color: black !important;
         }
         .print-hide-icon {
           display: none !important;
@@ -232,51 +239,33 @@ export default function CartPage() {
         .print-hide-subtitle {
           display: none !important;
         }
-        .print-order-summary {
+        .print-title .title-text {
           display: none !important;
         }
-        @media print {
-          .print-title-container {
-            margin-bottom: 1.5rem !important;
-            page-break-after: avoid !important;
-          }
-          .print-title-container h1 {
-            display: flex !important;
-            align-items: center !important;
-            justify-content: center !important;
-            gap: 0.75rem !important;
-            margin-bottom: 0 !important;
-          }
-          .print-title .title-text {
-            display: none !important;
-          }
-          .print-order-summary {
-            display: block !important;
-            font-size: 2.25rem !important;
-            font-weight: 700 !important;
-            margin: 0 !important;
-            padding: 0 !important;
-          }
-          button,
-          .print-hide-buttons,
-          .print-hide-buttons * {
-            display: none !important;
-            visibility: hidden !important;
-          }
+        .print-order-summary {
+          display: block !important;
+          font-size: 1.5rem !important;
+          font-weight: 700 !important;
+          margin: 0 !important;
+          padding: 0 !important;
+          color: black !important;
+        }
+        button,
+        .print-hide-buttons,
+        .print-hide-buttons * {
+          display: none !important;
+          visibility: hidden !important;
         }
         .print-only {
-          display: none !important;
+          display: block !important;
         }
         .print-customer-details {
           display: block !important;
           page-break-inside: avoid;
           break-inside: avoid;
-        }
-        html.dark .print-customer-details,
-        .dark .print-customer-details,
-        [data-theme="dark"] .print-customer-details {
-          background: oklch(0.12 0.02 264.376) !important;
-          border-color: oklch(0.2 0.02 264.376) !important;
+          background: white !important;
+          color: black !important;
+          border: 1px solid #000 !important;
         }
       }
     `
@@ -498,8 +487,8 @@ export default function CartPage() {
         className={`container mx-auto py-8 px-4 sm:px-6 lg:px-8 print-container ${isDarkMode ? 'dark' : ''}`}
         data-theme={isDarkMode ? 'dark' : 'light'}
       >
-        {/* Header */}
-        <div className="flex items-center justify-between mb-8">
+        {/* Header - hidden when printing */}
+        <div className="flex items-center justify-between mb-8 print-hide-buttons">
           <Link href="/">
             <Button variant="outline" className="group">
               <ArrowLeft className="w-4 h-4 mr-2 group-hover:-translate-x-1 transition-transform" />
@@ -588,8 +577,8 @@ export default function CartPage() {
                 exit={{ opacity: 0, y: -20 }}
                 className="group"
               >
-                <Card className="hover:shadow-lg transition-all duration-300">
-                  <CardContent className="p-6">
+                <Card className="hover:shadow-lg transition-all duration-300 print:shadow-none print:border print:border-black">
+                  <CardContent className="p-6 print:p-4">
                     <div className="flex items-start gap-4">
                       {/* Product Image Placeholder */}
                       {getProductLink(item) ? (
@@ -755,9 +744,9 @@ export default function CartPage() {
                           </Button>
                         </div>
 
-                        {/* Container Price Breakdown */}
+                        {/* Container Price Breakdown - hidden when printing to reduce congestion */}
                         {getItemPricePerUnitSummary(item) && (
-                          <div className="mt-4">
+                          <div className="mt-4 print-hide-on-print">
                             <ContainerPriceBreakdown 
                               priceSummary={getItemPricePerUnitSummary(item)} 
                               quantity={item.quantity} 
@@ -770,9 +759,51 @@ export default function CartPage() {
                 </Card>
               </motion.div>
             ))}
+
+            {/* Print-only: Total and Container Usage at bottom */}
+            <div className="hidden print-only print-summary-box">
+              <h3 className="text-base font-bold mb-3" style={{ color: 'black' }}>Summary</h3>
+              <div className="space-y-2">
+                <div className="flex justify-between">
+                  <span style={{ color: 'black' }}>Total Price:</span>
+                  <span className="font-bold" style={{ color: 'black' }}>
+                    {(() => {
+                      const total20ft = aggregatedTotals[CONTAINER_TYPE_20FT].total
+                      const total40ft = aggregatedTotals[CONTAINER_TYPE_40FT_HQ].total
+                      const space20ft = aggregatedTotals[CONTAINER_TYPE_20FT].space_occupied_cubic_meters
+                      const space40ft = aggregatedTotals[CONTAINER_TYPE_40FT_HQ].space_occupied_cubic_meters
+                      const has20ft = space20ft > 0 && space20ft <= 33
+                      const has40ft = space40ft > 0 && space40ft <= 76.4
+                      if (has20ft) return formatCurrency(total20ft)
+                      if (has40ft) return formatCurrency(total40ft)
+                      return formatCurrency(finalTotal)
+                    })()}
+                  </span>
+                </div>
+                {(aggregatedTotals[CONTAINER_TYPE_20FT].space_occupied_cubic_meters > 0 || aggregatedTotals[CONTAINER_TYPE_40FT_HQ].space_occupied_cubic_meters > 0) && (
+                  <div className="flex justify-between">
+                    <span style={{ color: 'black' }}>Container Usage:</span>
+                    <span style={{ color: 'black' }}>
+                      {[
+                        aggregatedTotals[CONTAINER_TYPE_20FT].space_occupied_cubic_meters > 0 && aggregatedTotals[CONTAINER_TYPE_20FT].space_occupied_cubic_meters <= 33
+                          ? `20ft: ${aggregatedTotals[CONTAINER_TYPE_20FT].space_occupied_cubic_meters.toFixed(2)} m³`
+                          : null,
+                        aggregatedTotals[CONTAINER_TYPE_40FT_HQ].space_occupied_cubic_meters > 0 && aggregatedTotals[CONTAINER_TYPE_40FT_HQ].space_occupied_cubic_meters <= 76.4
+                          ? `40ft HQ: ${aggregatedTotals[CONTAINER_TYPE_40FT_HQ].space_occupied_cubic_meters.toFixed(2)} m³`
+                          : null
+                      ].filter(Boolean).join(' | ') || 'N/A'}
+                    </span>
+                  </div>
+                )}
+                <div className="flex justify-between pt-1 border-t border-black mt-2">
+                  <span style={{ color: 'black' }}>Total Items:</span>
+                  <span style={{ color: 'black' }}>{formatInteger(getTotalItems())} {getTotalItems() === 1 ? 'item' : 'items'}</span>
+                </div>
+              </div>
+            </div>
           </div>
 
-          {/* Cart Summary */}
+          {/* Cart Summary - hidden when printing */}
           <div className="lg:col-span-1 print-cart-summary">
             <Card className="sticky top-8 pb-6">
               <CardHeader>
