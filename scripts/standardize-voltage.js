@@ -75,8 +75,8 @@ async function main() {
   console.log(`Standardizing all voltage values to "${STANDARD_VOLTAGE}"...\n`);
 
   try {
-    const indoorCount = await standardizeVoltageInTable('indoor_products_v2');
-    const outdoorCount = await standardizeVoltageInTable('outdoor_products_v2');
+    const indoorCount = await standardizeVoltageInTable('indoor_products_v3');
+    const outdoorCount = await standardizeVoltageInTable('outdoor_products_v3');
 
     console.log(`\nDone. Updated ${indoorCount} indoor + ${outdoorCount} outdoor = ${indoorCount + outdoorCount} total products.`);
   } catch (err) {
