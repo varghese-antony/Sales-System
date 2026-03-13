@@ -2,8 +2,12 @@
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Alert, AlertDescription } from "@/components/ui/alert"
+import { ContainerFillVisual } from "@/components/ContainerFillVisual"
 import { Package } from "lucide-react"
 import { CONTAINER_TYPE_20FT, CONTAINER_TYPE_40FT_HQ } from "../../lib/utils.js"
+
+const CONTAINER_20FT_CAPACITY_M3 = 33
+const CONTAINER_40FT_CAPACITY_M3 = 76.4
 
 const formatCurrency = (value) => {
   const numeric = Number.isFinite(value) ? value : 0
@@ -12,8 +16,6 @@ const formatCurrency = (value) => {
 
 export function ContainerPriceBreakdown({ priceSummary, quantity = 1 }) {
   if (!priceSummary) return null
-
-  console.log("Price summary", priceSummary)
 
   const container20ft = priceSummary[CONTAINER_TYPE_20FT]
   const container40ft = priceSummary[CONTAINER_TYPE_40FT_HQ]
@@ -43,10 +45,18 @@ export function ContainerPriceBreakdown({ priceSummary, quantity = 1 }) {
           {has20ft ? (
             <div className="space-y-1.5">
               {container20ft.space_occupied_cubic_meters !== undefined && (
-                <div className="flex justify-between items-center text-xs mb-1 pb-1 border-b border-border/30">
-                  <span className="text-muted-foreground">Space Occupied:</span>
-                  <span className="font-medium">{container20ft.space_occupied_cubic_meters.toFixed(2)} m³</span>
-                </div>
+                <>
+                  <div className="flex justify-between items-center text-xs mb-1 pb-1 border-b border-border/30">
+                    <span className="text-muted-foreground">Space Occupied:</span>
+                    <span className="font-medium">{container20ft.space_occupied_cubic_meters.toFixed(2)} m³</span>
+                  </div>
+                  <div className="mb-2">
+                    <ContainerFillVisual
+                      percentage={(container20ft.space_occupied_cubic_meters / CONTAINER_20FT_CAPACITY_M3) * 100}
+                      label="20ft fill"
+                    />
+                  </div>
+                </>
               )}
               <div className="flex justify-between items-center text-xs">
                 <span className="text-muted-foreground">Product Price:</span>
@@ -80,10 +90,18 @@ export function ContainerPriceBreakdown({ priceSummary, quantity = 1 }) {
           {has40ft ? (
             <div className="space-y-1.5">
               {container40ft.space_occupied_cubic_meters !== undefined && (
-                <div className="flex justify-between items-center text-xs mb-1 pb-1 border-b border-border/30">
-                  <span className="text-muted-foreground">Space Occupied:</span>
-                  <span className="font-medium">{container40ft.space_occupied_cubic_meters.toFixed(2)} m³</span>
-                </div>
+                <>
+                  <div className="flex justify-between items-center text-xs mb-1 pb-1 border-b border-border/30">
+                    <span className="text-muted-foreground">Space Occupied:</span>
+                    <span className="font-medium">{container40ft.space_occupied_cubic_meters.toFixed(2)} m³</span>
+                  </div>
+                  <div className="mb-2">
+                    <ContainerFillVisual
+                      percentage={(container40ft.space_occupied_cubic_meters / CONTAINER_40FT_CAPACITY_M3) * 100}
+                      label="40ft HQ fill"
+                    />
+                  </div>
+                </>
               )}
               <div className="flex justify-between items-center text-xs">
                 <span className="text-muted-foreground">Product Price:</span>

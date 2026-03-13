@@ -15,8 +15,12 @@ import { Input } from "@/components/ui/input"
 import Link from "next/link"
 import { productNameToSlug } from "@/lib/utils/slug"
 import { getProductPriceSummaryPerUnit, getProductPriceSummary, CONTAINER_TYPE_20FT, CONTAINER_TYPE_40FT_HQ } from "../../../lib/utils.js"
+
+const CONTAINER_20FT_CAPACITY_M3 = 33
+const CONTAINER_40FT_CAPACITY_M3 = 76.4
 import { ContainerPriceBreakdown } from '@/components/ContainerPriceBreakdown'
 import { Alert, AlertDescription } from '@/components/ui/alert'
+import { ContainerFillVisual } from '@/components/ContainerFillVisual'
 
 const MARKUP_PERCENTAGE_DEFAULT = 30 // 30% default markup
 
@@ -1034,10 +1038,18 @@ export default function CartPage() {
                                   <h6 className="text-xs font-medium text-muted-foreground">20ft Container</h6>
                                   <div className="space-y-0.5 text-xs">
                                     {summary[CONTAINER_TYPE_20FT].space_occupied_cubic_meters !== undefined && (
-                                      <div className="flex justify-between mb-1 pb-1 border-b border-border/30">
-                                        <span className="text-muted-foreground">Space Occupied:</span>
-                                        <span className="font-medium">{summary[CONTAINER_TYPE_20FT].space_occupied_cubic_meters.toFixed(2)} m³</span>
-                                      </div>
+                                      <>
+                                        <div className="flex justify-between mb-1 pb-1 border-b border-border/30">
+                                          <span className="text-muted-foreground">Space Occupied:</span>
+                                          <span className="font-medium">{summary[CONTAINER_TYPE_20FT].space_occupied_cubic_meters.toFixed(2)} m³</span>
+                                        </div>
+                                        <div className="mb-1">
+                                          <ContainerFillVisual
+                                            percentage={(summary[CONTAINER_TYPE_20FT].space_occupied_cubic_meters / CONTAINER_20FT_CAPACITY_M3) * 100}
+                                            label="20ft"
+                                          />
+                                        </div>
+                                      </>
                                     )}
                                     <div className="flex justify-between">
                                       <span className="text-muted-foreground">Product:</span>
@@ -1072,10 +1084,18 @@ export default function CartPage() {
                                   <h6 className="text-xs font-medium text-muted-foreground">40ft Container</h6>
                                   <div className="space-y-0.5 text-xs">
                                     {summary[CONTAINER_TYPE_40FT_HQ].space_occupied_cubic_meters !== undefined && (
-                                      <div className="flex justify-between mb-1 pb-1 border-b border-border/30">
-                                        <span className="text-muted-foreground">Space Occupied:</span>
-                                        <span className="font-medium">{summary[CONTAINER_TYPE_40FT_HQ].space_occupied_cubic_meters.toFixed(2)} m³</span>
-                                      </div>
+                                      <>
+                                        <div className="flex justify-between mb-1 pb-1 border-b border-border/30">
+                                          <span className="text-muted-foreground">Space Occupied:</span>
+                                          <span className="font-medium">{summary[CONTAINER_TYPE_40FT_HQ].space_occupied_cubic_meters.toFixed(2)} m³</span>
+                                        </div>
+                                        <div className="mb-1">
+                                          <ContainerFillVisual
+                                            percentage={(summary[CONTAINER_TYPE_40FT_HQ].space_occupied_cubic_meters / CONTAINER_40FT_CAPACITY_M3) * 100}
+                                            label="40ft HQ"
+                                          />
+                                        </div>
+                                      </>
                                     )}
                                     <div className="flex justify-between">
                                       <span className="text-muted-foreground">Product:</span>
@@ -1116,11 +1136,17 @@ export default function CartPage() {
                         {/* 20ft Total */}
                         {aggregatedTotals[CONTAINER_TYPE_20FT].space_occupied_cubic_meters > 0 && 
                          aggregatedTotals[CONTAINER_TYPE_20FT].space_occupied_cubic_meters <= 33 && (
-                          <div className="space-y-1">
+                          <div className="space-y-2">
                             <h6 className="text-xs font-semibold text-muted-foreground">20ft Container Total</h6>
-                            <div className="flex justify-between items-center mb-2">
+                            <div className="flex justify-between items-center">
                               <span className="text-xs text-muted-foreground">Space Occupied:</span>
                               <span className="text-xs font-medium">{aggregatedTotals[CONTAINER_TYPE_20FT].space_occupied_cubic_meters.toFixed(2)} m³</span>
+                            </div>
+                            <div className="py-2">
+                              <ContainerFillVisual
+                                percentage={(aggregatedTotals[CONTAINER_TYPE_20FT].space_occupied_cubic_meters / CONTAINER_20FT_CAPACITY_M3) * 100}
+                                label="20ft utilized"
+                              />
                             </div>
                             <div className="text-lg font-bold text-primary">
                               {formatCurrency(aggregatedTotals[CONTAINER_TYPE_20FT].total)}
@@ -1131,11 +1157,17 @@ export default function CartPage() {
                         {/* 40ft Total */}
                         {aggregatedTotals[CONTAINER_TYPE_40FT_HQ].space_occupied_cubic_meters > 0 && 
                          aggregatedTotals[CONTAINER_TYPE_40FT_HQ].space_occupied_cubic_meters <= 76.4 && (
-                          <div className="space-y-1">
+                          <div className="space-y-2">
                             <h6 className="text-xs font-semibold text-muted-foreground">40ft Container Total</h6>
-                            <div className="flex justify-between items-center mb-2">
+                            <div className="flex justify-between items-center">
                               <span className="text-xs text-muted-foreground">Space Occupied:</span>
                               <span className="text-xs font-medium">{aggregatedTotals[CONTAINER_TYPE_40FT_HQ].space_occupied_cubic_meters.toFixed(2)} m³</span>
+                            </div>
+                            <div className="py-2">
+                              <ContainerFillVisual
+                                percentage={(aggregatedTotals[CONTAINER_TYPE_40FT_HQ].space_occupied_cubic_meters / CONTAINER_40FT_CAPACITY_M3) * 100}
+                                label="40ft HQ utilized"
+                              />
                             </div>
                             <div className="text-lg font-bold text-primary">
                               {formatCurrency(aggregatedTotals[CONTAINER_TYPE_40FT_HQ].total)}
