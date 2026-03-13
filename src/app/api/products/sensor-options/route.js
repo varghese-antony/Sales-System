@@ -50,17 +50,16 @@ export async function GET(request) {
 
 
       if (has_sensors_and_controls) {
-     
         if (row.occupancy) {
           controlType = 'Occupancy'
         } else if (row.bi_level) {
           controlType = 'Bi-Level'
+        } else {
+          controlType = 'Occupancy' // Fallback when sensors true but occupancy/bi_level not set
         }
       } else {
         controlType = 'None'
       }
-
-
 
       if (!sensorOptionsMap[controlType]) {
         sensorOptionsMap[controlType] = {
@@ -87,8 +86,10 @@ export async function GET(request) {
       if (row.plugin_sensor) sensorOptionsMap[controlType].hasPluginSensor = true
     })
 
-    // Convert to array format
-    const sensorOptions = Object.values(sensorOptionsMap).map(option => ({
+    // Convert to array format, filter out any empty controlType
+    const sensorOptions = Object.values(sensorOptionsMap)
+      .filter(opt => opt.controlType && opt.controlType.trim() !== '')
+      .map(option => ({
       controlType: option.controlType,
       sensorTypes: Array.from(option.sensorTypes),
       hasRemoteControl: option.hasRemoteControl,

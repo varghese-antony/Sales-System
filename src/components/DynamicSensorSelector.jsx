@@ -91,8 +91,6 @@ export function DynamicSensorSelector({
     fetchSensorOptions()
   }, [productName, type])
 
-  console.log("$$$$$$$$$$$$$$$$$$$ SELETCED SENSORS $$$$$$$$$$$, s",selectedSensor)
-
   // Auto-submit when "None" is selected
   useEffect(() => {
     if (selectedControl === 'None' && onSelectionChange) {
@@ -122,7 +120,8 @@ export function DynamicSensorSelector({
     
     const controlOption = sensorOptions.find(opt => opt.controlType === controlType)
 
-    if (controlOption && controlOption.sensorTypes.length === 1) {
+    // Auto-select sensor type when 1 or more options - allows user to proceed immediately
+    if (controlOption && controlOption.sensorTypes.length > 0) {
       setSelectedSensor(controlOption.sensorTypes[0])
     }
 
@@ -174,12 +173,6 @@ export function DynamicSensorSelector({
     )
   }
 
-  console.log("############# selectedControl ", selectedControl)
-  console.log("################# currentControlOption",currentControlOption)
-  console.log("Has remote control", hasRemote)
-  console.log("Has emergency backup", hasEmergencyBackup)
-  console.log("Has plugin sensor", hasPluginSensor)
-  
   return (
     <div className={`space-y-6 ${className}`}>
       {/* Control Type Selection */}
@@ -375,15 +368,22 @@ export function DynamicSensorSelector({
       )}
 
       {/* Submit button - Hide when None is selected (auto-submitted) */}
-      {selectedControl !== 'None' && (
-        <div className="flex justify-end">
-          <Button 
-            onClick={handleSubmit}
-            disabled={!selectedControl || (currentControlOption?.sensorTypes?.length > 0 && !selectedSensor)}
-          >
-            Submit Selection
-          </Button>
-        </div>
+      {selectedControl && selectedControl !== 'None' && (
+        <Card className="border-primary/30 bg-primary/5">
+          <CardContent className="flex flex-col sm:flex-row items-center justify-between gap-4 pt-6">
+            <p className="text-sm text-muted-foreground text-center sm:text-left">
+              Ready to continue? Click below to see available options.
+            </p>
+            <Button 
+              onClick={handleSubmit}
+              size="lg"
+              className="w-full sm:w-auto min-w-[200px]"
+              disabled={!selectedControl || (currentControlOption?.sensorTypes?.length > 0 && !selectedSensor)}
+            >
+              Submit Selection
+            </Button>
+          </CardContent>
+        </Card>
       )}
     </div>
   )
