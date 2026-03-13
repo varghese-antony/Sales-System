@@ -146,20 +146,32 @@ export default function CartPage() {
     pageStyle: `
       @page {
         size: A4;
-        margin: 15mm;
+        margin: 18mm;
       }
       @media print {
         * {
           -webkit-print-color-adjust: exact !important;
           print-color-adjust: exact !important;
         }
-        html, body, .print-container, .print-container * {
+        html, body {
           background: white !important;
           color: black !important;
         }
-        .print-container [class*="text-primary"],
-        .print-container [class*="text-muted"] {
+        .print-container,
+        .print-container *,
+        .print-container [class*="text-"],
+        .print-container [class*="bg-"],
+        .print-container a,
+        .print-container span,
+        .print-container div,
+        .print-container p,
+        .print-container h1, .print-container h2, .print-container h3 {
+          background: white !important;
           color: black !important;
+          -webkit-print-color-adjust: exact !important;
+        }
+        .print-container [class*="border"] {
+          border-color: #000 !important;
         }
         body {
           -webkit-print-color-adjust: exact;
@@ -167,7 +179,7 @@ export default function CartPage() {
         }
         .print-container {
           max-width: 100% !important;
-          padding: 0 !important;
+          padding: 0 8px !important;
         }
         .print-grid {
           display: block !important;
@@ -177,10 +189,13 @@ export default function CartPage() {
         }
         .print-cart-items {
           display: block !important;
+          padding-bottom: 2rem !important;
         }
         .print-cart-items .group {
-          margin-bottom: 1.5rem !important;
+          margin-bottom: 2rem !important;
+          padding-bottom: 1.5rem !important;
           break-inside: avoid;
+          page-break-inside: avoid;
         }
         .print-cart-items .border {
           border: 1px solid #000 !important;
@@ -189,8 +204,13 @@ export default function CartPage() {
         .print-container [class*="Card"] {
           box-shadow: none !important;
           border: 1px solid #000 !important;
-          margin-bottom: 1.25rem !important;
+          margin-bottom: 2rem !important;
+          padding: 1rem 1.25rem !important;
           break-inside: avoid;
+          page-break-inside: avoid;
+        }
+        .print-container [class*="CardContent"] {
+          padding: 1rem 1.25rem !important;
         }
         .print-container .bg-gradient-to-br,
         .print-container [class*="gradient"] {
@@ -205,6 +225,12 @@ export default function CartPage() {
         .print-container a {
           color: black !important;
         }
+        .print-container .flex {
+          gap: 0.75rem !important;
+        }
+        .print-container .grid {
+          gap: 0.5rem !important;
+        }
         .sticky {
           position: relative !important;
           top: 0 !important;
@@ -218,12 +244,36 @@ export default function CartPage() {
         }
         .print-summary-box {
           display: block !important;
-          margin-top: 2rem !important;
-          padding: 1rem 1.5rem !important;
+          margin-top: 2.5rem !important;
+          padding: 1.25rem 1.5rem !important;
           border: 2px solid #000 !important;
           background: white !important;
           color: black !important;
           break-inside: avoid;
+          page-break-inside: avoid;
+        }
+        .print-container [class*="Badge"] {
+          background: white !important;
+          color: black !important;
+          border: 1px solid #000 !important;
+        }
+        .print-container .grid-cols-2 {
+          grid-template-columns: 1fr 1fr !important;
+          gap: 0.75rem 1.5rem !important;
+        }
+        .print-container {
+          line-height: 1.4 !important;
+        }
+        .print-container .min-w-0 {
+          min-width: 0 !important;
+        }
+        .print-container .flex-1 {
+          flex: 1 1 auto !important;
+          min-width: 0 !important;
+        }
+        .print-container * {
+          overflow-wrap: break-word !important;
+          word-wrap: break-word !important;
         }
         .print-title-container {
           margin-bottom: 1.5rem !important;
@@ -586,13 +636,13 @@ export default function CartPage() {
                     <div className="flex items-start gap-4">
                       {/* Product Image Placeholder */}
                       {getProductLink(item) ? (
-                        <Link href={getProductLink(item)} className="flex-shrink-0">
+                        <Link href={getProductLink(item)} className="flex-shrink-0 print-hide-on-print">
                           <div className="w-20 h-20 rounded-lg bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center cursor-pointer hover:opacity-80 transition-opacity">
                             <Package className="w-8 h-8 text-white" />
                           </div>
                         </Link>
                       ) : (
-                        <div className="w-20 h-20 rounded-lg bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center flex-shrink-0">
+                        <div className="w-20 h-20 rounded-lg bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center flex-shrink-0 print-hide-on-print">
                           <Package className="w-8 h-8 text-white" />
                         </div>
                       )}
@@ -639,8 +689,8 @@ export default function CartPage() {
                           )
                         })()}
 
-                        {/* Product Type Badges */}
-                        <div className="flex flex-wrap gap-2 mb-3">
+                        {/* Product Type Badges - hidden when printing to reduce congestion */}
+                        <div className="flex flex-wrap gap-2 mb-3 print-hide-on-print">
                           {item.type && (
                             <Badge variant="outline" className="text-xs bg-blue-50">
                               {item.type}
