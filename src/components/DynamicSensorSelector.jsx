@@ -328,8 +328,8 @@ export function DynamicSensorSelector({
         </Card>
       )}
 
-      {/* Selection Summary */}
-      {selectedControl && (selectedSensor || selectedControl === 'None') && (
+      {/* Selection Summary - show when control selected and (sensor selected, or None, or no sensor subtypes available) */}
+      {selectedControl && (selectedSensor || selectedControl === 'None' || (currentControlOption?.sensorTypes?.length === 0)) && (
         <Card className="bg-muted/50">
           <CardHeader>
             <CardTitle className="text-lg">Selection Summary</CardTitle>
@@ -379,7 +379,7 @@ export function DynamicSensorSelector({
         <div className="flex justify-end">
           <Button 
             onClick={handleSubmit}
-            disabled={!selectedControl || !selectedSensor}
+            disabled={!selectedControl || (currentControlOption?.sensorTypes?.length > 0 && !selectedSensor)}
           >
             Submit Selection
           </Button>

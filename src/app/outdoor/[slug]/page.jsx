@@ -144,7 +144,9 @@ export default function OutdoorProductPage({ params }) {
     setIsLoading(true)
     setError(null)
 
-    const newFilters = { ...selectedFilters, [key]: value }
+    // Map 'N/A' to null for DB columns that store null/empty - otherwise filter won't match
+    const filterValue = value === 'N/A' || value === '' ? null : value
+    const newFilters = { ...selectedFilters, [key]: filterValue }
     setSelectedFilters(newFilters)
 
     try {
