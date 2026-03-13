@@ -1038,18 +1038,10 @@ export default function CartPage() {
                                   <h6 className="text-xs font-medium text-muted-foreground">20ft Container</h6>
                                   <div className="space-y-0.5 text-xs">
                                     {summary[CONTAINER_TYPE_20FT].space_occupied_cubic_meters !== undefined && (
-                                      <>
-                                        <div className="flex justify-between mb-1 pb-1 border-b border-border/30">
-                                          <span className="text-muted-foreground">Space Occupied:</span>
-                                          <span className="font-medium">{summary[CONTAINER_TYPE_20FT].space_occupied_cubic_meters.toFixed(2)} m³</span>
-                                        </div>
-                                        <div className="mb-1">
-                                          <ContainerFillVisual
-                                            percentage={(summary[CONTAINER_TYPE_20FT].space_occupied_cubic_meters / CONTAINER_20FT_CAPACITY_M3) * 100}
-                                            label="20ft"
-                                          />
-                                        </div>
-                                      </>
+                                      <div className="flex justify-between mb-1 pb-1 border-b border-border/30">
+                                        <span className="text-muted-foreground">Space Occupied:</span>
+                                        <span className="font-medium">{summary[CONTAINER_TYPE_20FT].space_occupied_cubic_meters.toFixed(2)} m³</span>
+                                      </div>
                                     )}
                                     <div className="flex justify-between">
                                       <span className="text-muted-foreground">Product:</span>
@@ -1084,18 +1076,10 @@ export default function CartPage() {
                                   <h6 className="text-xs font-medium text-muted-foreground">40ft Container</h6>
                                   <div className="space-y-0.5 text-xs">
                                     {summary[CONTAINER_TYPE_40FT_HQ].space_occupied_cubic_meters !== undefined && (
-                                      <>
-                                        <div className="flex justify-between mb-1 pb-1 border-b border-border/30">
-                                          <span className="text-muted-foreground">Space Occupied:</span>
-                                          <span className="font-medium">{summary[CONTAINER_TYPE_40FT_HQ].space_occupied_cubic_meters.toFixed(2)} m³</span>
-                                        </div>
-                                        <div className="mb-1">
-                                          <ContainerFillVisual
-                                            percentage={(summary[CONTAINER_TYPE_40FT_HQ].space_occupied_cubic_meters / CONTAINER_40FT_CAPACITY_M3) * 100}
-                                            label="40ft HQ"
-                                          />
-                                        </div>
-                                      </>
+                                      <div className="flex justify-between mb-1 pb-1 border-b border-border/30">
+                                        <span className="text-muted-foreground">Space Occupied:</span>
+                                        <span className="font-medium">{summary[CONTAINER_TYPE_40FT_HQ].space_occupied_cubic_meters.toFixed(2)} m³</span>
+                                      </div>
                                     )}
                                     <div className="flex justify-between">
                                       <span className="text-muted-foreground">Product:</span>
