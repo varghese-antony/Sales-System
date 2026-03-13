@@ -91,8 +91,10 @@ export function OptionSelector({
   step,
   totalSteps,
   products = [],
-  costSelections = []
+  costSelections = [],
+  fieldKey = null // DB field for product matching (e.g. 'power_w' when title is 'Wattage')
 }) {
+  const matchKey = fieldKey || title
   const getOptionIcon = (value) => {
     if (value?.toString().toLowerCase().includes('led')) return <Zap className="w-4 h-4" />
     if (value?.toString().toLowerCase().includes('w')) return <Zap className="w-4 h-4" />
@@ -108,7 +110,7 @@ export function OptionSelector({
 
   const getModelNumbers = (value) => {
     // Find all products that match this option value and have model numbers
-    const matchingProducts = products.filter(p => norm(p[title]) === norm(value) && p.model_number);
+    const matchingProducts = products.filter(p => norm(p[matchKey]) === norm(value) && p.model_number);
 
     // Extract unique model numbers
     const modelNumbers = [...new Set(matchingProducts.map(product => product.model_number))]
@@ -120,7 +122,7 @@ export function OptionSelector({
     // Find a product that matches this option value and has an image
     const normalizedValue = norm(value);
     const match = products.find(p => {
-      const productValue = norm(p[title]);
+      const productValue = norm(p[matchKey]);
       if (productValue !== normalizedValue) return false;
       
       // Check if product has any image field
@@ -137,7 +139,7 @@ export function OptionSelector({
   const modelMap = useMemo(() => {
     const map = {};
     products.forEach(product => {
-      const normalizedTitle = norm(product[title]);
+      const normalizedTitle = norm(product[matchKey]);
       if (product.model_number) {
         if (!map[normalizedTitle]) {
           map[normalizedTitle] = [];
@@ -154,11 +156,11 @@ export function OptionSelector({
       }
     });
     return map;
-  }, [products, title]);
+  }, [products, matchKey]);
 
   // Calculate minimum price for each option value
   const getMinPrice = (value) => {
-    const matchingProducts = products.filter(p => norm(p[title]) === norm(value));
+    const matchingProducts = products.filter(p => norm(p[matchKey]) === norm(value));
     if (matchingProducts.length === 0) return null;
     
     const prices = matchingProducts
@@ -168,6 +170,26 @@ export function OptionSelector({
     if (prices.length === 0) return null;
     return Math.min(...prices);
   };
+
+  // Get lumen and efficacy for power options (when fieldKey is power_w)
+  const getLumenAndEfficacy = (value) => {
+    if (matchKey !== 'power_w') return null
+    const matchingProducts = products.filter(p => norm(p[matchKey]) === norm(value))
+    if (matchingProducts.length === 0) return null
+    const lumenRaw = matchingProducts.map(p => p.lumen).filter(v => v != null && v !== '')
+    const efficacyRaw = matchingProducts.map(p => p.efficacy_lumen_per_w).filter(v => v != null && v !== '')
+    const formatVal = (arr) => {
+      if (arr.length === 0) return null
+      const parsed = arr.map(v => parseFloat(String(v).replace(/[^\d.]/g, ''))).filter(n => !isNaN(n))
+      if (parsed.length === 0) return arr[0]
+      const sorted = [...new Set(parsed)].sort((a, b) => a - b)
+      return sorted.length > 1 ? `${sorted[0]}-${sorted[sorted.length - 1]}` : sorted[0]
+    }
+    const lumenVal = formatVal(lumenRaw)
+    const efficacyVal = formatVal(efficacyRaw)
+    if (!lumenVal && !efficacyVal) return null
+    return { lumen: lumenVal, efficacy: efficacyVal }
+  }
 
   return (
     <div className="space-y-8">
@@ -325,16 +347,20 @@ export function OptionSelector({
                     </div>
                   )}
 
-                  {/* Additional Info */}
-                  {value !== 'N/A' && value?.toString().includes('W') && (
-                    <Badge
-                      variant={isSelected ? "secondary" : "outline"}
-                      size="sm"
-                      className={isSelected ? 'bg-white/20 text-white border-white/30' : ''}
-                    >
-                      Power Rating
-                    </Badge>
-                  )}
+                  {/* Lumen & Efficacy (for power selection) */}
+                  {value !== 'N/A' && value !== '' && (() => {
+                    const lumenEfficacy = getLumenAndEfficacy(value)
+                    if (!lumenEfficacy || (!lumenEfficacy.lumen && !lumenEfficacy.efficacy)) return null
+                    const parts = []
+                    if (lumenEfficacy.lumen) parts.push(`${lumenEfficacy.lumen} lm`)
+                    if (lumenEfficacy.efficacy) parts.push(`${lumenEfficacy.efficacy} lm/W`)
+                    if (parts.length === 0) return null
+                    return (
+                      <div className={`text-xs mt-1 ${isSelected ? 'text-white/90' : 'text-muted-foreground'}`}>
+                        {parts.join(' • ')}
+                      </div>
+                    )
+                  })()}
                 </div>
 
                 {/* Hover Effect */}

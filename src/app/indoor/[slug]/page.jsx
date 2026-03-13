@@ -295,9 +295,6 @@ export default function IndoorProductPage({ params }) {
     ? [''] // Show empty string option when all are empty strings
     : currentValues
 
-    console.log("################## cureent key", currentKey)
-    console.log("###################current value", currentValues)
-
   return (
     <div className='min-h-screen bg-gradient-to-br from-blue-50/50 via-indigo-50/30 to-purple-50/50 dark:from-blue-950/20 dark:via-indigo-950/10 dark:to-purple-950/20'>
       <div className="absolute inset-0 opacity-[0.02] dark:opacity-[0.05]">
@@ -402,7 +399,9 @@ export default function IndoorProductPage({ params }) {
         {sensorSelection && !error && currentKey && (
           <OptionSelector
             title={currentKey === 'power_w' ? 'Wattage' : currentKey.replace(/_/g, ' ')}
-            description={`Select your preferred ${currentKey === 'power_w' ? 'wattage' : currentKey.replace(/_/g, ' ')}${!costSelections.includes(currentKey) ? ' ($0)' : ''}${displayValues.length === 1 && (displayValues[0] === 'N/A' || displayValues[0] === '') ? ' (Empty value available)' : ''}`}
+            description={currentKey === 'power_w' 
+              ? 'Select your preferred wattage. Lumens and efficacy (lm/W) are shown for each option.'
+              : `Select your preferred ${currentKey.replace(/_/g, ' ')}${!costSelections.includes(currentKey) ? ' ($0)' : ''}${displayValues.length === 1 && (displayValues[0] === 'N/A' || displayValues[0] === '') ? ' (Empty value available)' : ''}`}
             options={displayValues}
             onSelect={(value) => filterProducts(currentKey, value)}
             selectedValue={undefined} // Don't show any value as selected on the current step
@@ -411,6 +410,7 @@ export default function IndoorProductPage({ params }) {
             totalSteps={desiredKeys.length}
             products={products}
             costSelections={costSelections}
+            fieldKey={currentKey}
           />
         )}
       </div>

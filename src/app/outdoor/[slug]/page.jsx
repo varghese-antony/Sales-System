@@ -406,7 +406,9 @@ export default function OutdoorProductPage({ params }) {
         {sensorSelection && !error && currentKey && (
           <OptionSelector
             title={currentKey === 'power_w' ? 'Wattage' : currentKey.replace(/_/g, ' ')}
-            description={`Select your preferred ${currentKey === 'power_w' ? 'wattage' : currentKey.replace(/_/g, ' ')}${!costSelections.includes(currentKey) ? ' ($0)' : ''}${displayValues.length === 1 && (displayValues[0] === 'N/A' || displayValues[0] === '') ? ' (Empty value available)' : ''}`}
+            description={currentKey === 'power_w' 
+              ? 'Select your preferred wattage. Lumens and efficacy (lm/W) are shown for each option.'
+              : `Select your preferred ${currentKey.replace(/_/g, ' ')}${!costSelections.includes(currentKey) ? ' ($0)' : ''}${displayValues.length === 1 && (displayValues[0] === 'N/A' || displayValues[0] === '') ? ' (Empty value available)' : ''}`}
             options={displayValues}
             onSelect={(value) => filterProducts(currentKey, value)}
             selectedValue={undefined} // Don't show any value as selected on the current step
@@ -415,6 +417,7 @@ export default function OutdoorProductPage({ params }) {
             totalSteps={desiredKeys.length}
             products={products}
             costSelections={costSelections}
+            fieldKey={currentKey}
           />
         )}
       </div>
