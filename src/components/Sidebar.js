@@ -4,10 +4,11 @@ import { usePathname } from 'next/navigation'
 import Image from 'next/image'
 
 const nav = [
-  { href: '/dashboard', label: 'Dashboard', icon: <svg width="15" height="15" fill="none" stroke="currentColor" strokeWidth="1.8" viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/></svg> },
-  { href: '/leads',     label: 'Leads',     icon: <svg width="15" height="15" fill="none" stroke="currentColor" strokeWidth="1.8" viewBox="0 0 24 24"><circle cx="9" cy="7" r="4"/><path d="M3 21v-2a4 4 0 0 1 4-4h4a4 4 0 0 1 4 4v2"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/><path d="M21 21v-2a4 4 0 0 0-3-3.87"/></svg> },
-  { href: '/outreach',  label: 'Outreach',  icon: <svg width="15" height="15" fill="none" stroke="currentColor" strokeWidth="1.8" viewBox="0 0 24 24"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg> },
-  { href: '/pipeline',  label: 'Pipeline',  icon: <svg width="15" height="15" fill="none" stroke="currentColor" strokeWidth="1.8" viewBox="0 0 24 24"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg> },
+  { href: '/dashboard',      label: 'Dashboard',      icon: <svg width="15" height="15" fill="none" stroke="currentColor" strokeWidth="1.8" viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/></svg> },
+  { href: '/leads',          label: 'Leads',          icon: <svg width="15" height="15" fill="none" stroke="currentColor" strokeWidth="1.8" viewBox="0 0 24 24"><circle cx="9" cy="7" r="4"/><path d="M3 21v-2a4 4 0 0 1 4-4h4a4 4 0 0 1 4 4v2"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/><path d="M21 21v-2a4 4 0 0 0-3-3.87"/></svg> },
+  { href: '/smart-outreach', label: 'Smart Outreach', icon: <svg width="15" height="15" fill="none" stroke="currentColor" strokeWidth="1.8" viewBox="0 0 24 24"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>, badge: 'AI' },
+  { href: '/outreach',       label: 'Outreach',       icon: <svg width="15" height="15" fill="none" stroke="currentColor" strokeWidth="1.8" viewBox="0 0 24 24"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg> },
+  { href: '/pipeline',       label: 'Pipeline',       icon: <svg width="15" height="15" fill="none" stroke="currentColor" strokeWidth="1.8" viewBox="0 0 24 24"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg> },
 ]
 
 export default function Sidebar() {
@@ -48,7 +49,8 @@ export default function Sidebar() {
               color: active ? '#00F6FF' : '#4A4F6A',
             }}>
               <span style={{ flexShrink:0, color: active ? '#00F6FF' : '#2a2d4a' }}>{item.icon}</span>
-              <span style={{ fontSize:13, fontWeight: active ? 600 : 500 }}>{item.label}</span>
+              <span style={{ fontSize:13, fontWeight: active ? 600 : 500, flex:1 }}>{item.label}</span>
+              {item.badge && <span style={{ fontSize:9, fontWeight:700, padding:'2px 5px', borderRadius:4, background:'rgba(0,246,255,0.15)', color:'#00F6FF', letterSpacing:'0.05em' }}>{item.badge}</span>}
               {active && <div style={{ marginLeft:'auto', width:3, height:16, borderRadius:99, background:'#00F6FF', boxShadow:'0 0 8px rgba(0,246,255,0.6)' }}/>}
             </Link>
           )
