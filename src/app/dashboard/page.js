@@ -3,145 +3,170 @@ import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import Link from 'next/link'
 
+const StatCard = ({ label, value, icon, accent, loading }) => (
+  <div className="rounded-2xl p-5 animate-in" style={{ background: '#0F0F1A', border: '1px solid rgba(255,255,255,0.05)' }}>
+    <div className="flex items-center justify-between mb-4">
+      <span className="text-xs font-medium uppercase tracking-widest" style={{ color: '#4A5568' }}>{label}</span>
+      <div className="w-8 h-8 rounded-lg flex items-center justify-center" style={{ background: accent + '18' }}>
+        <span style={{ color: accent, fontSize: 16 }}>{icon}</span>
+      </div>
+    </div>
+    <p className="text-3xl font-bold text-white">{loading ? '—' : value}</p>
+    <div className="mt-3 h-0.5 rounded-full" style={{ background: accent + '30' }}>
+      <div className="h-full rounded-full" style={{ background: accent, width: loading ? '0%' : '100%', transition: 'width 0.8s ease' }}/>
+    </div>
+  </div>
+)
+
 export default function Dashboard() {
   const [stats, setStats] = useState({ total: 0, new: 0, contacted: 0, interested: 0, clients: 0 })
   const [topLeads, setTopLeads] = useState([])
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    async function loadData() {
-      const { data: leads } = await supabase.from('leads').select('*').order('score', { ascending: false })
-      if (leads) {
+    async function load() {
+      const { data } = await supabase.from('leads').select('*').order('score', { ascending: false })
+      if (data) {
         setStats({
-          total: leads.length,
-          new: leads.filter(l => l.status === 'new').length,
-          contacted: leads.filter(l => l.status === 'contacted').length,
-          interested: leads.filter(l => l.status === 'interested').length,
-          clients: leads.filter(l => l.status === 'client').length,
+          total: data.length,
+          new: data.filter(l => l.status === 'new').length,
+          contacted: data.filter(l => l.status === 'contacted').length,
+          interested: data.filter(l => l.status === 'interested').length,
+          clients: data.filter(l => l.status === 'client').length,
         })
-        setTopLeads(leads.slice(0, 5))
+        setTopLeads(data.slice(0, 6))
       }
       setLoading(false)
     }
-    loadData()
+    load()
   }, [])
 
-  const statCards = [
-    { label: 'Total Leads', value: stats.total, color: 'from-blue-600 to-blue-800', icon: '🎯' },
-    { label: 'New', value: stats.new, color: 'from-purple-600 to-purple-800', icon: '✨' },
-    { label: 'Contacted', value: stats.contacted, color: 'from-yellow-600 to-yellow-800', icon: '📧' },
-    { label: 'Interested', value: stats.interested, color: 'from-green-600 to-green-800', icon: '🔥' },
-    { label: 'Clients', value: stats.clients, color: 'from-emerald-600 to-emerald-800', icon: '💰' },
-  ]
+  const scoreColor = s => s >= 8 ? '#48BB78' : s >= 6 ? '#C9A84C' : '#718096'
 
   return (
-    <div className="min-h-screen bg-[#0f1117]">
-      {/* Sidebar */}
-      <div className="fixed left-0 top-0 h-full w-64 bg-[#1a1d27] border-r border-gray-800 p-6 flex flex-col">
-        <div className="mb-8">
-          <h1 className="text-xl font-bold text-white">Blendery</h1>
-          <p className="text-xs text-gray-400 mt-1">Sales System</p>
+    <div className="p-8 max-w-7xl mx-auto">
+      {/* Header */}
+      <div className="mb-8 animate-in">
+        <div className="flex items-center gap-2 mb-1">
+          <div className="w-2 h-2 rounded-full pulse" style={{ background: '#48BB78' }}/>
+          <span className="text-xs" style={{ color: '#4A5568' }}>System Active</span>
         </div>
-        <nav className="flex flex-col gap-2">
-          {[
-            { href: '/dashboard', label: 'Dashboard', icon: '📊' },
-            { href: '/leads', label: 'Leads', icon: '🎯' },
-            { href: '/outreach', label: 'Outreach', icon: '📧' },
-            { href: '/pipeline', label: 'Pipeline', icon: '🔄' },
-          ].map(item => (
-            <Link key={item.href} href={item.href}
-              className="flex items-center gap-3 px-4 py-3 rounded-lg text-gray-300 hover:bg-[#252836] hover:text-white transition-all">
-              <span>{item.icon}</span>
-              <span className="text-sm font-medium">{item.label}</span>
-            </Link>
-          ))}
-        </nav>
-        <div className="mt-auto p-3 bg-[#252836] rounded-lg">
-          <p className="text-xs text-gray-400">Logged in as</p>
-          <p className="text-sm text-white font-medium">Varghese Antony</p>
-          <p className="text-xs text-gray-400">Blendery Tech Solutions</p>
-        </div>
+        <h1 className="text-2xl font-semibold text-white">Good day, Varghese</h1>
+        <p className="mt-1 text-sm" style={{ color: '#4A5568' }}>Here's your sales intelligence overview for today.</p>
       </div>
 
-      {/* Main Content */}
-      <div className="ml-64 p-8">
-        <div className="mb-8">
-          <h2 className="text-2xl font-bold text-white">Dashboard</h2>
-          <p className="text-gray-400 mt-1">Welcome back, Varghese. Here's your sales overview.</p>
-        </div>
+      {/* Stats */}
+      <div className="grid grid-cols-5 gap-4 mb-8">
+        <StatCard label="Total Leads" value={stats.total} icon="◎" accent="#C9A84C" loading={loading}/>
+        <StatCard label="New" value={stats.new} icon="✦" accent="#7C6AF7" loading={loading}/>
+        <StatCard label="Contacted" value={stats.contacted} icon="→" accent="#4F9EF8" loading={loading}/>
+        <StatCard label="Interested" value={stats.interested} icon="◈" accent="#F6AD55" loading={loading}/>
+        <StatCard label="Clients" value={stats.clients} icon="◉" accent="#48BB78" loading={loading}/>
+      </div>
 
-        {/* Stats */}
-        <div className="grid grid-cols-5 gap-4 mb-8">
-          {statCards.map(card => (
-            <div key={card.label} className={`bg-gradient-to-br ${card.color} rounded-xl p-4`}>
-              <div className="text-2xl mb-2">{card.icon}</div>
-              <div className="text-3xl font-bold text-white">{loading ? '...' : card.value}</div>
-              <div className="text-sm text-white/70 mt-1">{card.label}</div>
+      {/* Main Grid */}
+      <div className="grid grid-cols-3 gap-6">
+        {/* Top Leads */}
+        <div className="col-span-2 rounded-2xl p-6 animate-in" style={{ background: '#0F0F1A', border: '1px solid rgba(255,255,255,0.05)' }}>
+          <div className="flex items-center justify-between mb-5">
+            <div>
+              <h2 className="text-sm font-semibold text-white">Priority Leads</h2>
+              <p className="text-xs mt-0.5" style={{ color: '#4A5568' }}>Ranked by AI score — contact these first</p>
             </div>
-          ))}
-        </div>
-
-        {/* Top Leads + Quick Actions */}
-        <div className="grid grid-cols-3 gap-6">
-          {/* Top Leads */}
-          <div className="col-span-2 bg-[#1a1d27] rounded-xl p-6 border border-gray-800">
-            <div className="flex justify-between items-center mb-4">
-              <h3 className="text-lg font-semibold text-white">🔥 Top Leads to Contact Today</h3>
-              <Link href="/leads" className="text-sm text-blue-400 hover:text-blue-300">View all →</Link>
-            </div>
-            {loading ? (
-              <p className="text-gray-400 text-sm">Loading...</p>
-            ) : topLeads.length === 0 ? (
-              <div className="text-center py-8">
-                <p className="text-gray-400 text-sm mb-4">No leads yet. Let's find some!</p>
-                <Link href="/leads" className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm transition-all">
-                  Find Leads →
-                </Link>
-              </div>
-            ) : (
-              <div className="space-y-3">
-                {topLeads.map(lead => (
-                  <div key={lead.id} className="flex items-center justify-between p-3 bg-[#252836] rounded-lg">
-                    <div>
-                      <p className="text-white text-sm font-medium">{lead.full_name || `${lead.first_name} ${lead.last_name}`}</p>
-                      <p className="text-gray-400 text-xs">{lead.title} @ {lead.company}</p>
-                    </div>
-                    <div className="flex items-center gap-3">
-                      <span className={`text-xs px-2 py-1 rounded-full ${
-                        lead.score >= 8 ? 'bg-green-900 text-green-300' :
-                        lead.score >= 5 ? 'bg-yellow-900 text-yellow-300' :
-                        'bg-gray-700 text-gray-300'
-                      }`}>Score: {lead.score}/10</span>
-                      <span className="text-xs px-2 py-1 rounded-full bg-blue-900 text-blue-300">{lead.status}</span>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
+            <Link href="/leads" className="text-xs font-medium transition-colors"
+              style={{ color: '#C9A84C' }}>View all →</Link>
           </div>
 
+          <div className="space-y-2">
+            {loading ? (
+              [1,2,3,4].map(i => (
+                <div key={i} className="h-14 rounded-xl animate-pulse" style={{ background: '#161625' }}/>
+              ))
+            ) : topLeads.length === 0 ? (
+              <div className="text-center py-10">
+                <p className="text-sm mb-3" style={{ color: '#4A5568' }}>No leads yet.</p>
+                <Link href="/leads" className="text-sm font-medium px-4 py-2 rounded-lg"
+                  style={{ background: 'rgba(201,168,76,0.12)', color: '#C9A84C' }}>
+                  Find your first leads →
+                </Link>
+              </div>
+            ) : topLeads.map((lead, i) => (
+              <div key={lead.id} className="flex items-center gap-4 px-4 py-3 rounded-xl transition-all duration-200"
+                style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.03)' }}>
+                <div className="w-7 h-7 rounded-lg flex items-center justify-center text-xs font-bold text-black flex-shrink-0"
+                  style={{ background: 'linear-gradient(135deg, #C9A84C, #F0C96B)' }}>{i + 1}</div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-medium text-white truncate">{lead.full_name}</p>
+                  <p className="text-xs truncate" style={{ color: '#4A5568' }}>{lead.title} · {lead.company}</p>
+                </div>
+                <div className="flex items-center gap-3 flex-shrink-0">
+                  {lead.email && (
+                    <span className="text-xs" style={{ color: '#48BB78' }}>✓ email</span>
+                  )}
+                  <div className="text-right">
+                    <span className="text-sm font-bold" style={{ color: scoreColor(lead.score) }}>{lead.score}</span>
+                    <span className="text-xs" style={{ color: '#4A5568' }}>/10</span>
+                  </div>
+                  <div className="px-2 py-0.5 rounded-full text-xs" style={{
+                    background: lead.status === 'new' ? 'rgba(124,106,247,0.15)' : 'rgba(72,187,120,0.15)',
+                    color: lead.status === 'new' ? '#7C6AF7' : '#48BB78'
+                  }}>{lead.status}</div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Right Panel */}
+        <div className="space-y-4">
           {/* Quick Actions */}
-          <div className="bg-[#1a1d27] rounded-xl p-6 border border-gray-800">
-            <h3 className="text-lg font-semibold text-white mb-4">⚡ Quick Actions</h3>
-            <div className="flex flex-col gap-3">
-              <Link href="/leads?action=find" className="flex items-center gap-3 p-3 bg-blue-600 hover:bg-blue-700 rounded-lg transition-all">
-                <span>🔍</span>
-                <span className="text-sm text-white font-medium">Find New Leads</span>
+          <div className="rounded-2xl p-5 animate-in" style={{ background: '#0F0F1A', border: '1px solid rgba(255,255,255,0.05)' }}>
+            <h2 className="text-sm font-semibold text-white mb-4">Quick Actions</h2>
+            <div className="space-y-2">
+              <Link href="/leads?action=find" className="flex items-center gap-3 p-3 rounded-xl w-full transition-all duration-200"
+                style={{ background: 'rgba(201,168,76,0.1)', border: '1px solid rgba(201,168,76,0.2)' }}>
+                <span style={{ color: '#C9A84C' }}>
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+                </span>
+                <span className="text-sm font-medium" style={{ color: '#C9A84C' }}>Find New Leads</span>
               </Link>
-              <Link href="/outreach?action=compose" className="flex items-center gap-3 p-3 bg-purple-600 hover:bg-purple-700 rounded-lg transition-all">
-                <span>✉️</span>
-                <span className="text-sm text-white font-medium">Write Outreach Email</span>
+              <Link href="/outreach" className="flex items-center gap-3 p-3 rounded-xl w-full transition-all"
+                style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.04)' }}>
+                <span style={{ color: '#718096' }}>
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>
+                </span>
+                <span className="text-sm font-medium" style={{ color: '#718096' }}>Write Outreach Email</span>
               </Link>
-              <Link href="/pipeline" className="flex items-center gap-3 p-3 bg-[#252836] hover:bg-[#2f3347] border border-gray-700 rounded-lg transition-all">
-                <span>🔄</span>
-                <span className="text-sm text-white font-medium">View Pipeline</span>
+              <Link href="/pipeline" className="flex items-center gap-3 p-3 rounded-xl w-full transition-all"
+                style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.04)' }}>
+                <span style={{ color: '#718096' }}>
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+                </span>
+                <span className="text-sm font-medium" style={{ color: '#718096' }}>View Pipeline</span>
               </Link>
             </div>
+          </div>
 
-            <div className="mt-6 p-3 bg-[#252836] rounded-lg border border-gray-700">
-              <p className="text-xs text-gray-400 mb-1">This Month</p>
-              <p className="text-white text-sm">🎯 Target: <span className="text-green-400 font-bold">3 clients</span></p>
-              <p className="text-white text-sm mt-1">📧 Emails sent: <span className="text-blue-400 font-bold">0</span></p>
+          {/* Monthly Target */}
+          <div className="rounded-2xl p-5 animate-in" style={{ background: '#0F0F1A', border: '1px solid rgba(255,255,255,0.05)' }}>
+            <h2 className="text-sm font-semibold text-white mb-4">June Target</h2>
+            <div className="space-y-3">
+              {[
+                { label: 'Leads Found', current: stats.total, target: 50, color: '#C9A84C' },
+                { label: 'Emails Sent', current: stats.contacted, target: 20, color: '#4F9EF8' },
+                { label: 'Clients Won', current: stats.clients, target: 3, color: '#48BB78' },
+              ].map(item => (
+                <div key={item.label}>
+                  <div className="flex justify-between mb-1">
+                    <span className="text-xs" style={{ color: '#4A5568' }}>{item.label}</span>
+                    <span className="text-xs font-medium text-white">{item.current}/{item.target}</span>
+                  </div>
+                  <div className="h-1.5 rounded-full" style={{ background: 'rgba(255,255,255,0.05)' }}>
+                    <div className="h-full rounded-full transition-all duration-1000"
+                      style={{ background: item.color, width: Math.min((item.current / item.target) * 100, 100) + '%' }}/>
+                  </div>
+                </div>
+              ))}
             </div>
           </div>
         </div>

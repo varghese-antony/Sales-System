@@ -1,90 +1,102 @@
 'use client'
 import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
-import Link from 'next/link'
 
 const STAGES = [
-  { key: 'new', label: '✨ New', color: 'border-purple-600' },
-  { key: 'contacted', label: '📧 Contacted', color: 'border-yellow-600' },
-  { key: 'interested', label: '🔥 Interested', color: 'border-orange-600' },
-  { key: 'proposal', label: '📋 Proposal', color: 'border-blue-600' },
-  { key: 'won', label: '💰 Won', color: 'border-green-600' },
+  { key: 'new',        label: 'New',        color: '#7C6AF7', desc: 'Just found' },
+  { key: 'contacted',  label: 'Contacted',  color: '#4F9EF8', desc: 'Email sent' },
+  { key: 'interested', label: 'Interested', color: '#F6AD55', desc: 'Replied positively' },
+  { key: 'proposal',   label: 'Proposal',   color: '#C9A84C', desc: 'Sent proposal' },
+  { key: 'client',     label: 'Client',     color: '#48BB78', desc: 'Deal closed 🎉' },
 ]
 
 export default function Pipeline() {
   const [leads, setLeads] = useState([])
+  const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    async function load() {
-      const { data } = await supabase.from('leads').select('*')
-      setLeads(data || [])
-    }
-    load()
+    supabase.from('leads').select('*').then(({ data }) => { setLeads(data || []); setLoading(false) })
   }, [])
 
-  async function moveStage(lead, newStage) {
-    await supabase.from('leads').update({ status: newStage }).eq('id', lead.id)
-    setLeads(leads.map(l => l.id === lead.id ? {...l, status: newStage} : l))
+  async function moveStage(lead, stage) {
+    await supabase.from('leads').update({ status: stage }).eq('id', lead.id)
+    setLeads(leads.map(l => l.id === lead.id ? { ...l, status: stage } : l))
   }
 
+  const stageLeads = key => leads.filter(l => l.status === key)
+
   return (
-    <div className="min-h-screen bg-[#0f1117]">
-      <div className="fixed left-0 top-0 h-full w-64 bg-[#1a1d27] border-r border-gray-800 p-6 flex flex-col">
-        <div className="mb-8">
-          <h1 className="text-xl font-bold text-white">Blendery</h1>
-          <p className="text-xs text-gray-400 mt-1">Sales System</p>
-        </div>
-        <nav className="flex flex-col gap-2">
-          {[
-            { href: '/dashboard', label: 'Dashboard', icon: '📊' },
-            { href: '/leads', label: 'Leads', icon: '🎯' },
-            { href: '/outreach', label: 'Outreach', icon: '📧' },
-            { href: '/pipeline', label: 'Pipeline', icon: '🔄', active: true },
-          ].map(item => (
-            <Link key={item.href} href={item.href}
-              className={`flex items-center gap-3 px-4 py-3 rounded-lg transition-all text-sm font-medium
-                ${item.active ? 'bg-blue-600 text-white' : 'text-gray-300 hover:bg-[#252836] hover:text-white'}`}>
-              <span>{item.icon}</span><span>{item.label}</span>
-            </Link>
-          ))}
-        </nav>
+    <div className="p-8">
+      <div className="mb-8 animate-in">
+        <h1 className="text-2xl font-semibold text-white">Pipeline</h1>
+        <p className="text-sm mt-1" style={{ color: '#4A5568' }}>Track every lead through your sales stages</p>
       </div>
 
-      <div className="ml-64 p-8">
-        <h2 className="text-2xl font-bold text-white mb-6">🔄 Pipeline</h2>
+      {/* Summary bar */}
+      <div className="flex gap-3 mb-6 animate-in">
+        {STAGES.map(stage => (
+          <div key={stage.key} className="flex-1 px-4 py-3 rounded-xl" style={{ background: '#0F0F1A', border: '1px solid rgba(255,255,255,0.05)' }}>
+            <p className="text-xs mb-1" style={{ color: '#4A5568' }}>{stage.label}</p>
+            <p className="text-xl font-bold" style={{ color: stage.color }}>{stageLeads(stage.key).length}</p>
+          </div>
+        ))}
+      </div>
 
-        <div className="flex gap-4 overflow-x-auto pb-4">
-          {STAGES.map(stage => {
-            const stageLeads = leads.filter(l => l.status === stage.key)
-            return (
-              <div key={stage.key} className={`flex-shrink-0 w-64 bg-[#1a1d27] rounded-xl border-t-4 ${stage.color} p-4`}>
-                <div className="flex justify-between items-center mb-4">
-                  <h3 className="text-white font-semibold text-sm">{stage.label}</h3>
-                  <span className="bg-gray-700 text-gray-300 text-xs px-2 py-1 rounded-full">{stageLeads.length}</span>
-                </div>
-                <div className="space-y-3">
-                  {stageLeads.length === 0 ? (
-                    <p className="text-gray-500 text-xs text-center py-4">No leads here</p>
-                  ) : stageLeads.map(lead => (
-                    <div key={lead.id} className="bg-[#252836] rounded-lg p-3">
-                      <p className="text-white text-sm font-medium">{lead.full_name}</p>
-                      <p className="text-gray-400 text-xs">{lead.company}</p>
-                      <p className="text-xs text-yellow-400 mt-1">Score: {lead.score}/10</p>
-                      <div className="flex gap-1 mt-2 flex-wrap">
-                        {STAGES.filter(s => s.key !== stage.key).map(s => (
-                          <button key={s.key} onClick={() => moveStage(lead, s.key)}
-                            className="text-xs bg-gray-700 hover:bg-gray-600 text-gray-300 px-2 py-1 rounded transition-all">
-                            → {s.label.split(' ')[1]}
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-                  ))}
+      {/* Kanban Board */}
+      <div className="flex gap-4 overflow-x-auto pb-4 animate-in">
+        {STAGES.map(stage => {
+          const stageleads = stageLeads(stage.key)
+          return (
+            <div key={stage.key} className="flex-shrink-0 w-64 rounded-2xl overflow-hidden"
+              style={{ background: '#0F0F1A', border: '1px solid rgba(255,255,255,0.05)' }}>
+
+              {/* Column Header */}
+              <div className="px-4 py-4" style={{ borderBottom: '2px solid ' + stage.color }}>
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm font-semibold text-white">{stage.label}</p>
+                    <p className="text-xs mt-0.5" style={{ color: '#4A5568' }}>{stage.desc}</p>
+                  </div>
+                  <div className="w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold"
+                    style={{ background: stage.color + '20', color: stage.color }}>
+                    {stageleads.length}
+                  </div>
                 </div>
               </div>
-            )
-          })}
-        </div>
+
+              {/* Cards */}
+              <div className="p-3 space-y-2 min-h-[200px]">
+                {loading ? (
+                  <div className="h-16 rounded-xl animate-pulse" style={{ background: '#161625' }}/>
+                ) : stageleads.length === 0 ? (
+                  <div className="text-center py-8">
+                    <p className="text-xs" style={{ color: '#2D3748' }}>No leads here</p>
+                  </div>
+                ) : stageleads.map(lead => (
+                  <div key={lead.id} className="p-3 rounded-xl transition-all"
+                    style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.05)' }}>
+                    <p className="text-sm font-medium text-white leading-tight">{lead.full_name}</p>
+                    <p className="text-xs mt-0.5 truncate" style={{ color: '#4A5568' }}>{lead.company}</p>
+                    <div className="flex items-center gap-2 mt-2">
+                      <span className="text-xs font-bold" style={{ color: lead.score >= 8 ? '#48BB78' : '#C9A84C' }}>{lead.score}/10</span>
+                      {lead.email && <span className="text-xs" style={{ color: '#48BB78' }}>✓</span>}
+                    </div>
+                    {/* Move buttons */}
+                    <div className="flex gap-1 mt-2 flex-wrap">
+                      {STAGES.filter(s => s.key !== stage.key).slice(0, 2).map(s => (
+                        <button key={s.key} onClick={() => moveStage(lead, s.key)}
+                          className="text-xs px-2 py-0.5 rounded-md transition-all"
+                          style={{ background: s.color + '15', color: s.color }}>
+                          → {s.label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )
+        })}
       </div>
     </div>
   )
