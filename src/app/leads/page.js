@@ -11,6 +11,15 @@ const statusStyle = {
   not_interested:{bg:'rgba(248,113,113,0.1)',color:'#f87171'},
   client:        {bg:'rgba(0,246,255,0.1)',  color:'#00F6FF'},
 }
+const sourceStyle = {
+  hunter:      { bg:'rgba(0,246,255,0.08)',   color:'#00F6FF',  icon:'🎯', label:'Hunter' },
+  'cron-daily':{ bg:'rgba(0,246,255,0.08)',   color:'#00F6FF',  icon:'🎯', label:'Hunter' },
+  linkedin:    { bg:'rgba(10,102,194,0.15)',  color:'#4a9eff',  icon:'in', label:'LinkedIn' },
+  google:      { bg:'rgba(66,133,244,0.12)',  color:'#6baeff',  icon:'G',  label:'Google' },
+  curated:     { bg:'rgba(167,139,250,0.1)',  color:'#a78bfa',  icon:'★',  label:'Curated' },
+  manual:      { bg:'rgba(251,146,60,0.1)',   color:'#fb923c',  icon:'✎',  label:'Manual' },
+}
+const getSource = s => sourceStyle[s] || { bg:'rgba(255,255,255,0.05)', color:'#4A4F6A', icon:'?', label: s||'Unknown' }
 const sc = s => s>=8?'#22d3a5':s>=6?'#00F6FF':'#4A4F6A'
 
 export default function Leads() {
@@ -101,8 +110,9 @@ export default function Leads() {
 
       {/* Table */}
       <div style={{background:'#0d0d18',border:'1px solid rgba(255,255,255,0.05)',borderRadius:14,overflow:'hidden'}}>
-        <div style={{display:'grid',gridTemplateColumns:'1.8fr 1.4fr 1.6fr 70px 110px 70px',padding:'10px 20px',borderBottom:'1px solid rgba(255,255,255,0.04)'}}>
-          {['Person','Company','Email','Score','Status',''].map(h=>(
+        {/* Header */}
+        <div style={{display:'grid',gridTemplateColumns:'1.6fr 1.2fr 1.5fr 90px 60px 110px 70px',padding:'10px 20px',borderBottom:'1px solid rgba(255,255,255,0.04)'}}>
+          {['Person','Company','Email','Source','Score','Status',''].map(h=>(
             <span key={h} style={{fontSize:11,fontWeight:600,color:'#2a2d4a',textTransform:'uppercase',letterSpacing:'0.07em'}}>{h}</span>
           ))}
         </div>
@@ -111,23 +121,28 @@ export default function Leads() {
           <div key={i} style={{height:56,margin:'6px 12px',borderRadius:8,background:'#111120'}}/>
         )):filtered.length===0?(
           <div style={{padding:'48px 0',textAlign:'center',color:'#2a2d4a',fontSize:13}}>No leads found. Click &quot;Find New Leads&quot; to get started.</div>
-        ):filtered.map((l,i)=>(
+        ):filtered.map((l,i)=>{
+          const src = getSource(l.source)
+          return (
           <div key={l.id} style={{
-            display:'grid',gridTemplateColumns:'1.8fr 1.4fr 1.6fr 70px 110px 70px',
+            display:'grid',gridTemplateColumns:'1.6fr 1.2fr 1.5fr 90px 60px 110px 70px',
             padding:'12px 20px',alignItems:'center',
             borderBottom:i<filtered.length-1?'1px solid rgba(255,255,255,0.03)':'none',
             transition:'background 0.12s',
           }}
           onMouseEnter={e=>e.currentTarget.style.background='rgba(0,246,255,0.02)'}
           onMouseLeave={e=>e.currentTarget.style.background='transparent'}>
+            {/* Person */}
             <div style={{minWidth:0,paddingRight:12}}>
               <div style={{fontSize:13,fontWeight:600,color:'#e8ecf0',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{l.full_name}</div>
               <div style={{fontSize:11,color:'#4A4F6A',marginTop:2,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{l.title}</div>
             </div>
+            {/* Company */}
             <div style={{minWidth:0,paddingRight:12}}>
               <div style={{fontSize:13,color:'#c8cad8',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{l.company}</div>
               <div style={{fontSize:11,color:'#4A4F6A',marginTop:2}}>{l.country}</div>
             </div>
+            {/* Email */}
             <div style={{minWidth:0,paddingRight:12}}>
               {l.email?(
                 <div>
@@ -136,10 +151,23 @@ export default function Leads() {
                 </div>
               ):<span style={{fontSize:12,color:'#2a2d4a'}}>—</span>}
             </div>
+            {/* Source badge */}
+            <div>
+              <span style={{
+                display:'inline-flex',alignItems:'center',gap:4,
+                padding:'3px 8px',borderRadius:6,fontSize:11,fontWeight:600,
+                background:src.bg, color:src.color,
+              }}>
+                <span style={{fontSize:10}}>{src.icon}</span>
+                {src.label}
+              </span>
+            </div>
+            {/* Score */}
             <div>
               <span style={{fontSize:14,fontWeight:700,color:sc(l.score)}}>{l.score}</span>
               <span style={{fontSize:11,color:'#2a2d4a'}}>/10</span>
             </div>
+            {/* Status */}
             <div>
               <select value={l.status} onChange={e=>setStatus(l.id,e.target.value)} style={{
                 padding:'4px 8px',borderRadius:20,border:'none',fontSize:11,fontWeight:600,cursor:'pointer',outline:'none',
@@ -149,6 +177,7 @@ export default function Leads() {
                 {Object.keys(statusStyle).map(s=><option key={s} value={s}>{s}</option>)}
               </select>
             </div>
+            {/* Email button */}
             <div>
               <Link href={`/outreach?lead=${l.id}`} style={{
                 fontSize:12,padding:'5px 12px',borderRadius:7,background:'rgba(0,246,255,0.08)',
@@ -156,7 +185,8 @@ export default function Leads() {
               }}>Email</Link>
             </div>
           </div>
-        ))}
+          )
+        })}
       </div>
     </div>
   )

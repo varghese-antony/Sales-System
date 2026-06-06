@@ -65,8 +65,17 @@ const TARGET_COMPANIES = [
   { domain: 'buildium.com',         name: 'Buildium',            country: 'United States', industry: 'PropTech SaaS' },
 ]
 
+async function isDuplicate(supabase, { email, full_name, company }) {
+  if (email) {
+    const { data } = await supabase.from('leads').select('id').eq('email', email).limit(1)
+    if (data?.length) return true
+  }
+  const { data } = await supabase.from('leads').select('id')
+    .ilike('full_name', full_name).ilike('company', company).limit(1)
+  return !!data?.length
+}
+
 export async function GET(request) {
-  // Verify this is called by Vercel Cron (security check)
   const authHeader = request.headers.get('authorization')
   if (authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
@@ -95,27 +104,35 @@ export async function GET(request) {
           return pos.includes('founder') || pos.includes('ceo') || pos.includes('owner') || pos.includes('director') || pos.includes('head')
         }) || emails[0]
 
+        const full_name = `${senior.first_name || ''} ${senior.last_name || ''}`.trim() || company.name
+        const companyName = hunterData.data?.organization || company.name
+
+        if (await isDuplicate(supabase, { email: senior.value, full_name, company: companyName })) {
+          skipped++
+          continue
+        }
+
         const score = scoreLead({ title: senior.position, industry: company.industry, country: company.country })
         const lead = {
           first_name: senior.first_name || '',
           last_name: senior.last_name || '',
-          full_name: `${senior.first_name || ''} ${senior.last_name || ''}`.trim() || company.name,
+          full_name,
           title: senior.position || 'Executive',
-          company: hunterData.data?.organization || company.name,
+          company: companyName,
           industry: company.industry,
           country: company.country,
           email: senior.value,
           email_verified: (senior.confidence || 0) > 75,
           website: `https://${company.domain}`,
-          source: 'cron-daily',
+          source: 'hunter',
           score: score.value,
           score_reason: score.reason,
           status: 'new',
         }
-        const { error } = await supabase.from('leads').upsert(lead, { onConflict: 'email', ignoreDuplicates: true })
+        const { error } = await supabase.from('leads').insert(lead)
         if (!error) added++
         else skipped++
-      }
+      } else skipped++
     } catch (_) { skipped++ }
 
     await new Promise(r => setTimeout(r, 300))

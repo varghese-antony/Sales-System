@@ -30,6 +30,17 @@ const TARGET_COMPANIES = [
   { domain: 'gorgias.com', name: 'Gorgias', country: 'United States', industry: 'SaaS', size: '10-50' },
 ]
 
+// Check if lead already exists by email OR by name+company
+async function isDuplicate(supabase, { email, full_name, company }) {
+  if (email) {
+    const { data } = await supabase.from('leads').select('id').eq('email', email).limit(1)
+    if (data?.length) return true
+  }
+  const { data } = await supabase.from('leads').select('id')
+    .ilike('full_name', full_name).ilike('company', company).limit(1)
+  return !!data?.length
+}
+
 export async function POST() {
   const supabase = createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL,
@@ -47,19 +58,23 @@ export async function POST() {
         const emails = hunterData.data?.emails || []
 
         if (emails.length > 0) {
-          // Find the most senior person (CEO/Founder/Director)
           const senior = emails.find(e => {
             const pos = (e.position || '').toLowerCase()
             return pos.includes('founder') || pos.includes('ceo') || pos.includes('owner') || pos.includes('director') || pos.includes('head')
           }) || emails[0]
 
+          const full_name = `${senior.first_name || ''} ${senior.last_name || ''}`.trim() || company.name
+          const companyName = hunterData.data?.organization || company.name
+
+          if (await isDuplicate(supabase, { email: senior.value, full_name, company: companyName })) continue
+
           const score = scoreLead({ title: senior.position, industry: company.industry, country: company.country })
           const lead = {
             first_name: senior.first_name || '',
             last_name: senior.last_name || '',
-            full_name: `${senior.first_name || ''} ${senior.last_name || ''}`.trim() || company.name,
+            full_name,
             title: senior.position || 'Executive',
-            company: hunterData.data?.organization || company.name,
+            company: companyName,
             company_size: company.size,
             industry: company.industry,
             country: company.country,
@@ -71,13 +86,15 @@ export async function POST() {
             score_reason: score.reason,
             status: 'new',
           }
-          const { error } = await supabase.from('leads').upsert(lead, { onConflict: 'email', ignoreDuplicates: true })
+          const { error } = await supabase.from('leads').insert(lead)
           if (!error) saved++
         } else {
-          // No email found - save company as a lead to research manually
+          const full_name = `${company.name} – Founder/CEO`
+          if (await isDuplicate(supabase, { full_name, company: company.name })) continue
+
           const score = scoreLead({ title: 'CEO', industry: company.industry, country: company.country })
           const lead = {
-            full_name: `${company.name} – Founder/CEO`,
+            full_name,
             company: company.name,
             company_size: company.size,
             industry: company.industry,
