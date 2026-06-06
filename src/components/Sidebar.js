@@ -1,6 +1,7 @@
 'use client'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
+import Image from 'next/image'
 
 const nav = [
   { href: '/dashboard', label: 'Dashboard', icon: <svg width="15" height="15" fill="none" stroke="currentColor" strokeWidth="1.8" viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/></svg> },
@@ -20,10 +21,12 @@ export default function Sidebar() {
       {/* Logo */}
       <div style={{ padding:'20px 16px 16px', borderBottom:'1px solid rgba(0,246,255,0.06)' }}>
         <div style={{ display:'flex', alignItems:'center', gap:10 }}>
-          <img
+          <Image
             src="/blendery-logo.png"
             alt="Blendery"
-            style={{ width:32, height:32, objectFit:'contain', filter:'drop-shadow(0 0 6px rgba(0,246,255,0.4))' }}
+            width={32}
+            height={32}
+            style={{ objectFit:'contain', filter:'drop-shadow(0 0 6px rgba(0,246,255,0.4))' }}
           />
           <div>
             <div style={{ fontWeight:700, fontSize:14, color:'#fff', letterSpacing:'-0.01em' }}>Blendery</div>

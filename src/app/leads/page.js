@@ -110,7 +110,7 @@ export default function Leads() {
         {loading?[1,2,3,4,5].map(i=>(
           <div key={i} style={{height:56,margin:'6px 12px',borderRadius:8,background:'#111120'}}/>
         )):filtered.length===0?(
-          <div style={{padding:'48px 0',textAlign:'center',color:'#2a2d4a',fontSize:13}}>No leads found. Click "Find New Leads" to get started.</div>
+          <div style={{padding:'48px 0',textAlign:'center',color:'#2a2d4a',fontSize:13}}>No leads found. Click &quot;Find New Leads&quot; to get started.</div>
         ):filtered.map((l,i)=>(
           <div key={l.id} style={{
             display:'grid',gridTemplateColumns:'1.8fr 1.4fr 1.6fr 70px 110px 70px',
