@@ -152,6 +152,8 @@ export async function PATCH(req) {
     process.env.NEXT_PUBLIC_SUPABASE_URL,
     process.env.SUPABASE_SERVICE_ROLE_KEY
   )
-  const { error } = await supabase.from('leads').update({ linkedin_status: status }).eq('id', leadId)
+  const updateData = { linkedin_status: status }
+  if (status === 'requested') updateData.linkedin_requested_at = new Date().toISOString()
+  const { error } = await supabase.from('leads').update(updateData).eq('id', leadId)
   return NextResponse.json({ success: !error, error: error?.message })
 }
