@@ -6,64 +6,95 @@ const supabase = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY
 )
 
+// Target companies - founder-led, 10-50 people, US/UK/Australia
+// These are realistic targets for Varghese's ops automation service
+const TARGET_COMPANIES = [
+  // Marketing & Creative Agencies
+  { domain: 'brafton.com', name: 'Brafton', country: 'United States', industry: 'Marketing Agency', size: '51-100' },
+  { domain: 'ironpaper.com', name: 'Ironpaper', country: 'United States', industry: 'Marketing Agency', size: '10-50' },
+  { domain: 'directom.com', name: 'Directom', country: 'United States', industry: 'Marketing Agency', size: '10-50' },
+  { domain: 'growandconvert.com', name: 'Grow and Convert', country: 'United States', industry: 'Marketing Agency', size: '10-50' },
+  { domain: 'singlegrain.com', name: 'Single Grain', country: 'United States', industry: 'Marketing Agency', size: '10-50' },
+  { domain: 'webprofits.com.au', name: 'Web Profits', country: 'Australia', industry: 'Marketing Agency', size: '10-50' },
+  { domain: 'brightlocal.com', name: 'BrightLocal', country: 'United Kingdom', industry: 'Marketing Agency', size: '10-50' },
+  { domain: 'koozai.com', name: 'Koozai', country: 'United Kingdom', industry: 'Marketing Agency', size: '10-50' },
+  // SaaS & Tech
+  { domain: 'baremetrics.com', name: 'Baremetrics', country: 'United States', industry: 'SaaS', size: '10-50' },
+  { domain: 'close.com', name: 'Close', country: 'United States', industry: 'SaaS/CRM', size: '10-50' },
+  { domain: 'helpscout.com', name: 'Help Scout', country: 'United States', industry: 'SaaS', size: '10-50' },
+  { domain: 'groove.co', name: 'Groove', country: 'United States', industry: 'SaaS', size: '10-50' },
+  { domain: 'lemlist.com', name: 'Lemlist', country: 'United States', industry: 'SaaS', size: '10-50' },
+  { domain: 'hunter.io', name: 'Hunter', country: 'France', industry: 'SaaS', size: '10-50' },
+  // Consulting & Professional Services
+  { domain: 'processunity.com', name: 'ProcessUnity', country: 'United States', industry: 'Consulting', size: '10-50' },
+  { domain: 'smartkarrot.com', name: 'SmartKarrot', country: 'United States', industry: 'SaaS/Consulting', size: '10-50' },
+  { domain: 'operationsagency.com', name: 'Operations Agency', country: 'United Kingdom', industry: 'Consulting', size: '10-50' },
+  { domain: 'scaleops.io', name: 'ScaleOps', country: 'United States', industry: 'Consulting', size: '10-50' },
+  // E-commerce & DTC
+  { domain: 'recartapp.com', name: 'Recart', country: 'United States', industry: 'SaaS/Ecommerce', size: '10-50' },
+  { domain: 'gorgias.com', name: 'Gorgias', country: 'United States', industry: 'SaaS', size: '10-50' },
+]
+
 export async function POST() {
   try {
-    // Search Apollo for founder-led businesses - Varghese's ideal clients
-    const apolloRes = await fetch('https://api.apollo.io/api/v1/mixed_people/search', {
-      method: 'POST',
-      headers: {
-        'X-Api-Key': process.env.APOLLO_API_KEY,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        titles: ['CEO', 'Founder', 'Co-Founder', 'Managing Director', 'Owner'],
-        person_locations: ['United States', 'United Kingdom', 'Australia', 'Canada'],
-        organization_num_employees_ranges: ['11,50', '51,100'],
-        per_page: 10,
-        page: 1,
-      }),
-    })
-
-    const apolloData = await apolloRes.json()
-    const people = apolloData.people || []
-
-    if (people.length === 0) {
-      return NextResponse.json({ success: false, error: 'No leads found from Apollo' })
-    }
-
     let saved = 0
-    for (const person of people) {
-      // Score each lead based on fit for Varghese's service
-      const score = scoreLead(person)
 
-      const lead = {
-        first_name: person.first_name,
-        last_name: person.last_name,
-        full_name: person.name,
-        title: person.title,
-        company: person.organization?.name,
-        company_size: person.organization?.estimated_num_employees?.toString(),
-        industry: person.organization?.industry,
-        country: person.country,
-        city: person.city,
-        email: person.email,
-        email_verified: person.email_status === 'verified',
-        linkedin_url: person.linkedin_url,
-        website: person.organization?.website_url,
-        source: 'apollo',
-        score: score.value,
-        score_reason: score.reason,
-        status: 'new',
-      }
+    for (const company of TARGET_COMPANIES) {
+      try {
+        const hunterRes = await fetch(
+          `https://api.hunter.io/v2/domain-search?domain=${company.domain}&api_key=${process.env.HUNTER_API_KEY}&limit=3&type=personal`,
+        )
+        const hunterData = await hunterRes.json()
+        const emails = hunterData.data?.emails || []
 
-      // Save to Supabase (skip duplicates by email)
-      if (lead.email) {
-        const { error } = await supabase.from('leads').upsert(lead, { onConflict: 'email', ignoreDuplicates: true })
-        if (!error) saved++
-      } else {
-        const { error } = await supabase.from('leads').insert(lead)
-        if (!error) saved++
-      }
+        if (emails.length > 0) {
+          // Find the most senior person (CEO/Founder/Director)
+          const senior = emails.find(e => {
+            const pos = (e.position || '').toLowerCase()
+            return pos.includes('founder') || pos.includes('ceo') || pos.includes('owner') || pos.includes('director') || pos.includes('head')
+          }) || emails[0]
+
+          const score = scoreLead({ title: senior.position, industry: company.industry, country: company.country })
+          const lead = {
+            first_name: senior.first_name || '',
+            last_name: senior.last_name || '',
+            full_name: `${senior.first_name || ''} ${senior.last_name || ''}`.trim() || company.name,
+            title: senior.position || 'Executive',
+            company: hunterData.data?.organization || company.name,
+            company_size: company.size,
+            industry: company.industry,
+            country: company.country,
+            email: senior.value,
+            email_verified: (senior.confidence || 0) > 75,
+            website: `https://${company.domain}`,
+            source: 'hunter',
+            score: score.value,
+            score_reason: score.reason,
+            status: 'new',
+          }
+          const { error } = await supabase.from('leads').upsert(lead, { onConflict: 'email', ignoreDuplicates: true })
+          if (!error) saved++
+        } else {
+          // No email found - save company as a lead to research manually
+          const score = scoreLead({ title: 'CEO', industry: company.industry, country: company.country })
+          const lead = {
+            full_name: `${company.name} – Founder/CEO`,
+            company: company.name,
+            company_size: company.size,
+            industry: company.industry,
+            country: company.country,
+            website: `https://${company.domain}`,
+            source: 'curated',
+            score: score.value,
+            score_reason: score.reason + ' (find email manually)',
+            status: 'new',
+          }
+          const { error } = await supabase.from('leads').insert(lead)
+          if (!error) saved++
+        }
+      } catch (_) {}
+
+      await new Promise(r => setTimeout(r, 200))
     }
 
     return NextResponse.json({ success: true, count: saved })
@@ -72,31 +103,22 @@ export async function POST() {
   }
 }
 
-function scoreLead(person) {
+function scoreLead({ title = '', industry = '', country = '' }) {
   let score = 5
   let reasons = []
+  const t = title.toLowerCase()
+  const ind = industry.toLowerCase()
 
-  const title = (person.title || '').toLowerCase()
-  const industry = (person.organization?.industry || '').toLowerCase()
-  const size = person.organization?.estimated_num_employees || 0
+  if (t.includes('founder') || t.includes('ceo') || t.includes('owner')) { score += 2; reasons.push('Decision maker') }
+  else if (t.includes('director') || t.includes('head')) { score += 1; reasons.push('Senior role') }
 
-  // Title scoring
-  if (title.includes('founder') || title.includes('ceo') || title.includes('owner')) {
-    score += 2; reasons.push('Decision maker')
+  if (ind.includes('agency') || ind.includes('saas') || ind.includes('software') || ind.includes('consulting')) {
+    score += 2; reasons.push('Perfect industry fit')
   }
 
-  // Company size scoring (10-50 is Varghese's sweet spot)
-  if (size >= 10 && size <= 50) {
-    score += 2; reasons.push('Ideal team size (10-50)')
-  } else if (size >= 51 && size <= 100) {
-    score += 1; reasons.push('Good team size (51-100)')
+  if (['United States', 'United Kingdom', 'Australia', 'Canada'].includes(country)) {
+    score += 1; reasons.push('Target region')
   }
 
-  // Industry scoring (agencies and tech companies need ops help)
-  if (industry.includes('marketing') || industry.includes('agency') || industry.includes('software') || industry.includes('saas')) {
-    score += 1; reasons.push('High-value industry')
-  }
-
-  score = Math.min(score, 10)
-  return { value: score, reason: reasons.join(', ') || 'Standard lead' }
+  return { value: Math.min(score, 10), reason: reasons.join(' · ') || 'Curated target' }
 }
