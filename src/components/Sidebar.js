@@ -32,8 +32,7 @@ export default function Sidebar() {
   const path = usePathname()
 
   return (
-    <aside className="fixed left-0 top-0 h-full w-60 flex flex-col z-50"
-      style={{ background: '#0B0B16', borderRight: '1px solid rgba(255,255,255,0.05)' }}>
+    <aside style={{ position: 'fixed', left: 0, top: 0, height: '100vh', width: '240px', display: 'flex', flexDirection: 'column', zIndex: 50, background: '#0B0B16', borderRight: '1px solid rgba(255,255,255,0.05)' }}>
 
       {/* Logo */}
       <div className="px-6 py-6 border-b" style={{ borderColor: 'rgba(255,255,255,0.05)' }}>

@@ -10,9 +10,9 @@ export default function RootLayout({ children }) {
   return (
     <html lang="en">
       <body suppressHydrationWarning={true} style={{ background: '#07070F' }}>
-        <div className="flex min-h-screen">
+        <div style={{ display: 'flex', minHeight: '100vh' }}>
           <Sidebar />
-          <main className="flex-1 ml-60 min-h-screen" style={{ background: '#07070F' }}>
+          <main style={{ marginLeft: '240px', flex: 1, minHeight: '100vh', background: '#07070F' }}>
             {children}
           </main>
         </div>
