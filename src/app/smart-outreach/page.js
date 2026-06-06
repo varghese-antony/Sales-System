@@ -100,6 +100,8 @@ export default function SmartOutreach() {
   const [connNote, setConnNote]     = useState('')
   const [dmSaved, setDmSaved]       = useState(false)
   const [emailSaved, setEmailSaved] = useState(false)
+  const [emailSent, setEmailSent]   = useState(false)
+  const [emailSending, setEmailSending] = useState(false)
   const [copied, setCopied]         = useState('')
 
   useEffect(() => {
@@ -113,7 +115,7 @@ export default function SmartOutreach() {
     setResearch(lead.notes?.startsWith('COMPANY:') ? lead.notes : '')
     setResSubject(''); setResBody('')
     setLiData(null); setDmMsg(''); setConnNote('')
-    setDmSaved(false); setEmailSaved(false); setCopied('')
+    setDmSaved(false); setEmailSaved(false); setEmailSent(false); setCopied('')
     setView('all')
   }
 
@@ -191,6 +193,24 @@ export default function SmartOutreach() {
     const updated = { ...selected, status:'contacted' }
     setSelected(updated); setLeads(leads.map(l => l.id===selected.id ? updated : l))
     setEmailSaved(true); setTimeout(() => setEmailSaved(false), 3000)
+  }
+
+  async function sendEmail() {
+    if (!selected?.email || !resSubject || !resBody) return
+    setEmailSending(true)
+    const res = await fetch('/api/send-email', {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ leadId:selected.id, to:selected.email, subject:resSubject, body:resBody, leadName:selected.full_name }),
+    })
+    const data = await res.json()
+    if (data.success) {
+      setEmailSent(true)
+      const updated = { ...selected, status:'contacted' }
+      setSelected(updated); setLeads(leads.map(l => l.id===selected.id ? updated : l))
+    } else {
+      alert('Email failed: ' + data.error)
+    }
+    setEmailSending(false)
   }
 
   function copyText(text, key) {
@@ -550,9 +570,24 @@ export default function SmartOutreach() {
                               style={{width:'100%',padding:'14px 16px',background:'transparent',border:'none',color:'#c8cad8',fontSize:13,lineHeight:1.8,outline:'none',resize:'none',fontFamily:'inherit'}}
                             />
                           </div>
-                          <button onClick={saveEmail} style={{padding:'10px 20px',borderRadius:9,border:`1px solid ${emailSaved?'rgba(34,211,165,0.25)':'rgba(0,246,255,0.2)'}`,background:emailSaved?'rgba(34,211,165,0.08)':'rgba(0,246,255,0.08)',color:emailSaved?'#22d3a5':'#00F6FF',fontSize:13,fontWeight:600,cursor:'pointer'}}>
-                            {emailSaved?'✓ Saved & Marked Contacted':'Save Email Draft'}
-                          </button>
+                          <div style={{display:'flex',gap:10,flexWrap:'wrap',alignItems:'center'}}>
+                            <button onClick={sendEmail} disabled={emailSending||emailSent} style={{
+                              display:'flex',alignItems:'center',gap:7,padding:'11px 22px',borderRadius:9,fontSize:13,fontWeight:700,cursor:emailSending||emailSent?'not-allowed':'pointer',border:'none',
+                              background: emailSent ? 'rgba(34,211,165,0.15)' : 'linear-gradient(135deg,rgba(0,246,255,0.3),rgba(0,246,255,0.15))',
+                              color: emailSent ? '#22d3a5' : '#00F6FF',
+                              boxShadow: emailSent ? 'none' : '0 0 20px rgba(0,246,255,0.15)',
+                              opacity: emailSending ? 0.7 : 1,
+                            }}>
+                              {emailSending
+                                ? <><span style={{display:'inline-block',width:13,height:13,border:'2px solid #00F6FF',borderTopColor:'transparent',borderRadius:'50%',animation:'spin 0.7s linear infinite'}}/>Sending...</>
+                                : emailSent
+                                ? '✓ Email Sent!'
+                                : '✉ Send Email from antonyv@blendery.tech'}
+                            </button>
+                            <button onClick={saveEmail} style={{padding:'11px 18px',borderRadius:9,border:'1px solid rgba(255,255,255,0.08)',background:'rgba(255,255,255,0.03)',color:emailSaved?'#22d3a5':'#4A4F6A',fontSize:12,fontWeight:600,cursor:'pointer'}}>
+                              {emailSaved?'✓ Saved':'Save Draft'}
+                            </button>
+                          </div>
                         </>
                       )}
                     </div>
