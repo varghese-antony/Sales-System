@@ -26,7 +26,6 @@ export default function SmartOutreach() {
   useEffect(() => {
     supabase.from('leads')
       .select('*')
-      .not('email', 'is', null)
       .order('score', { ascending: false })
       .then(({ data }) => { setLeads(data || []); setLoading(false) })
   }, [])
@@ -104,12 +103,13 @@ export default function SmartOutreach() {
         </div>
         <div style={{ padding:'8px 8px', flex:1, overflowY:'auto' }}>
           <div style={{ fontSize:10, fontWeight:600, color:'#2a2d4a', letterSpacing:'0.1em', textTransform:'uppercase', padding:'4px 8px 8px' }}>
-            {leads.length} leads with email
+            {leads.filter(l=>l.email).length} email · {leads.filter(l=>!l.email&&l.linkedin_url).length} linkedin
           </div>
           {loading ? [1,2,3,4].map(i => <div key={i} style={{ height:64, borderRadius:10, background:'#111120', marginBottom:6 }}/>) :
           leads.map(lead => {
             const active = selected?.id === lead.id
             const researched = lead.notes?.startsWith('COMPANY:')
+            const hasEmail = !!lead.email
             return (
               <div key={lead.id} onClick={() => selectLead(lead)} style={{
                 padding:'10px 12px', borderRadius:10, marginBottom:4, cursor:'pointer', transition:'all 0.15s',
@@ -117,13 +117,17 @@ export default function SmartOutreach() {
                 border: `1px solid ${active ? 'rgba(0,246,255,0.2)' : 'rgba(255,255,255,0.03)'}`,
               }}>
                 <div style={{ display:'flex', justifyContent:'space-between', alignItems:'flex-start' }}>
-                  <div style={{ fontSize:12, fontWeight:600, color:'#e8ecf0', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap', maxWidth:160 }}>{lead.full_name}</div>
-                  {researched && <span style={{ fontSize:9, padding:'2px 5px', borderRadius:4, background:'rgba(34,211,165,0.12)', color:'#22d3a5', fontWeight:700, flexShrink:0 }}>✓ done</span>}
+                  <div style={{ fontSize:12, fontWeight:600, color:'#e8ecf0', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap', maxWidth:150 }}>{lead.full_name}</div>
+                  <div style={{display:'flex',gap:3,flexShrink:0}}>
+                    {researched && <span style={{ fontSize:9, padding:'2px 5px', borderRadius:4, background:'rgba(34,211,165,0.12)', color:'#22d3a5', fontWeight:700 }}>✓</span>}
+                    {!hasEmail && <span style={{ fontSize:9, padding:'2px 5px', borderRadius:4, background:'rgba(10,102,194,0.2)', color:'#4a9eff', fontWeight:700 }}>in</span>}
+                  </div>
                 </div>
                 <div style={{ fontSize:11, color:'#4A4F6A', marginTop:2, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{lead.company}</div>
                 <div style={{ display:'flex', gap:6, marginTop:5, alignItems:'center' }}>
                   <span style={{ fontSize:10, fontWeight:700, color: lead.score>=8?'#22d3a5':'#00F6FF' }}>{lead.score}/10</span>
                   <span style={{ fontSize:10, padding:'1px 6px', borderRadius:99, background:statusStyle[lead.status]?.bg||'rgba(255,255,255,0.05)', color:statusStyle[lead.status]?.color||'#4A4F6A' }}>{lead.status}</span>
+                  {hasEmail ? <span style={{fontSize:10,color:'#22d3a5'}}>✓ email</span> : <span style={{fontSize:10,color:'#4a9eff'}}>LinkedIn only</span>}
                 </div>
               </div>
             )
@@ -153,11 +157,12 @@ export default function SmartOutreach() {
                   <div style={{ fontSize:14, fontWeight:700, color:'#fff' }}>{selected.full_name}</div>
                   <div style={{ fontSize:11, color:'#4A4F6A', marginTop:1 }}>{selected.title} · {selected.company} · {selected.country}</div>
                 </div>
-                {selected.email && (
-                  <div style={{ padding:'4px 10px', borderRadius:6, background:'rgba(34,211,165,0.08)', border:'1px solid rgba(34,211,165,0.15)', fontSize:11, color:'#22d3a5' }}>
-                    ✓ {selected.email}
-                  </div>
-                )}
+                {selected.email
+                  ? <div style={{ padding:'4px 10px', borderRadius:6, background:'rgba(34,211,165,0.08)', border:'1px solid rgba(34,211,165,0.15)', fontSize:11, color:'#22d3a5' }}>✓ {selected.email}</div>
+                  : selected.linkedin_url
+                    ? <div style={{ padding:'4px 10px', borderRadius:6, background:'rgba(10,102,194,0.12)', border:'1px solid rgba(10,102,194,0.25)', fontSize:11, color:'#4a9eff' }}>LinkedIn only — no email found</div>
+                    : <div style={{ padding:'4px 10px', borderRadius:6, background:'rgba(248,113,113,0.08)', border:'1px solid rgba(248,113,113,0.15)', fontSize:11, color:'#f87171' }}>No email or LinkedIn</div>
+                }
               </div>
               <button onClick={runResearch} disabled={working} style={{
                 display:'flex', alignItems:'center', gap:7, padding:'9px 18px', borderRadius:10,
@@ -202,6 +207,24 @@ export default function SmartOutreach() {
                 </div>
               ) : (
                 <div>
+                  {/* LinkedIn DM banner for leads without email */}
+                  {!selected.email && selected.linkedin_url && (
+                    <div style={{ padding:'14px 18px', borderRadius:12, background:'rgba(10,102,194,0.08)', border:'1px solid rgba(10,102,194,0.2)', marginBottom:16 }}>
+                      <div style={{ fontSize:13, fontWeight:600, color:'#4a9eff', marginBottom:6 }}>📩 No email found — contact via LinkedIn</div>
+                      <div style={{ fontSize:12, color:'#4A4F6A', marginBottom:10 }}>
+                        This lead has a verified LinkedIn profile. Click below to open it and send a connection request or direct message.
+                        The system will generate a short LinkedIn message for you.
+                      </div>
+                      <a href={selected.linkedin_url} target="_blank" rel="noreferrer" style={{
+                        display:'inline-flex', alignItems:'center', gap:6, padding:'8px 16px', borderRadius:8,
+                        background:'rgba(10,102,194,0.2)', border:'1px solid rgba(10,102,194,0.35)',
+                        color:'#4a9eff', fontSize:12, fontWeight:600, textDecoration:'none',
+                      }}>
+                        <span style={{fontWeight:800,fontSize:11}}>in</span> Open LinkedIn Profile →
+                      </a>
+                    </div>
+                  )}
+
                   {!subject && !body ? (
                     <div style={{ textAlign:'center', padding:'60px 0', color:'#4A4F6A' }}>
                       <div style={{ fontSize:32, marginBottom:12 }}>✉</div>
