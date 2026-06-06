@@ -1,11 +1,6 @@
 import { createClient } from '@supabase/supabase-js'
 import { NextResponse } from 'next/server'
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL,
-  process.env.SUPABASE_SERVICE_ROLE_KEY
-)
-
 // Target companies - founder-led, 10-50 people, US/UK/Australia
 // These are realistic targets for Varghese's ops automation service
 const TARGET_COMPANIES = [
@@ -36,6 +31,10 @@ const TARGET_COMPANIES = [
 ]
 
 export async function POST() {
+  const supabase = createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL,
+    process.env.SUPABASE_SERVICE_ROLE_KEY
+  )
   try {
     let saved = 0
 
