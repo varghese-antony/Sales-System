@@ -3,171 +3,137 @@ import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import Link from 'next/link'
 
-const StatCard = ({ label, value, icon, accent, loading }) => (
-  <div className="rounded-2xl p-5 animate-in" style={{ background: '#0F0F1A', border: '1px solid rgba(255,255,255,0.05)' }}>
-    <div className="flex items-center justify-between mb-4">
-      <span className="text-xs font-medium uppercase tracking-widest" style={{ color: '#4A5568' }}>{label}</span>
-      <div className="w-8 h-8 rounded-lg flex items-center justify-center" style={{ background: accent + '18' }}>
-        <span style={{ color: accent, fontSize: 16 }}>{icon}</span>
-      </div>
-    </div>
-    <p className="text-3xl font-bold text-white">{loading ? '—' : value}</p>
-    <div className="mt-3 h-0.5 rounded-full" style={{ background: accent + '30' }}>
-      <div className="h-full rounded-full" style={{ background: accent, width: loading ? '0%' : '100%', transition: 'width 0.8s ease' }}/>
-    </div>
-  </div>
-)
+const S = {
+  page: { padding:'32px 36px', maxWidth:1200 },
+  h1: { fontSize:22, fontWeight:700, color:'#fff', letterSpacing:'-0.02em' },
+  sub: { fontSize:13, color:'#4A4F6A', marginTop:4 },
+  card: { background:'#0d0d18', border:'1px solid rgba(255,255,255,0.05)', borderRadius:14, padding:'20px 22px' },
+  label: { fontSize:11, fontWeight:600, color:'#2a2d4a', textTransform:'uppercase', letterSpacing:'0.08em' },
+  statGrid: { display:'grid', gridTemplateColumns:'repeat(5,1fr)', gap:14, margin:'28px 0' },
+  mainGrid: { display:'grid', gridTemplateColumns:'1fr 320px', gap:18 },
+  dot: { width:7, height:7, borderRadius:'50%', background:'#00F6FF', display:'inline-block', marginRight:8 },
+}
+
+const sc = s => s>=8?'#22d3a5':s>=6?'#00F6FF':'#4A4F6A'
 
 export default function Dashboard() {
-  const [stats, setStats] = useState({ total: 0, new: 0, contacted: 0, interested: 0, clients: 0 })
-  const [topLeads, setTopLeads] = useState([])
+  const [stats, setStats] = useState({ total:0, new:0, contacted:0, interested:0, clients:0 })
+  const [leads, setLeads] = useState([])
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    async function load() {
-      const { data } = await supabase.from('leads').select('*').order('score', { ascending: false })
+    supabase.from('leads').select('*').order('score',{ascending:false}).then(({data}) => {
       if (data) {
-        setStats({
-          total: data.length,
-          new: data.filter(l => l.status === 'new').length,
-          contacted: data.filter(l => l.status === 'contacted').length,
-          interested: data.filter(l => l.status === 'interested').length,
-          clients: data.filter(l => l.status === 'client').length,
-        })
-        setTopLeads(data.slice(0, 6))
+        setStats({ total:data.length, new:data.filter(l=>l.status==='new').length, contacted:data.filter(l=>l.status==='contacted').length, interested:data.filter(l=>l.status==='interested').length, clients:data.filter(l=>l.status==='client').length })
+        setLeads(data.slice(0,7))
       }
       setLoading(false)
-    }
-    load()
-  }, [])
+    })
+  },[])
 
-  const scoreColor = s => s >= 8 ? '#48BB78' : s >= 6 ? '#C9A84C' : '#718096'
+  const statCards = [
+    {label:'Total',value:stats.total,color:'#00F6FF'},
+    {label:'New',value:stats.new,color:'#a78bfa'},
+    {label:'Contacted',value:stats.contacted,color:'#60a5fa'},
+    {label:'Interested',value:stats.interested,color:'#fb923c'},
+    {label:'Clients',value:stats.clients,color:'#22d3a5'},
+  ]
 
   return (
-    <div className="p-8 max-w-7xl mx-auto">
+    <div style={S.page}>
       {/* Header */}
-      <div className="mb-8 animate-in">
-        <div className="flex items-center gap-2 mb-1">
-          <div className="w-2 h-2 rounded-full pulse" style={{ background: '#48BB78' }}/>
-          <span className="text-xs" style={{ color: '#4A5568' }}>System Active</span>
+      <div style={{marginBottom:28}}>
+        <div style={{display:'flex',alignItems:'center',gap:7,marginBottom:10}}>
+          <span style={{...S.dot, boxShadow:'0 0 6px rgba(0,246,255,0.5)', animation:'blink 2s ease infinite'}}/>
+          <span style={{fontSize:11,color:'#2a2d4a'}}>System active · {new Date().toLocaleDateString('en-GB',{weekday:'long',day:'numeric',month:'long'})}</span>
         </div>
-        <h1 className="text-2xl font-semibold text-white">Good day, Varghese</h1>
-        <p className="mt-1 text-sm" style={{ color: '#4A5568' }}>Here's your sales intelligence overview for today.</p>
+        <h1 style={S.h1}>Good day, Varghese 👋</h1>
+        <p style={S.sub}>Your sales intelligence overview for today.</p>
       </div>
 
       {/* Stats */}
-      <div className="grid grid-cols-5 gap-4 mb-8">
-        <StatCard label="Total Leads" value={stats.total} icon="◎" accent="#C9A84C" loading={loading}/>
-        <StatCard label="New" value={stats.new} icon="✦" accent="#7C6AF7" loading={loading}/>
-        <StatCard label="Contacted" value={stats.contacted} icon="→" accent="#4F9EF8" loading={loading}/>
-        <StatCard label="Interested" value={stats.interested} icon="◈" accent="#F6AD55" loading={loading}/>
-        <StatCard label="Clients" value={stats.clients} icon="◉" accent="#48BB78" loading={loading}/>
+      <div style={S.statGrid}>
+        {statCards.map(c => (
+          <div key={c.label} style={{...S.card, borderColor: c.label==='Total'?'rgba(0,246,255,0.1)':'rgba(255,255,255,0.05)'}}>
+            <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',marginBottom:16}}>
+              <span style={S.label}>{c.label}</span>
+              <div style={{width:6,height:6,borderRadius:'50%',background:c.color, boxShadow:`0 0 6px ${c.color}`}}/>
+            </div>
+            <div style={{fontSize:36,fontWeight:700,color:'#fff',letterSpacing:'-0.03em',lineHeight:1}}>
+              {loading?'—':c.value}
+            </div>
+            <div style={{marginTop:14,height:2,borderRadius:99,background:'rgba(255,255,255,0.04)'}}>
+              <div style={{height:'100%',borderRadius:99,background:c.color,width:loading?'0%':'100%',transition:'width 1s ease'}}/>
+            </div>
+          </div>
+        ))}
       </div>
 
-      {/* Main Grid */}
-      <div className="grid grid-cols-3 gap-6">
-        {/* Top Leads */}
-        <div className="col-span-2 rounded-2xl p-6 animate-in" style={{ background: '#0F0F1A', border: '1px solid rgba(255,255,255,0.05)' }}>
-          <div className="flex items-center justify-between mb-5">
+      {/* Main */}
+      <div style={S.mainGrid}>
+        {/* Priority Leads */}
+        <div style={S.card}>
+          <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:20}}>
             <div>
-              <h2 className="text-sm font-semibold text-white">Priority Leads</h2>
-              <p className="text-xs mt-0.5" style={{ color: '#4A5568' }}>Ranked by AI score — contact these first</p>
+              <div style={{fontSize:14,fontWeight:600,color:'#fff'}}>Priority Leads</div>
+              <div style={{fontSize:12,color:'#4A4F6A',marginTop:2}}>Ranked by AI score — contact these first</div>
             </div>
-            <Link href="/leads" className="text-xs font-medium transition-colors"
-              style={{ color: '#C9A84C' }}>View all →</Link>
+            <Link href="/leads" style={{fontSize:12,color:'#00F6FF',textDecoration:'none',fontWeight:500}}>View all →</Link>
           </div>
-
-          <div className="space-y-2">
-            {loading ? (
-              [1,2,3,4].map(i => (
-                <div key={i} className="h-14 rounded-xl animate-pulse" style={{ background: '#161625' }}/>
-              ))
-            ) : topLeads.length === 0 ? (
-              <div className="text-center py-10">
-                <p className="text-sm mb-3" style={{ color: '#4A5568' }}>No leads yet.</p>
-                <Link href="/leads" className="text-sm font-medium px-4 py-2 rounded-lg"
-                  style={{ background: 'rgba(201,168,76,0.12)', color: '#C9A84C' }}>
-                  Find your first leads →
-                </Link>
-              </div>
-            ) : topLeads.map((lead, i) => (
-              <div key={lead.id} className="flex items-center gap-4 px-4 py-3 rounded-xl transition-all duration-200"
-                style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.03)' }}>
-                <div className="w-7 h-7 rounded-lg flex items-center justify-center text-xs font-bold text-black flex-shrink-0"
-                  style={{ background: 'linear-gradient(135deg, #C9A84C, #F0C96B)' }}>{i + 1}</div>
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium text-white truncate">{lead.full_name}</p>
-                  <p className="text-xs truncate" style={{ color: '#4A5568' }}>{lead.title} · {lead.company}</p>
+          <div style={{display:'flex',flexDirection:'column',gap:4}}>
+            {loading ? [1,2,3,4].map(i=><div key={i} style={{height:52,borderRadius:10,background:'#111120'}}/>)
+            : leads.length===0 ? <div style={{textAlign:'center',padding:'32px 0',color:'#2a2d4a',fontSize:13}}>No leads yet — <Link href="/leads" style={{color:'#00F6FF'}}>find some</Link></div>
+            : leads.map((l,i)=>(
+              <div key={l.id} style={{display:'flex',alignItems:'center',gap:12,padding:'10px 14px',borderRadius:10,background:'rgba(255,255,255,0.02)',border:'1px solid rgba(255,255,255,0.03)'}}>
+                <div style={{width:26,height:26,borderRadius:8,background:'rgba(0,246,255,0.1)',border:'1px solid rgba(0,246,255,0.2)',display:'flex',alignItems:'center',justifyContent:'center',fontSize:11,fontWeight:700,color:'#00F6FF',flexShrink:0}}>{i+1}</div>
+                <div style={{flex:1,minWidth:0}}>
+                  <div style={{fontSize:13,fontWeight:600,color:'#e8ecf0',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{l.full_name}</div>
+                  <div style={{fontSize:11,color:'#4A4F6A',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',marginTop:1}}>{l.title} · {l.company}</div>
                 </div>
-                <div className="flex items-center gap-3 flex-shrink-0">
-                  {lead.email && (
-                    <span className="text-xs" style={{ color: '#48BB78' }}>✓ email</span>
-                  )}
-                  <div className="text-right">
-                    <span className="text-sm font-bold" style={{ color: scoreColor(lead.score) }}>{lead.score}</span>
-                    <span className="text-xs" style={{ color: '#4A5568' }}>/10</span>
-                  </div>
-                  <div className="px-2 py-0.5 rounded-full text-xs" style={{
-                    background: lead.status === 'new' ? 'rgba(124,106,247,0.15)' : 'rgba(72,187,120,0.15)',
-                    color: lead.status === 'new' ? '#7C6AF7' : '#48BB78'
-                  }}>{lead.status}</div>
+                <div style={{display:'flex',alignItems:'center',gap:10,flexShrink:0}}>
+                  {l.email&&<span style={{fontSize:11,color:'#22d3a5'}}>✓ email</span>}
+                  <span style={{fontSize:13,fontWeight:700,color:sc(l.score)}}>{l.score}<span style={{fontSize:11,color:'#2a2d4a',fontWeight:400}}>/10</span></span>
+                  <span style={{fontSize:11,padding:'2px 8px',borderRadius:99,background:'rgba(167,139,250,0.1)',color:'#a78bfa'}}>{l.status}</span>
                 </div>
               </div>
             ))}
           </div>
         </div>
 
-        {/* Right Panel */}
-        <div className="space-y-4">
-          {/* Quick Actions */}
-          <div className="rounded-2xl p-5 animate-in" style={{ background: '#0F0F1A', border: '1px solid rgba(255,255,255,0.05)' }}>
-            <h2 className="text-sm font-semibold text-white mb-4">Quick Actions</h2>
-            <div className="space-y-2">
-              <Link href="/leads?action=find" className="flex items-center gap-3 p-3 rounded-xl w-full transition-all duration-200"
-                style={{ background: 'rgba(201,168,76,0.1)', border: '1px solid rgba(201,168,76,0.2)' }}>
-                <span style={{ color: '#C9A84C' }}>
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-                </span>
-                <span className="text-sm font-medium" style={{ color: '#C9A84C' }}>Find New Leads</span>
+        {/* Right panel */}
+        <div style={{display:'flex',flexDirection:'column',gap:14}}>
+          {/* Actions */}
+          <div style={S.card}>
+            <div style={{fontSize:14,fontWeight:600,color:'#fff',marginBottom:14}}>Quick Actions</div>
+            {[
+              {href:'/leads',label:'Find New Leads',color:'#00F6FF',bg:'rgba(0,246,255,0.08)',border:'rgba(0,246,255,0.15)'},
+              {href:'/outreach',label:'Write Email',color:'#60a5fa',bg:'rgba(96,165,250,0.08)',border:'rgba(96,165,250,0.15)'},
+              {href:'/pipeline',label:'View Pipeline',color:'#4A4F6A',bg:'rgba(255,255,255,0.03)',border:'rgba(255,255,255,0.06)'},
+            ].map(a=>(
+              <Link key={a.href} href={a.href} style={{display:'flex',alignItems:'center',gap:10,padding:'10px 14px',borderRadius:10,background:a.bg,border:`1px solid ${a.border}`,textDecoration:'none',marginBottom:6,color:a.color,fontSize:13,fontWeight:500}}>
+                {a.label}
               </Link>
-              <Link href="/outreach" className="flex items-center gap-3 p-3 rounded-xl w-full transition-all"
-                style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.04)' }}>
-                <span style={{ color: '#718096' }}>
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>
-                </span>
-                <span className="text-sm font-medium" style={{ color: '#718096' }}>Write Outreach Email</span>
-              </Link>
-              <Link href="/pipeline" className="flex items-center gap-3 p-3 rounded-xl w-full transition-all"
-                style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.04)' }}>
-                <span style={{ color: '#718096' }}>
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
-                </span>
-                <span className="text-sm font-medium" style={{ color: '#718096' }}>View Pipeline</span>
-              </Link>
-            </div>
+            ))}
           </div>
 
-          {/* Monthly Target */}
-          <div className="rounded-2xl p-5 animate-in" style={{ background: '#0F0F1A', border: '1px solid rgba(255,255,255,0.05)' }}>
-            <h2 className="text-sm font-semibold text-white mb-4">June Target</h2>
-            <div className="space-y-3">
-              {[
-                { label: 'Leads Found', current: stats.total, target: 50, color: '#C9A84C' },
-                { label: 'Emails Sent', current: stats.contacted, target: 20, color: '#4F9EF8' },
-                { label: 'Clients Won', current: stats.clients, target: 3, color: '#48BB78' },
-              ].map(item => (
-                <div key={item.label}>
-                  <div className="flex justify-between mb-1">
-                    <span className="text-xs" style={{ color: '#4A5568' }}>{item.label}</span>
-                    <span className="text-xs font-medium text-white">{item.current}/{item.target}</span>
-                  </div>
-                  <div className="h-1.5 rounded-full" style={{ background: 'rgba(255,255,255,0.05)' }}>
-                    <div className="h-full rounded-full transition-all duration-1000"
-                      style={{ background: item.color, width: Math.min((item.current / item.target) * 100, 100) + '%' }}/>
-                  </div>
+          {/* Targets */}
+          <div style={S.card}>
+            <div style={{fontSize:14,fontWeight:600,color:'#fff',marginBottom:16}}>June Targets</div>
+            {[
+              {label:'Leads',cur:stats.total,target:50,color:'#00F6FF'},
+              {label:'Outreach',cur:stats.contacted,target:20,color:'#60a5fa'},
+              {label:'Clients',cur:stats.clients,target:3,color:'#22d3a5'},
+            ].map(t=>(
+              <div key={t.label} style={{marginBottom:14}}>
+                <div style={{display:'flex',justifyContent:'space-between',marginBottom:6}}>
+                  <span style={{fontSize:12,color:'#4A4F6A'}}>{t.label}</span>
+                  <span style={{fontSize:12,fontWeight:600,color:'#e8ecf0'}}>{t.cur}<span style={{color:'#2a2d4a'}}>/{t.target}</span></span>
                 </div>
-              ))}
-            </div>
+                <div style={{height:3,borderRadius:99,background:'rgba(255,255,255,0.04)'}}>
+                  <div style={{height:'100%',borderRadius:99,background:t.color,width:Math.min((t.cur/t.target)*100,100)+'%',transition:'width 1s ease'}}/>
+                </div>
+              </div>
+            ))}
           </div>
         </div>
       </div>

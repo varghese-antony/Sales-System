@@ -3,16 +3,15 @@ import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import Link from 'next/link'
 
-const STATUS_STYLES = {
-  new:          { bg: 'rgba(124,106,247,0.12)', color: '#7C6AF7' },
-  contacted:    { bg: 'rgba(79,158,248,0.12)',  color: '#4F9EF8' },
-  replied:      { bg: 'rgba(246,173,85,0.12)',  color: '#F6AD55' },
-  interested:   { bg: 'rgba(72,187,120,0.12)',  color: '#48BB78' },
-  not_interested:{ bg: 'rgba(252,129,74,0.12)', color: '#FC814A' },
-  client:       { bg: 'rgba(201,168,76,0.15)',  color: '#C9A84C' },
+const statusStyle = {
+  new:           {bg:'rgba(167,139,250,0.1)',color:'#a78bfa'},
+  contacted:     {bg:'rgba(96,165,250,0.1)', color:'#60a5fa'},
+  replied:       {bg:'rgba(251,146,60,0.1)', color:'#fb923c'},
+  interested:    {bg:'rgba(34,211,165,0.1)', color:'#22d3a5'},
+  not_interested:{bg:'rgba(248,113,113,0.1)',color:'#f87171'},
+  client:        {bg:'rgba(0,246,255,0.1)',  color:'#00F6FF'},
 }
-
-const scoreColor = s => s >= 8 ? '#48BB78' : s >= 6 ? '#C9A84C' : '#718096'
+const sc = s => s>=8?'#22d3a5':s>=6?'#00F6FF':'#4A4F6A'
 
 export default function Leads() {
   const [leads, setLeads] = useState([])
@@ -20,163 +19,141 @@ export default function Leads() {
   const [finding, setFinding] = useState(false)
   const [filter, setFilter] = useState('all')
   const [search, setSearch] = useState('')
-  const [message, setMessage] = useState(null)
+  const [toast, setToast] = useState(null)
 
-  useEffect(() => { loadLeads() }, [])
+  useEffect(()=>{load()},[])
 
-  async function loadLeads() {
+  async function load() {
     setLoading(true)
-    const { data } = await supabase.from('leads').select('*').order('score', { ascending: false })
-    setLeads(data || [])
+    const {data} = await supabase.from('leads').select('*').order('score',{ascending:false})
+    setLeads(data||[])
     setLoading(false)
   }
 
-  async function findLeads() {
+  async function find() {
     setFinding(true)
-    setMessage({ type: 'info', text: 'Scanning Apollo, Hunter & LinkedIn for ideal clients...' })
-    const res = await fetch('/api/find-leads', { method: 'POST' })
-    const data = await res.json()
-    if (data.success) {
-      setMessage({ type: 'success', text: `✓ ${data.count} new leads added to your database` })
-      await loadLeads()
-    } else {
-      setMessage({ type: 'error', text: 'Something went wrong. Please try again.' })
-    }
+    setToast({type:'info',msg:'Searching for ideal clients...'})
+    const r = await fetch('/api/find-leads',{method:'POST'})
+    const d = await r.json()
+    setToast(d.success?{type:'ok',msg:`${d.count} new leads added`}:{type:'err',msg:'Error — please try again'})
+    if(d.success) await load()
     setFinding(false)
-    setTimeout(() => setMessage(null), 5000)
+    setTimeout(()=>setToast(null),4000)
   }
 
-  async function updateStatus(id, status) {
-    await supabase.from('leads').update({ status }).eq('id', id)
-    setLeads(leads.map(l => l.id === id ? { ...l, status } : l))
+  async function setStatus(id,status) {
+    await supabase.from('leads').update({status}).eq('id',id)
+    setLeads(leads.map(l=>l.id===id?{...l,status}:l))
   }
 
-  const filtered = leads.filter(l => {
-    const matchFilter = filter === 'all' || l.status === filter
-    const matchSearch = !search ||
-      (l.full_name || '').toLowerCase().includes(search.toLowerCase()) ||
-      (l.company || '').toLowerCase().includes(search.toLowerCase()) ||
-      (l.country || '').toLowerCase().includes(search.toLowerCase())
-    return matchFilter && matchSearch
+  const filtered = leads.filter(l=>{
+    const mf = filter==='all'||l.status===filter
+    const ms = !search||(l.full_name||'').toLowerCase().includes(search.toLowerCase())||(l.company||'').toLowerCase().includes(search.toLowerCase())
+    return mf&&ms
   })
 
   return (
-    <div className="p-8 max-w-7xl mx-auto">
+    <div style={{padding:'32px 36px',maxWidth:1300}}>
       {/* Header */}
-      <div className="flex items-start justify-between mb-8 animate-in">
+      <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',marginBottom:28}}>
         <div>
-          <h1 className="text-2xl font-semibold text-white">Leads</h1>
-          <p className="text-sm mt-1" style={{ color: '#4A5568' }}>{leads.length} leads in your database</p>
+          <h1 style={{fontSize:22,fontWeight:700,color:'#fff',letterSpacing:'-0.02em'}}>Leads</h1>
+          <p style={{fontSize:13,color:'#4A4F6A',marginTop:4}}>{leads.length} leads in database</p>
         </div>
-        <button onClick={findLeads} disabled={finding}
-          className="flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold transition-all duration-200 disabled:opacity-50"
-          style={{ background: finding ? 'rgba(201,168,76,0.1)' : 'linear-gradient(135deg, #C9A84C, #F0C96B)', color: finding ? '#C9A84C' : '#000', border: finding ? '1px solid rgba(201,168,76,0.3)' : 'none' }}>
-          {finding ? (
-            <>
-              <svg className="animate-spin" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg>
-              Searching...
-            </>
-          ) : (
-            <>
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-              Find New Leads
-            </>
-          )}
+        <button onClick={find} disabled={finding} style={{
+          display:'flex',alignItems:'center',gap:8,padding:'9px 18px',borderRadius:10,border:'1px solid rgba(0,246,255,0.3)',cursor:finding?'default':'pointer',
+          background:finding?'rgba(0,246,255,0.05)':'rgba(0,246,255,0.1)',
+          color:'#00F6FF',fontSize:13,fontWeight:600,transition:'all 0.2s',opacity:finding?0.7:1,
+          boxShadow: finding?'none':'0 0 16px rgba(0,246,255,0.1)',
+        }}>
+          {finding?<><span style={{display:'inline-block',width:12,height:12,border:'2px solid currentColor',borderTopColor:'transparent',borderRadius:'50%',animation:'spin 0.7s linear infinite'}}/>Searching...</>:<>＋ Find New Leads</>}
         </button>
       </div>
 
-      {/* Message Banner */}
-      {message && (
-        <div className="mb-4 px-4 py-3 rounded-xl text-sm animate-in"
-          style={{
-            background: message.type === 'success' ? 'rgba(72,187,120,0.08)' : message.type === 'error' ? 'rgba(252,129,74,0.08)' : 'rgba(201,168,76,0.08)',
-            border: `1px solid ${message.type === 'success' ? 'rgba(72,187,120,0.2)' : message.type === 'error' ? 'rgba(252,129,74,0.2)' : 'rgba(201,168,76,0.2)'}`,
-            color: message.type === 'success' ? '#48BB78' : message.type === 'error' ? '#FC814A' : '#C9A84C',
-          }}>
-          {message.text}
-        </div>
-      )}
+      {/* Toast */}
+      {toast&&<div style={{
+        marginBottom:16,padding:'10px 16px',borderRadius:10,fontSize:13,
+        background:toast.type==='ok'?'rgba(34,211,165,0.08)':toast.type==='err'?'rgba(248,113,113,0.08)':'rgba(0,246,255,0.06)',
+        border:`1px solid ${toast.type==='ok'?'rgba(34,211,165,0.2)':toast.type==='err'?'rgba(248,113,113,0.2)':'rgba(0,246,255,0.15)'}`,
+        color:toast.type==='ok'?'#22d3a5':toast.type==='err'?'#f87171':'#00F6FF',
+      }}>{toast.msg}</div>}
 
-      {/* Filters */}
-      <div className="flex gap-3 mb-6 animate-in">
-        <div className="flex-1 relative">
-          <svg className="absolute left-3 top-1/2 -translate-y-1/2" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#4A5568" strokeWidth="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-          <input value={search} onChange={e => setSearch(e.target.value)}
-            placeholder="Search by name, company or country..."
-            className="w-full pl-9 pr-4 py-2.5 rounded-xl text-sm text-white focus:outline-none transition-all"
-            style={{ background: '#0F0F1A', border: '1px solid rgba(255,255,255,0.05)', color: '#E2E8F0' }}
-            onFocus={e => e.target.style.borderColor = 'rgba(201,168,76,0.4)'}
-            onBlur={e => e.target.style.borderColor = 'rgba(255,255,255,0.05)'}
+      {/* Toolbar */}
+      <div style={{display:'flex',gap:10,marginBottom:18,alignItems:'center'}}>
+        <div style={{position:'relative',flex:1}}>
+          <span style={{position:'absolute',left:12,top:'50%',transform:'translateY(-50%)',color:'#2a2d4a',pointerEvents:'none',fontSize:13}}>⌕</span>
+          <input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Search name, company, country..."
+            style={{width:'100%',padding:'9px 12px 9px 32px',borderRadius:10,background:'#0d0d18',border:'1px solid rgba(255,255,255,0.06)',color:'#e8ecf0',fontSize:13,outline:'none'}}
+            onFocus={e=>e.target.style.borderColor='rgba(0,246,255,0.3)'}
+            onBlur={e=>e.target.style.borderColor='rgba(255,255,255,0.06)'}
           />
         </div>
-        <div className="flex gap-1 p-1 rounded-xl" style={{ background: '#0F0F1A', border: '1px solid rgba(255,255,255,0.05)' }}>
-          {['all','new','contacted','interested','client'].map(s => (
-            <button key={s} onClick={() => setFilter(s)}
-              className="px-3 py-1.5 rounded-lg text-xs font-medium transition-all capitalize"
-              style={{ background: filter === s ? 'rgba(201,168,76,0.15)' : 'transparent', color: filter === s ? '#C9A84C' : '#4A5568' }}>
-              {s}
-            </button>
+        <div style={{display:'flex',background:'#0d0d18',border:'1px solid rgba(255,255,255,0.06)',borderRadius:10,padding:3,gap:2}}>
+          {['all','new','contacted','interested','client'].map(f=>(
+            <button key={f} onClick={()=>setFilter(f)} style={{
+              padding:'5px 12px',borderRadius:7,border:'none',cursor:'pointer',fontSize:12,fontWeight:500,
+              background:filter===f?'rgba(0,246,255,0.1)':'transparent',
+              color:filter===f?'#00F6FF':'#4A4F6A',transition:'all 0.15s',textTransform:'capitalize',
+            }}>{f}</button>
           ))}
         </div>
       </div>
 
       {/* Table */}
-      <div className="rounded-2xl overflow-hidden animate-in" style={{ background: '#0F0F1A', border: '1px solid rgba(255,255,255,0.05)' }}>
-        <div className="grid text-xs font-medium uppercase tracking-widest px-5 py-3"
-          style={{ gridTemplateColumns: '2fr 1.5fr 1.5fr 80px 100px 80px', color: '#2D3748', borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
-          <span>Person</span><span>Company</span><span>Email</span><span>Score</span><span>Status</span><span>Action</span>
+      <div style={{background:'#0d0d18',border:'1px solid rgba(255,255,255,0.05)',borderRadius:14,overflow:'hidden'}}>
+        <div style={{display:'grid',gridTemplateColumns:'1.8fr 1.4fr 1.6fr 70px 110px 70px',padding:'10px 20px',borderBottom:'1px solid rgba(255,255,255,0.04)'}}>
+          {['Person','Company','Email','Score','Status',''].map(h=>(
+            <span key={h} style={{fontSize:11,fontWeight:600,color:'#2a2d4a',textTransform:'uppercase',letterSpacing:'0.07em'}}>{h}</span>
+          ))}
         </div>
 
-        {loading ? (
-          [1,2,3,4,5].map(i => (
-            <div key={i} className="h-14 animate-pulse mx-5 my-2 rounded-lg" style={{ background: '#161625' }}/>
-          ))
-        ) : filtered.length === 0 ? (
-          <div className="text-center py-16">
-            <p className="text-sm" style={{ color: '#4A5568' }}>No leads found. Click "Find New Leads" to get started.</p>
-          </div>
-        ) : filtered.map((lead, i) => (
-          <div key={lead.id}
-            className="grid items-center px-5 py-3.5 transition-all duration-150"
-            style={{
-              gridTemplateColumns: '2fr 1.5fr 1.5fr 80px 100px 80px',
-              borderBottom: i < filtered.length - 1 ? '1px solid rgba(255,255,255,0.03)' : 'none',
-            }}>
-            <div className="min-w-0 pr-3">
-              <p className="text-sm font-medium text-white truncate">{lead.full_name}</p>
-              <p className="text-xs truncate mt-0.5" style={{ color: '#4A5568' }}>{lead.title}</p>
+        {loading?[1,2,3,4,5].map(i=>(
+          <div key={i} style={{height:56,margin:'6px 12px',borderRadius:8,background:'#111120'}}/>
+        )):filtered.length===0?(
+          <div style={{padding:'48px 0',textAlign:'center',color:'#2a2d4a',fontSize:13}}>No leads found. Click "Find New Leads" to get started.</div>
+        ):filtered.map((l,i)=>(
+          <div key={l.id} style={{
+            display:'grid',gridTemplateColumns:'1.8fr 1.4fr 1.6fr 70px 110px 70px',
+            padding:'12px 20px',alignItems:'center',
+            borderBottom:i<filtered.length-1?'1px solid rgba(255,255,255,0.03)':'none',
+            transition:'background 0.12s',
+          }}
+          onMouseEnter={e=>e.currentTarget.style.background='rgba(0,246,255,0.02)'}
+          onMouseLeave={e=>e.currentTarget.style.background='transparent'}>
+            <div style={{minWidth:0,paddingRight:12}}>
+              <div style={{fontSize:13,fontWeight:600,color:'#e8ecf0',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{l.full_name}</div>
+              <div style={{fontSize:11,color:'#4A4F6A',marginTop:2,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{l.title}</div>
             </div>
-            <div className="min-w-0 pr-3">
-              <p className="text-sm text-white truncate">{lead.company}</p>
-              <p className="text-xs truncate mt-0.5" style={{ color: '#4A5568' }}>{lead.country}</p>
+            <div style={{minWidth:0,paddingRight:12}}>
+              <div style={{fontSize:13,color:'#c8cad8',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{l.company}</div>
+              <div style={{fontSize:11,color:'#4A4F6A',marginTop:2}}>{l.country}</div>
             </div>
-            <div className="min-w-0 pr-3">
-              {lead.email ? (
+            <div style={{minWidth:0,paddingRight:12}}>
+              {l.email?(
                 <div>
-                  <p className="text-xs truncate" style={{ color: '#4F9EF8' }}>{lead.email}</p>
-                  {lead.email_verified && <p className="text-xs mt-0.5" style={{ color: '#48BB78' }}>✓ verified</p>}
+                  <div style={{fontSize:12,color:'#60a5fa',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{l.email}</div>
+                  {l.email_verified&&<div style={{fontSize:11,color:'#22d3a5',marginTop:1}}>✓ verified</div>}
                 </div>
-              ) : (
-                <span className="text-xs" style={{ color: '#2D3748' }}>—</span>
-              )}
+              ):<span style={{fontSize:12,color:'#2a2d4a'}}>—</span>}
             </div>
             <div>
-              <span className="text-sm font-bold" style={{ color: scoreColor(lead.score) }}>{lead.score}</span>
-              <span className="text-xs" style={{ color: '#2D3748' }}>/10</span>
+              <span style={{fontSize:14,fontWeight:700,color:sc(l.score)}}>{l.score}</span>
+              <span style={{fontSize:11,color:'#2a2d4a'}}>/10</span>
             </div>
             <div>
-              <select value={lead.status} onChange={e => updateStatus(lead.id, e.target.value)}
-                className="text-xs px-2 py-1 rounded-lg cursor-pointer border-0 focus:outline-none"
-                style={{ background: STATUS_STYLES[lead.status]?.bg || 'rgba(255,255,255,0.05)', color: STATUS_STYLES[lead.status]?.color || '#718096' }}>
-                {Object.keys(STATUS_STYLES).map(s => <option key={s} value={s}>{s}</option>)}
+              <select value={l.status} onChange={e=>setStatus(l.id,e.target.value)} style={{
+                padding:'4px 8px',borderRadius:20,border:'none',fontSize:11,fontWeight:600,cursor:'pointer',outline:'none',
+                background:statusStyle[l.status]?.bg||'rgba(255,255,255,0.05)',
+                color:statusStyle[l.status]?.color||'#4A4F6A',
+              }}>
+                {Object.keys(statusStyle).map(s=><option key={s} value={s}>{s}</option>)}
               </select>
             </div>
             <div>
-              <Link href={`/outreach?lead=${lead.id}`}
-                className="text-xs px-3 py-1.5 rounded-lg font-medium transition-all"
-                style={{ background: 'rgba(201,168,76,0.1)', color: '#C9A84C', border: '1px solid rgba(201,168,76,0.2)' }}>
-                Email
-              </Link>
+              <Link href={`/outreach?lead=${l.id}`} style={{
+                fontSize:12,padding:'5px 12px',borderRadius:7,background:'rgba(0,246,255,0.08)',
+                color:'#00F6FF',textDecoration:'none',fontWeight:500,border:'1px solid rgba(0,246,255,0.18)',
+              }}>Email</Link>
             </div>
           </div>
         ))}

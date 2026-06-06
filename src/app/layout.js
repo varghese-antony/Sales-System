@@ -9,13 +9,11 @@ export const metadata = {
 export default function RootLayout({ children }) {
   return (
     <html lang="en">
-      <body suppressHydrationWarning={true} style={{ background: '#07070F' }}>
-        <div style={{ display: 'flex', minHeight: '100vh' }}>
-          <Sidebar />
-          <main style={{ marginLeft: '240px', flex: 1, minHeight: '100vh', background: '#07070F' }}>
-            {children}
-          </main>
-        </div>
+      <body suppressHydrationWarning style={{ background:'#080810', margin:0, padding:0 }}>
+        <Sidebar />
+        <main style={{ marginLeft:220, minHeight:'100vh', background:'#080810' }}>
+          {children}
+        </main>
       </body>
     </html>
   )

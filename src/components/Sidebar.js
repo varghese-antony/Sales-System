@@ -2,88 +2,65 @@
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 
-const navItems = [
-  { href: '/dashboard', label: 'Dashboard', icon: (
-    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-      <rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/>
-      <rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/>
-    </svg>
-  )},
-  { href: '/leads', label: 'Leads', icon: (
-    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
-      <circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/>
-    </svg>
-  )},
-  { href: '/outreach', label: 'Outreach', icon: (
-    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/>
-      <polyline points="22,6 12,13 2,6"/>
-    </svg>
-  )},
-  { href: '/pipeline', label: 'Pipeline', icon: (
-    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-      <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/>
-    </svg>
-  )},
+const nav = [
+  { href: '/dashboard', label: 'Dashboard', icon: <svg width="15" height="15" fill="none" stroke="currentColor" strokeWidth="1.8" viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/></svg> },
+  { href: '/leads',     label: 'Leads',     icon: <svg width="15" height="15" fill="none" stroke="currentColor" strokeWidth="1.8" viewBox="0 0 24 24"><circle cx="9" cy="7" r="4"/><path d="M3 21v-2a4 4 0 0 1 4-4h4a4 4 0 0 1 4 4v2"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/><path d="M21 21v-2a4 4 0 0 0-3-3.87"/></svg> },
+  { href: '/outreach',  label: 'Outreach',  icon: <svg width="15" height="15" fill="none" stroke="currentColor" strokeWidth="1.8" viewBox="0 0 24 24"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg> },
+  { href: '/pipeline',  label: 'Pipeline',  icon: <svg width="15" height="15" fill="none" stroke="currentColor" strokeWidth="1.8" viewBox="0 0 24 24"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg> },
 ]
 
 export default function Sidebar() {
   const path = usePathname()
-
   return (
-    <aside style={{ position: 'fixed', left: 0, top: 0, height: '100vh', width: '240px', display: 'flex', flexDirection: 'column', zIndex: 50, background: '#0B0B16', borderRight: '1px solid rgba(255,255,255,0.05)' }}>
-
+    <aside style={{
+      position:'fixed', left:0, top:0, bottom:0, width:220,
+      background:'#060610', borderRight:'1px solid rgba(0,246,255,0.06)',
+      display:'flex', flexDirection:'column', zIndex:100,
+    }}>
       {/* Logo */}
-      <div className="px-6 py-6 border-b" style={{ borderColor: 'rgba(255,255,255,0.05)' }}>
-        <div className="flex items-center gap-3">
-          <div className="w-8 h-8 rounded-lg flex items-center justify-center"
-            style={{ background: 'linear-gradient(135deg, #C9A84C, #F0C96B)' }}>
-            <span className="text-black font-bold text-sm">B</span>
-          </div>
+      <div style={{ padding:'20px 16px 16px', borderBottom:'1px solid rgba(0,246,255,0.06)' }}>
+        <div style={{ display:'flex', alignItems:'center', gap:10 }}>
+          <img
+            src="/blendery-logo.png"
+            alt="Blendery"
+            style={{ width:32, height:32, objectFit:'contain', filter:'drop-shadow(0 0 6px rgba(0,246,255,0.4))' }}
+          />
           <div>
-            <p className="text-white font-semibold text-sm tracking-wide">Blendery</p>
-            <p className="text-xs" style={{ color: '#4A5568' }}>Sales Intelligence</p>
+            <div style={{ fontWeight:700, fontSize:14, color:'#fff', letterSpacing:'-0.01em' }}>Blendery</div>
+            <div style={{ fontSize:11, color:'rgba(0,246,255,0.4)', marginTop:1 }}>Sales Intelligence</div>
           </div>
         </div>
       </div>
 
       {/* Nav */}
-      <nav className="flex-1 px-3 py-5 space-y-1">
-        <p className="text-xs font-medium px-3 mb-3 uppercase tracking-widest" style={{ color: '#2D3748' }}>Navigation</p>
-        {navItems.map(item => {
+      <nav style={{ flex:1, padding:'12px 8px' }}>
+        <div style={{ fontSize:10, fontWeight:600, color:'rgba(0,246,255,0.2)', letterSpacing:'0.1em', textTransform:'uppercase', padding:'0 8px', marginBottom:8 }}>Menu</div>
+        {nav.map(item => {
           const active = path === item.href
           return (
-            <Link key={item.href} href={item.href}
-              className="flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all duration-200 group"
-              style={{
-                background: active ? 'rgba(201,168,76,0.12)' : 'transparent',
-                color: active ? '#C9A84C' : '#4A5568',
-              }}>
-              <span className="transition-colors duration-200" style={{ color: active ? '#C9A84C' : '#4A5568' }}>
-                {item.icon}
-              </span>
-              <span className="text-sm font-medium" style={{ color: active ? '#C9A84C' : '#718096' }}>
-                {item.label}
-              </span>
-              {active && (
-                <div className="ml-auto w-1 h-4 rounded-full" style={{ background: '#C9A84C' }}/>
-              )}
+            <Link key={item.href} href={item.href} style={{
+              display:'flex', alignItems:'center', gap:10, padding:'8px 10px',
+              borderRadius:8, marginBottom:2, textDecoration:'none', transition:'all 0.15s',
+              background: active ? 'rgba(0,246,255,0.08)' : 'transparent',
+              color: active ? '#00F6FF' : '#4A4F6A',
+            }}>
+              <span style={{ flexShrink:0, color: active ? '#00F6FF' : '#2a2d4a' }}>{item.icon}</span>
+              <span style={{ fontSize:13, fontWeight: active ? 600 : 500 }}>{item.label}</span>
+              {active && <div style={{ marginLeft:'auto', width:3, height:16, borderRadius:99, background:'#00F6FF', boxShadow:'0 0 8px rgba(0,246,255,0.6)' }}/>}
             </Link>
           )
         })}
       </nav>
 
       {/* User */}
-      <div className="px-4 py-4 border-t" style={{ borderColor: 'rgba(255,255,255,0.05)' }}>
-        <div className="flex items-center gap-3 px-2 py-2 rounded-lg" style={{ background: 'rgba(255,255,255,0.02)' }}>
-          <div className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold text-black"
-            style={{ background: 'linear-gradient(135deg, #C9A84C, #F0C96B)', flexShrink: 0 }}>
-            VA
+      <div style={{ padding:'12px 12px 16px', borderTop:'1px solid rgba(0,246,255,0.06)' }}>
+        <div style={{ display:'flex', alignItems:'center', gap:10, padding:'8px 10px', borderRadius:8, background:'rgba(0,246,255,0.04)' }}>
+          <div style={{ width:28, height:28, borderRadius:'50%', background:'rgba(0,246,255,0.12)', border:'1px solid rgba(0,246,255,0.25)', display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0 }}>
+            <span style={{ fontSize:11, fontWeight:700, color:'#00F6FF' }}>VA</span>
           </div>
-          <div className="overflow-hidden">
-            <p className="text-white text-xs font-medium truncate">Varghese Antony</p>
-            <p className="text-xs truncate" style={{ color: '#4A5568' }}>Blendery Tech Solutions</p>
+          <div style={{ overflow:'hidden' }}>
+            <div style={{ fontSize:12, fontWeight:600, color:'#e8ecf0', whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis' }}>Varghese Antony</div>
+            <div style={{ fontSize:11, color:'rgba(0,246,255,0.35)', whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis' }}>Blendery Tech</div>
           </div>
         </div>
       </div>
