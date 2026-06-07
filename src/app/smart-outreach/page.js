@@ -195,6 +195,18 @@ export default function SmartOutreach() {
     setEmailSaved(true); setTimeout(() => setEmailSaved(false), 3000)
   }
 
+  async function discardLead() {
+    if (!selected) return
+    await supabase.from('leads').update({ status: 'not_interested' }).eq('id', selected.id)
+    const updated = { ...selected, status: 'not_interested' }
+    setLeads(leads.map(l => l.id === selected.id ? updated : l))
+    // Move to next lead automatically
+    const currentIndex = leads.findIndex(l => l.id === selected.id)
+    const nextLead = leads.find((l, i) => i > currentIndex && l.status !== 'not_interested')
+    if (nextLead) selectLead(nextLead)
+    else setSelected(null)
+  }
+
   async function sendEmail() {
     if (!selected?.email || !resSubject || !resBody) return
     setEmailSending(true)
@@ -264,7 +276,7 @@ export default function SmartOutreach() {
             ? [1,2,3,4,5].map(i=><div key={i} style={{height:68,borderRadius:10,background:'#111120',marginBottom:6}}/>)
             : view === 'pending'
             ? <div style={{padding:'12px 8px',fontSize:12,color:'#4A4F6A'}}>Switch to All Leads to pick a lead, or click &quot;They Accepted&quot; on the right →</div>
-            : leads.map(lead => {
+            : leads.filter(l => l.status !== 'not_interested').map(lead => {
                 const active = selected?.id === lead.id
                 const liSt = lead.linkedin_status || 'none'
                 const dot = { none:'#2a2d4a', requested:'#fb923c', connected:'#22d3a5', dm_sent:'#00F6FF' }[liSt] || '#2a2d4a'
@@ -324,10 +336,18 @@ export default function SmartOutreach() {
                 <div style={{fontSize:14,fontWeight:700,color:'#fff'}}>{selected.full_name}</div>
                 <div style={{fontSize:11,color:'#4A4F6A',marginTop:1}}>{selected.title} · {selected.company} · {selected.country}</div>
               </div>
-              <div style={{display:'flex',gap:8,flexShrink:0}}>
+              <div style={{display:'flex',gap:8,flexShrink:0,alignItems:'center'}}>
                 {selected.email && <div style={{padding:'4px 10px',borderRadius:6,background:'rgba(34,211,165,0.08)',border:'1px solid rgba(34,211,165,0.15)',fontSize:11,color:'#22d3a5'}}>✓ email</div>}
                 {selected.linkedin_url && <a href={selected.linkedin_url} target="_blank" rel="noreferrer" style={{padding:'4px 10px',borderRadius:6,background:'rgba(10,102,194,0.1)',border:'1px solid rgba(10,102,194,0.2)',fontSize:11,color:'#4a9eff',textDecoration:'none'}}>in LinkedIn</a>}
                 {liStatus!=='none'&&<div style={{padding:'4px 10px',borderRadius:6,background:'rgba(34,211,165,0.08)',border:'1px solid rgba(34,211,165,0.15)',fontSize:11,color:'#22d3a5',textTransform:'capitalize'}}>● {liStatus}</div>}
+                {selected.status === 'not_interested'
+                  ? <div style={{padding:'4px 10px',borderRadius:6,background:'rgba(248,113,113,0.08)',border:'1px solid rgba(248,113,113,0.2)',fontSize:11,color:'#f87171'}}>✕ Discarded</div>
+                  : <button onClick={discardLead} style={{
+                      padding:'5px 12px',borderRadius:6,border:'1px solid rgba(248,113,113,0.2)',
+                      background:'rgba(248,113,113,0.06)',color:'#f87171',fontSize:11,fontWeight:600,
+                      cursor:'pointer',transition:'all 0.15s',
+                    }}>✕ Discard</button>
+                }
               </div>
             </div>
 
