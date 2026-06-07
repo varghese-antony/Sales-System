@@ -106,11 +106,145 @@ In priority order:
 - [x] "Not Useful" discard button for bad leads
 
 ## What's In Progress / Next
-- [ ] Rewrite email engine with genuine personalisation (Marketing Head task)
+- [x] Rewrite email engine with genuine personalisation (done — see research-lead/route.js)
+- [ ] **Outreach sequence tracker + UI** ← TECH HEAD: read full brief below
 - [ ] Auto follow-up sequence (day 3 no-reply trigger)
 - [ ] Rotating company list — 500 companies, 50/day for daily cron
 - [ ] Pipeline board — visual stages
 - [ ] Dashboard — activity summary
+
+---
+
+## 🛠 TECH HEAD BRIEF — Outreach Sequence Tracker
+
+### The Problem to Solve
+Varghese sends cold emails to leads. He needs to know:
+1. Which angle (0–3) was sent to each person
+2. When it was sent
+3. Whether they replied
+4. What to send next and when
+5. See all of this at a glance in the UI — no mental tracking, no spreadsheets
+
+### Email Angle Reference (set by Marketing Head — do not change logic)
+- **Angle 0** — Mirror (reflects their own website words back)
+- **Angle 1** — Signal-led (hooks off a news/hiring/launch signal)
+- **Angle 2** — Proof-first (leads with a concrete result) ← always the first send
+- **Angle 3** — Short & direct (6 lines, no setup)
+
+### Sequence Rules
+- Every new lead: always start with **Angle 2**
+- If no reply after 3 days: send **Follow-up 1** (bump in same thread — see template below)
+- If no reply after 7 days: send **Follow-up 2** (final bump — see template below)
+- After 2 follow-ups with no reply: mark lead as **Sequence Complete** — no more contact
+- If they reply at any point: mark as **Replied** and remove from auto-sequence
+
+### Follow-up Templates (do not make these fancy — they must look hand-typed)
+
+**Follow-up 1 (day 3):**
+```
+Subject: [same as original — reply in thread]
+Body:
+Hi [first],
+
+Just bumping this up in case it got buried.
+
+Still worth a quick chat if the timing's right.
+
+Varghese
+```
+
+**Follow-up 2 (day 7):**
+```
+Subject: [same as original — reply in thread]
+Body:
+Hi [first],
+
+Last nudge from me — I know the inbox gets busy.
+
+If ops automation ever becomes a priority, I'm easy to find.
+
+Varghese
+```
+
+### Database Changes Needed
+
+**Add columns to `outreach` table:**
+```sql
+ALTER TABLE outreach ADD COLUMN angle_number INTEGER; -- 0, 1, 2, or 3
+ALTER TABLE outreach ADD COLUMN sequence_step INTEGER DEFAULT 1; -- 1 = first email, 2 = follow-up 1, 3 = follow-up 2
+ALTER TABLE outreach ADD COLUMN replied BOOLEAN DEFAULT FALSE;
+ALTER TABLE outreach ADD COLUMN reply_received_at TIMESTAMP;
+ALTER TABLE outreach ADD COLUMN next_follow_up_at TIMESTAMP; -- when to send the next step
+ALTER TABLE outreach ADD COLUMN sequence_complete BOOLEAN DEFAULT FALSE;
+```
+
+**Or create a new `sequences` table if cleaner:**
+```sql
+CREATE TABLE sequences (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  lead_id UUID REFERENCES leads(id),
+  angle_number INTEGER,          -- which angle was used (0–3)
+  step INTEGER DEFAULT 1,        -- current step (1, 2, 3)
+  last_sent_at TIMESTAMP,        -- when last email/followup was sent
+  next_due_at TIMESTAMP,         -- when next step should fire
+  replied BOOLEAN DEFAULT FALSE,
+  reply_at TIMESTAMP,
+  complete BOOLEAN DEFAULT FALSE,
+  created_at TIMESTAMP DEFAULT NOW()
+);
+```
+Use whichever is cleaner — Marketing Head doesn't mind, just needs the data.
+
+### API Changes Needed
+
+**When an email is sent (`/api/send-email/route.js`):**
+- Record the `angle_number` (passed from front end — currently the `variation` state)
+- Set `step = 1`, `last_sent_at = now()`, `next_due_at = now() + 3 days`
+- Create a sequence record for this lead
+
+**New endpoint: `/api/send-followup/route.js`**
+- Accepts `lead_id`, `step` (2 or 3)
+- Sends the correct follow-up template (above) via same Hostinger SMTP
+- Must send as a **reply in thread** — use same subject line with "Re:" prefix and include `In-Reply-To` header matching the original email's Message-ID
+- Updates sequence: increments step, updates `last_sent_at`, sets `next_due_at` (+4 days for step 2→3), or marks `complete` if step was 3
+
+**New endpoint: `/api/check-sequences/route.js`** (for cron)
+- Queries all sequences where `next_due_at <= now()` and `complete = false` and `replied = false`
+- For each: auto-sends the follow-up and updates the record
+- Called by a daily Vercel cron job
+
+### UI Changes Needed (Smart Outreach Page)
+
+**In the lead list (left panel), add a sequence status badge next to each lead:**
+- 🟡 Sent — awaiting reply (step 1, within 3 days)
+- 🔴 Follow-up due (step 1, past 3 days — needs follow-up 1)
+- 🟠 Follow-up 2 due (step 2, past 7 days — needs follow-up 2)
+- 🟢 Replied
+- ⚫ Complete (no reply after both follow-ups)
+- No badge = not yet contacted
+
+**In the email step (step 4 of the flow), show:**
+- If lead has no sequence: show normal email compose + "Send (Angle 2)" button
+- If lead is at step 1 and follow-up is due: show follow-up 1 pre-filled, "Send Follow-up 1" button
+- If lead is at step 2 and follow-up is due: show follow-up 2 pre-filled, "Send Follow-up 2" button
+- If sequence complete: show "Sequence complete — no further contact" message
+
+**New tab or section: "Sequence Overview"**
+A simple table showing all leads in active sequences:
+
+| Name | Company | Angle | Step | Sent | Next Due | Status |
+|------|---------|-------|------|------|----------|--------|
+| Sarah | Acme | Proof-first | 1/3 | 2 days ago | Tomorrow | 🟡 Waiting |
+| James | Bloom | Proof-first | 2/3 | 4 days ago | Overdue | 🔴 Due |
+
+Columns: Name, Company, Angle name (not number), Step (e.g. "1 of 3"), Days since last send, Next due date, Status badge.
+Clicking a row opens that lead in the Smart Outreach flow.
+
+### What NOT to Build
+- Do not build reply detection automatically (no email parsing) — Varghese will manually mark a lead as "Replied" via a button
+- Do not build angle selection UI — angle 2 is always first, this is fixed
+- Do not add email preview modal — the existing compose view is enough
+- Inline styles only — no Tailwind, no CSS modules
 
 ## Rules
 - **ALWAYS read LOCKS.md before editing any file** — if another session has a lock on it, stop and warn the user before touching it. Write your own lock when you start, remove it when you push.

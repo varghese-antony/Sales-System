@@ -54,7 +54,7 @@ function bodyToHtml(text) {
 }
 
 export async function POST(req) {
-  const { leadId, to, subject, body } = await req.json()
+  const { leadId, to, subject, body, variation = 2 } = await req.json()
   if (!to || !subject || !body) return NextResponse.json({ success:false, error:'Missing fields' }, { status:400 })
 
   const cleanBody = stripSignOff(body)
@@ -76,10 +76,11 @@ export async function POST(req) {
   })
 
   try {
-    await transporter.sendMail({
+    const info = await transporter.sendMail({
       from: `"Varghese Antony | Blendery" <${process.env.SMTP_USER}>`,
       to, subject, html: htmlEmail,
     })
+    const messageId = info.messageId || null
 
     const rawMsg = Buffer.from(
       `From: "Varghese Antony | Blendery" <${process.env.SMTP_USER}>\r\n` +
@@ -91,6 +92,25 @@ export async function POST(req) {
     const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY)
     await supabase.from('outreach').insert({ lead_id:leadId, type:'email', subject, message:body, status:'sent' })
     await supabase.from('leads').update({ status:'contacted' }).eq('id', leadId)
+
+    // Create or reset the outreach sequence for this lead
+    const now = new Date()
+    const nextDue = new Date(now.getTime() + 3 * 24 * 60 * 60 * 1000).toISOString()
+    // Remove any existing incomplete sequence first
+    await supabase.from('sequences').delete()
+      .eq('lead_id', leadId).eq('complete', false).eq('replied', false)
+    // Create fresh sequence starting at step 1
+    await supabase.from('sequences').insert({
+      lead_id: leadId,
+      angle_number: variation,
+      step: 1,
+      last_sent_at: now.toISOString(),
+      next_due_at: nextDue,
+      original_subject: subject,
+      original_message_id: messageId,
+      replied: false,
+      complete: false,
+    })
 
     return NextResponse.json({ success:true })
   } catch (err) {

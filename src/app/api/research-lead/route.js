@@ -66,96 +66,167 @@ async function searchCompanySignals(companyName) {
 }
 
 const PAIN_MAP = {
-  'Marketing Agency':  { pain: 'manual client reporting across 5+ platforms, proposal creation eating hours, and account managers drowning in admin', outcome: 'agencies saving 12–18 hrs/week per account manager' },
-  'SaaS':             { pain: 'manual customer onboarding sequences, support ticket routing, and churn signals being missed', outcome: 'SaaS teams cutting onboarding time by 60% without adding headcount' },
-  'Consulting':        { pain: 'proposal creation eating 3–5 hrs per client, manual project tracking, and billing reconciliation eating month-end', outcome: 'consultancies reclaiming 2 full days a month per consultant' },
-  'E-commerce SaaS':  { pain: 'customer service volume scaling faster than the team, return backlogs, and disconnected order data', outcome: 'e-commerce ops teams handling 3x volume with the same headcount' },
-  'HR Tech':          { pain: 'candidate screening delays, interview scheduling back-and-forth, and manual status updates', outcome: 'HR teams cutting time-to-hire by 40%' },
-  'Legal Tech SaaS':  { pain: 'document review bottlenecks, manual client intake forms, and billing reconciliation', outcome: 'legal teams reclaiming 8+ hrs/week in admin' },
-  'PropTech SaaS':    { pain: 'manual tenant onboarding, maintenance request tracking, and reporting across properties', outcome: 'property teams cutting manual admin by 50%' },
+  'Marketing Agency': {
+    pain: 'manual client reporting, proposal creation, and account managers rebuilding the same decks every month',
+    outcome: 'an agency like yours saving 12–18 hrs/week per account manager — without touching their existing tools',
+    shortPain: 'client reporting and proposal admin',
+    proofStat: '14 hours a week',
+    proofContext: 'an agency founder in the UK who was manually pulling data from 6 platforms for every client report',
+  },
+  'SaaS': {
+    pain: 'manual onboarding sequences, support triage done by hand, and churn signals nobody has time to act on',
+    outcome: 'SaaS teams cutting onboarding time by 60% without adding headcount',
+    shortPain: 'onboarding and support ops',
+    proofStat: '11 hours a week',
+    proofContext: 'a SaaS founder whose team was manually sending every onboarding email and chasing trial users one by one',
+  },
+  'Consulting': {
+    pain: 'proposals taking 3–5 hrs each, project tracking living in spreadsheets, and month-end billing eating a full day',
+    outcome: 'consultancies reclaiming 2 full days a month per consultant',
+    shortPain: 'proposal creation and project admin',
+    proofStat: '2 days a month',
+    proofContext: 'a consulting firm where every SOW was being built from scratch — same structure, different client, every time',
+  },
+  'E-commerce SaaS': {
+    pain: 'customer service volume outpacing the team, return backlogs, and order data living in three different places',
+    outcome: 'e-commerce ops teams handling 3x volume with the same headcount',
+    shortPain: 'customer ops and returns management',
+    proofStat: '3x support volume',
+    proofContext: 'an e-commerce team handling returns and refunds manually across email, Shopify, and a spreadsheet',
+  },
+  'HR Tech': {
+    pain: 'candidate screening done by hand, interview scheduling going back and forth for days, and status updates nobody sends',
+    outcome: 'HR teams cutting time-to-hire by 40%',
+    shortPain: 'screening and scheduling admin',
+    proofStat: '40% faster hiring',
+    proofContext: 'an HR team spending 3 hrs a day on scheduling emails that should have been automated from the start',
+  },
+  'Legal Tech SaaS': {
+    pain: 'document review bottlenecks, client intake still done manually, and billing reconciliation eating the last week of every month',
+    outcome: 'legal teams reclaiming 8+ hrs/week in admin without changing their practice management software',
+    shortPain: 'intake and billing admin',
+    proofStat: '8 hours a week',
+    proofContext: 'a legal tech firm whose client intake process involved 4 manual steps that could all be triggered automatically',
+  },
+  'PropTech SaaS': {
+    pain: 'tenant onboarding done manually, maintenance requests tracked in spreadsheets, and monthly reporting rebuilt from scratch',
+    outcome: 'property teams cutting manual admin by 50%',
+    shortPain: 'tenant ops and reporting',
+    proofStat: '50% less admin',
+    proofContext: 'a property team manually chasing tenants for documents that could have been collected automatically on day one',
+  },
 }
 
-// 4 completely different email angles
-function buildEmail(variation, { first, company, industry, country, tagline, services, pain, outcome, signals }) {
-  const svc = services[0]?.toLowerCase() || industry.toLowerCase()
-  const svc2 = services[1]?.toLowerCase() || ''
-  const signal = signals[0]?.slice(0, 100) || ''
-  const tag = tagline?.slice(0, 80) || ''
+function detectCompanyStage(signals, aboutText, tagline) {
+  const text = [signals.join(' '), aboutText, tagline].join(' ').toLowerCase()
+  if (/series [b-z]|ipo|enterprise|global|thousands of|500\+|1000\+/.test(text)) return 'established'
+  if (/series a|raised|just launched|growing|scaling|hiring|new office/.test(text)) return 'growing'
+  return 'early'
+}
+
+// Pick 1–2 sentences from their own website copy that reveal how they describe themselves
+function extractMirrorPhrase(siteData) {
+  for (const page of siteData) {
+    for (const para of (page.paras || [])) {
+      const clean = para.trim()
+      // Look for sentences that sound like positioning, not boilerplate legal/cookie text
+      if (
+        clean.length > 40 && clean.length < 200 &&
+        !/(cookie|privacy|terms|©|all rights|subscribe)/i.test(clean)
+      ) {
+        return clean.split(/[.!?]/)[0].trim()
+      }
+    }
+  }
+  return null
+}
+
+// 4 genuinely different email angles — different research focus, structure, and tone
+function buildEmail(variation, { first, company, industry, country, tagline, services, pain, outcome, shortPain, proofStat, proofContext, signals, mirrorPhrase, stage }) {
+  const svc = services[0] || ''
+  const signal = signals[0] || ''
+  const hasSignal = signal.length > 20
 
   const angles = [
-    // Angle 0 — Problem-led: open with their specific pain
+    // Angle 0 — Mirror their language back
+    // Research focus: their own website copy. Opens by quoting or reflecting their positioning.
+    // Tone: observant, empathetic. Makes them feel seen, not sold to.
     {
-      subject: `Quick question about ${company}'s operations, ${first}`,
+      subject: `${first} — a question about how ${company} runs behind the scenes`,
       body: `Hi ${first},
 
-I was researching ${industry} teams in ${country} and came across ${company} — ${tag ? `"${tag}"` : `impressive work`}.
+${mirrorPhrase
+  ? `I was reading about ${company} — "${mirrorPhrase}." That's a strong positioning.`
+  : `I came across ${company} while researching ${industry} teams in ${country}${tagline ? ` — "${tagline}"` : ''}.`
+}
 
-I specialise in one thing: helping ${industry} founders stop losing 10–20 hours a week to ${pain}.
+One thing I've noticed with founders doing work like this: the ops side rarely keeps up with the ambition. ${shortPain} tend to quietly eat time that should be going into the actual work.
 
-It's almost always invisible until someone maps it out — the manual reporting, the tool-switching, the tasks that feel necessary but could run automatically.
+I recently worked with ${proofContext}. We fixed it in a few weeks — ${proofStat} back, no new tools, no new hires.
 
-I recently helped a similar business with ${outcome}, without changing their existing stack or hiring anyone new.
-
-Would you be open to a 20-minute call so I can show you exactly what that looked like — and whether something similar applies to ${company}?
+Would it be worth 20 minutes to see if something similar applies to ${company}?
 
 Best,
 Varghese`,
     },
 
-    // Angle 1 — Curiosity/question: open with a direct question
+    // Angle 1 — Signal-led (news/hiring/launch)
+    // Research focus: Google signals about what's happening at the company RIGHT NOW.
+    // Tone: timely, conversational. Feels like a genuine reaction to something real.
     {
-      subject: `${first}, how much time does ${company} spend on ops each week?`,
+      subject: hasSignal ? `Spotted something about ${company} — quick thought` : `${company}'s growth — and the ops question that usually follows`,
       body: `Hi ${first},
 
-Quick question — how many hours a week does your team spend on work that isn't directly serving clients or building the product?
+${hasSignal
+  ? `I noticed ${signal.slice(0, 120)} — looks like things are moving at ${company}.`
+  : `I've been looking at ${industry} teams in ${country} that are building something real, and ${company} came up.`
+}
 
-I ask because I work with ${industry} founders, and the answer is almost always higher than expected. Things like ${pain} quietly eat 10–20 hours a week that should be going into growth.
+In my experience, that kind of momentum is exactly when the ops cracks start showing — ${shortPain} start taking longer than they should, and the team patches it manually because there's no time to fix it properly.
 
-I came across ${company}${svc ? ` and your work on ${svc}` : ''} — you're clearly doing strong work. I'd hate for ops overhead to be the thing that slows that down.
+I help founders like you automate that layer. ${proofStat} recovered per week is typical. No new tools, no restructuring — just the existing setup connected properly.
 
-I've helped similar businesses with ${outcome} — happy to share exactly how if it's useful.
-
-Worth a 20-minute call this week?
+Worth a quick call to see if it applies here?
 
 Best,
 Varghese`,
     },
 
-    // Angle 2 — Social proof first: lead with the result
+    // Angle 2 — Proof-first, then bridge
+    // Research focus: their industry + company stage. Opens with a concrete result, earns the connection.
+    // Tone: confident, credible. No hedging. The proof does the persuading.
     {
-      subject: `How a ${industry} like ${company} saved 15hrs/week — worth sharing`,
+      subject: `How ${proofStat} came back to a ${industry} founder — relevant to ${company}?`,
       body: `Hi ${first},
 
-I recently helped a ${industry} founder in ${country} reclaim 15 hours a week — not by hiring, not by switching tools, just by fixing how their existing setup was connected.
+I recently worked with ${proofContext}.
 
-The bottleneck was ${pain}. Sound familiar?
+${proofStat} came back every week. Not by hiring, not by rebuilding their tech stack — just by connecting what they already had.
 
-When I looked at ${company}${svc ? ` and what you're doing around ${svc}` : ''}, I saw the same pattern. The team is doing great work, but there's almost certainly time being lost to manual processes that could be automated.
+${company}${svc ? ` — particularly what you're doing around ${svc}` : ''} — is at a similar stage. The same pattern almost always exists: ${shortPain} eating time that should be going into growth.
 
-${outcome} — that's the kind of result I consistently see when we fix this properly.
+I'd love to spend 20 minutes walking you through exactly what we did and whether the same applies to you. No pitch — just a practical look.
 
-I'd love to spend 20 minutes showing you the exact approach. No pitch — just a practical look at your setup.
-
-Are you free any time this week or next?
+Free any time this week?
 
 Best,
 Varghese`,
     },
 
-    // Angle 3 — Direct & short: respect their time
+    // Angle 3 — Short & direct
+    // Research focus: one specific thing from their site (service or tagline). No setup, no story.
+    // Tone: respects their time completely. 6 lines max.
     {
-      subject: `${company} + ops automation — 2 mins?`,
+      subject: `${company} — ops question`,
       body: `Hi ${first},
 
-I'll keep this short.
+I'll be brief.
 
-I help ${industry} founders automate the ops work that's quietly draining their team — specifically ${pain}.
+${svc ? `I saw ${company} works on ${svc}.` : `I came across ${company}.`} Founders running ${industry} businesses at your stage typically lose ${proofStat} a week to ${shortPain} — usually without realising it.
 
-I looked at ${company}${tag ? ` — "${tag}"` : ''} — you're building something worth protecting from operational drag.
+I fix that. Specifically and quickly.
 
-Most teams I work with find ${outcome} within 60 days. No new tools, no extra headcount.
-
-Would a 20-minute call be worth it to find out if the same applies to you?
+Worth 20 minutes to find out if it applies here?
 
 Best,
 Varghese`,
@@ -182,21 +253,32 @@ export async function POST(req) {
   const tagline = homepage.h1?.[0] || homepage.meta || ''
   const aboutText = aboutPage.paras?.[0] || aboutPage.meta || ''
   const services = [...(homepage.h2||[]), ...(aboutPage.h2||[])].filter(h=>h.length>5).slice(0,4)
-  const { pain, outcome } = PAIN_MAP[lead.industry] || { pain: 'disconnected tools and manual processes', outcome: 'founders reclaiming 10–15 hrs/week' }
+  const industryData = PAIN_MAP[lead.industry] || {
+    pain: 'disconnected tools and manual processes',
+    outcome: 'founders reclaiming 10–15 hrs/week',
+    shortPain: 'manual ops work',
+    proofStat: '10+ hours a week',
+    proofContext: 'a founder whose team was doing manually what their tools could have handled automatically',
+  }
+  const mirrorPhrase = extractMirrorPhrase(siteData)
+  const stage = detectCompanyStage(signals, aboutText, tagline)
   const first = lead.first_name || lead.full_name?.split(' ')[0] || 'there'
 
   const { subject, body } = buildEmail(variation, {
     first, company: lead.company, industry: lead.industry,
-    country: lead.country, tagline, services, pain, outcome, signals,
+    country: lead.country, tagline, services, signals, mirrorPhrase, stage,
+    ...industryData,
   })
 
   let research = `COMPANY: ${lead.company}\n`
+  research += `STAGE: ${stage}\n`
   research += `WHAT THEY DO: ${tagline || lead.industry}\n`
+  if (mirrorPhrase) research += `THEIR WORDS: ${mirrorPhrase}\n`
   if (aboutText) research += `ABOUT: ${aboutText}\n`
   if (services.length) research += `KEY SERVICES: ${services.join(' · ')}\n`
   if (signals.length) research += `RECENT SIGNALS:\n${signals.map(s=>`  • ${s.slice(0,120)}`).join('\n')}\n`
-  research += `PAIN POINT: ${pain}\n`
-  research += `TYPICAL OUTCOME: ${outcome}`
+  research += `PAIN POINT: ${industryData.pain}\n`
+  research += `TYPICAL OUTCOME: ${industryData.outcome}`
 
   await supabase.from('leads').update({ notes: research }).eq('id', lead.id)
 
