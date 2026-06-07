@@ -1,6 +1,29 @@
 import { NextResponse } from 'next/server'
 import nodemailer from 'nodemailer'
+import { ImapFlow } from 'imapflow'
 import { createClient } from '@supabase/supabase-js'
+
+async function saveToSentFolder(rawMessage) {
+  const client = new ImapFlow({
+    host: 'imap.hostinger.com',
+    port: 993,
+    secure: true,
+    auth: {
+      user: process.env.SMTP_USER,
+      pass: process.env.SMTP_PASS,
+    },
+    logger: false,
+  })
+  try {
+    await client.connect()
+    // Hostinger Sent folder is usually called "Sent" or "INBOX.Sent"
+    const sentFolder = 'Sent'
+    await client.append(sentFolder, rawMessage, ['\\Seen'])
+    await client.logout()
+  } catch {
+    // Don't fail the whole request if IMAP copy fails
+  }
+}
 
 const SIGNATURE_HTML = `<table cellpadding="0" cellspacing="0" border="0" style="margin-top:24px;padding-top:20px;border-top:2px solid #00F6FF;font-family:Arial,sans-serif;">
   <tr>
@@ -79,12 +102,24 @@ export async function POST(req) {
   })
 
   try {
-    await transporter.sendMail({
+    const info = await transporter.sendMail({
       from: `"Varghese Antony | Blendery" <${process.env.SMTP_USER}>`,
       to,
       subject,
       html: htmlEmail,
     })
+
+    // Build raw message and save to Hostinger Sent folder via IMAP
+    const rawMsg = Buffer.from(
+      `From: "Varghese Antony | Blendery" <${process.env.SMTP_USER}>\r\n` +
+      `To: ${to}\r\n` +
+      `Subject: ${subject}\r\n` +
+      `Date: ${new Date().toUTCString()}\r\n` +
+      `MIME-Version: 1.0\r\n` +
+      `Content-Type: text/html; charset=utf-8\r\n\r\n` +
+      htmlEmail
+    )
+    await saveToSentFolder(rawMsg)
 
     const supabase = createClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL,
