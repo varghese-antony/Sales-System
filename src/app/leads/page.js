@@ -33,8 +33,10 @@ export default function Leads() {
   const [search, setSearch] = useState('')
   const [toast, setToast] = useState(null)
   const [csvLoading, setCsvLoading] = useState(false)
-  const [mapsProgress, setMapsProgress] = useState(null)   // { step, total, label } | null
+  const [mapsProgress, setMapsProgress] = useState(null)
   const [phLoading, setPhLoading] = useState(false)
+  const [enrichingId, setEnrichingId] = useState(null)
+  const [enrichAllProgress, setEnrichAllProgress] = useState(null) // { done, total } | null
 
   // Google Maps search labels for progress display (mirrors route.js SEARCHES order)
   const MAPS_SEARCHES = [
@@ -151,6 +153,80 @@ export default function Leads() {
     e.target.value = ''
   }
 
+  async function enrichLead(id) {
+    setEnrichingId(id)
+    try {
+      const r = await fetch('/api/enrich-lead', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ leadId: id }),
+      })
+      const d = await r.json()
+      if (d.success) {
+        // Update this lead in local state immediately
+        setLeads(prev => prev.map(l => {
+          if (l.id !== id) return l
+          return {
+            ...l,
+            full_name: d.founderName || l.full_name,
+            first_name: (d.founderName || l.full_name || '').split(' ')[0] || l.first_name,
+            email: d.email || l.email,
+          }
+        }))
+        const msg = []
+        if (d.founderName) msg.push(`Found: ${d.founderName}`)
+        if (d.email) msg.push(`Email: ${d.email}`)
+        if (d.emailPatterns?.length) msg.push(`${d.emailPatterns.length} email patterns saved to notes`)
+        if (!msg.length) msg.push('No new info found — try adding email manually')
+        setToast({ type: msg.length && d.email ? 'ok' : 'info', msg: msg.join(' · ') })
+      } else {
+        setToast({ type: 'err', msg: d.error || 'Enrich failed' })
+      }
+    } catch {
+      setToast({ type: 'err', msg: 'Enrich failed — check connection' })
+    }
+    setEnrichingId(null)
+    setTimeout(() => setToast(null), 6000)
+  }
+
+  async function enrichAll() {
+    const toEnrich = leads.filter(l => !l.email && l.website)
+    if (!toEnrich.length) {
+      setToast({ type: 'info', msg: 'All leads with websites already have emails' })
+      setTimeout(() => setToast(null), 4000)
+      return
+    }
+    let done = 0
+    let found = 0
+    setEnrichAllProgress({ done: 0, total: toEnrich.length })
+    for (const lead of toEnrich) {
+      try {
+        const r = await fetch('/api/enrich-lead', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ leadId: lead.id }),
+        })
+        const d = await r.json()
+        if (d.success && (d.email || d.founderName)) {
+          found++
+          setLeads(prev => prev.map(l => l.id !== lead.id ? l : {
+            ...l,
+            full_name: d.founderName || l.full_name,
+            first_name: (d.founderName || l.full_name || '').split(' ')[0] || l.first_name,
+            email: d.email || l.email,
+          }))
+        }
+      } catch {}
+      done++
+      setEnrichAllProgress({ done, total: toEnrich.length })
+      // Small delay between requests to be polite
+      await new Promise(r => setTimeout(r, 800))
+    }
+    setEnrichAllProgress(null)
+    setToast({ type: 'ok', msg: `Enrich All done — found info for ${found} of ${toEnrich.length} leads` })
+    setTimeout(() => setToast(null), 8000)
+  }
+
   async function setStatus(id,status) {
     await supabase.from('leads').update({status}).eq('id',id)
     setLeads(leads.map(l=>l.id===id?{...l,status}:l))
@@ -217,6 +293,21 @@ export default function Leads() {
             <input type="file" accept=".csv" onChange={importCSV} disabled={csvLoading} style={{display:'none'}}/>
           </label>
 
+          {/* Enrich All */}
+          <button onClick={enrichAll} disabled={!!enrichAllProgress} style={{
+            display:'flex',alignItems:'center',gap:6,padding:'9px 14px',borderRadius:10,
+            border:'1px solid rgba(34,211,165,0.3)',cursor:enrichAllProgress?'default':'pointer',
+            background:enrichAllProgress?'rgba(34,211,165,0.03)':'rgba(34,211,165,0.08)',
+            color:'#22d3a5',fontSize:13,fontWeight:600,transition:'all 0.2s',opacity:enrichAllProgress?0.8:1,
+            whiteSpace:'nowrap',
+          }}>
+            {enrichAllProgress
+              ? <><span style={{display:'inline-block',width:11,height:11,border:'2px solid currentColor',borderTopColor:'transparent',borderRadius:'50%',animation:'spin 0.7s linear infinite'}}/>
+                  Enriching... ({enrichAllProgress.done}/{enrichAllProgress.total})</>
+              : <>✦ Enrich All</>
+            }
+          </button>
+
           {/* Find New Leads (Hunter.io) */}
           <button onClick={find} disabled={finding} style={{
             display:'flex',alignItems:'center',gap:8,padding:'9px 18px',borderRadius:10,
@@ -263,8 +354,8 @@ export default function Leads() {
       {/* Table */}
       <div style={{background:'#0d0d18',border:'1px solid rgba(255,255,255,0.05)',borderRadius:14,overflow:'hidden'}}>
         {/* Header */}
-        <div style={{display:'grid',gridTemplateColumns:'1.6fr 1.2fr 1.5fr 90px 60px 110px 70px',padding:'10px 20px',borderBottom:'1px solid rgba(255,255,255,0.04)'}}>
-          {['Person','Company','Email','Source','Score','Status',''].map(h=>(
+        <div style={{display:'grid',gridTemplateColumns:'1.6fr 1.2fr 1.5fr 90px 60px 110px 130px',padding:'10px 20px',borderBottom:'1px solid rgba(255,255,255,0.04)'}}>
+          {['Person','Company','Email','Source','Score','Status','Actions'].map(h=>(
             <span key={h} style={{fontSize:11,fontWeight:600,color:'#2a2d4a',textTransform:'uppercase',letterSpacing:'0.07em'}}>{h}</span>
           ))}
         </div>
@@ -277,7 +368,7 @@ export default function Leads() {
           const src = getSource(l.source)
           return (
           <div key={l.id} style={{
-            display:'grid',gridTemplateColumns:'1.6fr 1.2fr 1.5fr 90px 60px 110px 70px',
+            display:'grid',gridTemplateColumns:'1.6fr 1.2fr 1.5fr 90px 60px 110px 130px',
             padding:'12px 20px',alignItems:'center',
             borderBottom:i<filtered.length-1?'1px solid rgba(255,255,255,0.03)':'none',
             transition:'background 0.12s',
@@ -329,12 +420,29 @@ export default function Leads() {
                 {Object.keys(statusStyle).map(s=><option key={s} value={s}>{s}</option>)}
               </select>
             </div>
-            {/* Email button */}
-            <div>
-              <Link href={`/outreach?lead=${l.id}`} style={{
-                fontSize:12,padding:'5px 12px',borderRadius:7,background:'rgba(0,246,255,0.08)',
-                color:'#00F6FF',textDecoration:'none',fontWeight:500,border:'1px solid rgba(0,246,255,0.18)',
-              }}>Email</Link>
+            {/* Actions */}
+            <div style={{display:'flex',gap:5,alignItems:'center'}}>
+              {/* Enrich — only show if no email yet */}
+              {!l.email && l.website && (
+                <button
+                  onClick={()=>enrichLead(l.id)}
+                  disabled={enrichingId===l.id}
+                  title="Find founder name + email from website"
+                  style={{
+                    fontSize:11,padding:'4px 9px',borderRadius:7,border:'1px solid rgba(34,211,165,0.25)',
+                    background:'rgba(34,211,165,0.07)',color:'#22d3a5',cursor:enrichingId===l.id?'default':'pointer',
+                    fontWeight:600,display:'flex',alignItems:'center',gap:4,whiteSpace:'nowrap',
+                  }}>
+                  {enrichingId===l.id
+                    ? <><span style={{display:'inline-block',width:9,height:9,border:'1.5px solid currentColor',borderTopColor:'transparent',borderRadius:'50%',animation:'spin 0.7s linear infinite'}}/>...</>
+                    : <>✦ Enrich</>}
+                </button>
+              )}
+              <Link href={`/smart-outreach?lead=${l.id}`} style={{
+                fontSize:11,padding:'4px 9px',borderRadius:7,background:'rgba(0,246,255,0.08)',
+                color:'#00F6FF',textDecoration:'none',fontWeight:600,border:'1px solid rgba(0,246,255,0.18)',
+                whiteSpace:'nowrap',
+              }}>✉ Email</Link>
             </div>
           </div>
           )
