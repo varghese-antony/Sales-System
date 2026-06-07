@@ -1,6 +1,22 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 
+// Decode HTML entities so scraped text is clean plain text
+function decodeHtml(str) {
+  if (!str) return ''
+  return str
+    .replace(/&#8220;/g, '"').replace(/&#8221;/g, '"')
+    .replace(/&#8216;/g, "'").replace(/&#8217;/g, "'")
+    .replace(/&#8211;/g, '–').replace(/&#8212;/g, '—')
+    .replace(/&#38;/g, '&').replace(/&amp;/g, '&')
+    .replace(/&quot;/g, '"').replace(/&#x27;/g, "'")
+    .replace(/&lt;/g, '<').replace(/&gt;/g, '>')
+    .replace(/&nbsp;/g, ' ').replace(/&#160;/g, ' ')
+    .replace(/&#(\d+);/g, (_, code) => String.fromCharCode(Number(code)))
+    .replace(/&[a-z]+;/gi, '')   // strip any remaining unknown entities
+    .replace(/\s+/g, ' ').trim()
+}
+
 async function scrapeWebsite(domain) {
   const base = domain.startsWith('http') ? domain : `https://${domain}`
   const pages = ['', '/about', '/about-us', '/services', '/what-we-do']
@@ -13,11 +29,13 @@ async function scrapeWebsite(domain) {
       })
       if (!res.ok) continue
       const html = await res.text()
-      const meta = html.match(/<meta[^>]+name=["']description["'][^>]+content=["']([^"']{15,300})["']/i)?.[1]
+      const meta = decodeHtml(
+        html.match(/<meta[^>]+name=["']description["'][^>]+content=["']([^"']{15,300})["']/i)?.[1]
         || html.match(/<meta[^>]+content=["']([^"']{15,300})["'][^>]+name=["']description["']/i)?.[1]
-      const h1 = [...html.matchAll(/<h1[^>]*>([^<]{5,150})<\/h1>/gi)].map(m=>m[1].trim()).filter(Boolean).slice(0,3)
-      const h2 = [...html.matchAll(/<h2[^>]*>([^<]{5,100})<\/h2>/gi)].map(m=>m[1].trim()).filter(Boolean).slice(0,6)
-      const paras = [...html.matchAll(/<p[^>]*>([^<]{30,300})<\/p>/gi)].map(m=>m[1].replace(/<[^>]+>/g,'').trim()).filter(Boolean).slice(0,4)
+      )
+      const h1 = [...html.matchAll(/<h1[^>]*>([^<]{5,150})<\/h1>/gi)].map(m=>decodeHtml(m[1])).filter(Boolean).slice(0,3)
+      const h2 = [...html.matchAll(/<h2[^>]*>([^<]{5,100})<\/h2>/gi)].map(m=>decodeHtml(m[1])).filter(Boolean).slice(0,6)
+      const paras = [...html.matchAll(/<p[^>]*>([^<]{30,300})<\/p>/gi)].map(m=>decodeHtml(m[1].replace(/<[^>]+>/g,''))).filter(Boolean).slice(0,4)
       if (meta || h1.length || paras.length) results.push({ path, meta, h1, h2, paras })
     } catch {}
   }
