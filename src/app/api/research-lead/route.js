@@ -75,8 +75,98 @@ const PAIN_MAP = {
   'PropTech SaaS':    { pain: 'manual tenant onboarding, maintenance request tracking, and reporting across properties', outcome: 'property teams cutting manual admin by 50%' },
 }
 
+// 4 completely different email angles
+function buildEmail(variation, { first, company, industry, country, tagline, services, pain, outcome, signals }) {
+  const svc = services[0]?.toLowerCase() || industry.toLowerCase()
+  const svc2 = services[1]?.toLowerCase() || ''
+  const signal = signals[0]?.slice(0, 100) || ''
+  const tag = tagline?.slice(0, 80) || ''
+
+  const angles = [
+    // Angle 0 — Problem-led: open with their specific pain
+    {
+      subject: `Quick question about ${company}'s operations, ${first}`,
+      body: `Hi ${first},
+
+I was researching ${industry} teams in ${country} and came across ${company} — ${tag ? `"${tag}"` : `impressive work`}.
+
+I specialise in one thing: helping ${industry} founders stop losing 10–20 hours a week to ${pain}.
+
+It's almost always invisible until someone maps it out — the manual reporting, the tool-switching, the tasks that feel necessary but could run automatically.
+
+I recently helped a similar business with ${outcome}, without changing their existing stack or hiring anyone new.
+
+Would you be open to a 20-minute call so I can show you exactly what that looked like — and whether something similar applies to ${company}?
+
+Best,
+Varghese`,
+    },
+
+    // Angle 1 — Curiosity/question: open with a direct question
+    {
+      subject: `${first}, how much time does ${company} spend on ops each week?`,
+      body: `Hi ${first},
+
+Quick question — how many hours a week does your team spend on work that isn't directly serving clients or building the product?
+
+I ask because I work with ${industry} founders, and the answer is almost always higher than expected. Things like ${pain} quietly eat 10–20 hours a week that should be going into growth.
+
+I came across ${company}${svc ? ` and your work on ${svc}` : ''} — you're clearly doing strong work. I'd hate for ops overhead to be the thing that slows that down.
+
+I've helped similar businesses with ${outcome} — happy to share exactly how if it's useful.
+
+Worth a 20-minute call this week?
+
+Best,
+Varghese`,
+    },
+
+    // Angle 2 — Social proof first: lead with the result
+    {
+      subject: `How a ${industry} like ${company} saved 15hrs/week — worth sharing`,
+      body: `Hi ${first},
+
+I recently helped a ${industry} founder in ${country} reclaim 15 hours a week — not by hiring, not by switching tools, just by fixing how their existing setup was connected.
+
+The bottleneck was ${pain}. Sound familiar?
+
+When I looked at ${company}${svc ? ` and what you're doing around ${svc}` : ''}, I saw the same pattern. The team is doing great work, but there's almost certainly time being lost to manual processes that could be automated.
+
+${outcome} — that's the kind of result I consistently see when we fix this properly.
+
+I'd love to spend 20 minutes showing you the exact approach. No pitch — just a practical look at your setup.
+
+Are you free any time this week or next?
+
+Best,
+Varghese`,
+    },
+
+    // Angle 3 — Direct & short: respect their time
+    {
+      subject: `${company} + ops automation — 2 mins?`,
+      body: `Hi ${first},
+
+I'll keep this short.
+
+I help ${industry} founders automate the ops work that's quietly draining their team — specifically ${pain}.
+
+I looked at ${company}${tag ? ` — "${tag}"` : ''} — you're building something worth protecting from operational drag.
+
+Most teams I work with find ${outcome} within 60 days. No new tools, no extra headcount.
+
+Would a 20-minute call be worth it to find out if the same applies to you?
+
+Best,
+Varghese`,
+    },
+  ]
+
+  return angles[variation % 4]
+}
+
 export async function POST(req) {
-  const { lead } = await req.json()
+  const { lead, variation = 0 } = await req.json()
   if (!lead) return NextResponse.json({ error: 'No lead' }, { status: 400 })
 
   const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY)
@@ -89,56 +179,24 @@ export async function POST(req) {
 
   const homepage = siteData[0] || {}
   const aboutPage = siteData.find(p => p.path.includes('about')) || {}
-  const tagline = homepage.h1?.[0] || homepage.meta || `${lead.company} is a ${lead.industry} company`
+  const tagline = homepage.h1?.[0] || homepage.meta || ''
   const aboutText = aboutPage.paras?.[0] || aboutPage.meta || ''
   const services = [...(homepage.h2||[]), ...(aboutPage.h2||[])].filter(h=>h.length>5).slice(0,4)
   const { pain, outcome } = PAIN_MAP[lead.industry] || { pain: 'disconnected tools and manual processes', outcome: 'founders reclaiming 10–15 hrs/week' }
+  const first = lead.first_name || lead.full_name?.split(' ')[0] || 'there'
 
-  // Build research notes
+  const { subject, body } = buildEmail(variation, {
+    first, company: lead.company, industry: lead.industry,
+    country: lead.country, tagline, services, pain, outcome, signals,
+  })
+
   let research = `COMPANY: ${lead.company}\n`
-  research += `WHAT THEY DO: ${tagline}\n`
+  research += `WHAT THEY DO: ${tagline || lead.industry}\n`
   if (aboutText) research += `ABOUT: ${aboutText}\n`
   if (services.length) research += `KEY SERVICES: ${services.join(' · ')}\n`
   if (signals.length) research += `RECENT SIGNALS:\n${signals.map(s=>`  • ${s.slice(0,120)}`).join('\n')}\n`
   research += `PAIN POINT: ${pain}\n`
   research += `TYPICAL OUTCOME: ${outcome}`
-
-  // Build deeply personalised email
-  const first = lead.first_name || lead.full_name?.split(' ')[0] || 'there'
-
-  // Pick the most specific opening hook
-  let hook = ''
-  if (signals.length > 0) {
-    hook = `I came across ${lead.company} recently — ${signals[0].slice(0,100).toLowerCase()}. That caught my attention.`
-  } else if (services.length > 0) {
-    hook = `I was looking at ${lead.company}'s work on ${services[0].toLowerCase()} and wanted to reach out directly.`
-  } else if (tagline && tagline !== `${lead.company} is a ${lead.industry} company`) {
-    hook = `"${tagline.slice(0,80)}" — that line on your website caught my attention and made me want to reach out.`
-  } else {
-    hook = `I came across ${lead.company} while researching top ${lead.industry} teams in ${lead.country} and wanted to reach out directly.`
-  }
-
-  const serviceContext = services.length > 0
-    ? `For teams delivering ${services.slice(0,2).map(s=>s.toLowerCase()).join(' and ')}`
-    : `For ${lead.industry} teams at your stage`
-
-  const subject = `Quick question about ${lead.company}'s operations, ${first}`
-  const body = `Hi ${first},
-
-${hook}
-
-I work with ${lead.industry} founders to eliminate the operational drag that quietly slows growth. ${serviceContext}, the biggest time-sink I consistently see is ${pain}.
-
-Most founders I speak to are spending 10–20 hours a week on work that could run automatically — time that should be going into clients, strategy, and growth.
-
-I recently helped a similar ${lead.industry} business with ${outcome}, without replacing their existing tools or adding headcount.
-
-I'd love 20 minutes to look at ${lead.company}'s current setup and show you exactly where the quick wins are — no pitch, just a practical look.
-
-Would any time this week or next work for you?
-
-Best,
-Varghese`
 
   await supabase.from('leads').update({ notes: research }).eq('id', lead.id)
 

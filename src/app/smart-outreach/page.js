@@ -103,6 +103,7 @@ export default function SmartOutreach() {
   const [emailSent, setEmailSent]       = useState(false)
   const [emailSending, setEmailSending] = useState(false)
   const [regenerating, setRegenerating] = useState(false)
+  const [variation, setVariation]       = useState(0)
   const [copied, setCopied]         = useState('')
 
   useEffect(() => {
@@ -212,9 +213,11 @@ export default function SmartOutreach() {
     if (!selected) return
     setRegenerating(true)
     setResSubject(''); setResBody(''); setEmailSent(false)
+    const nextVariation = (variation + 1) % 4
+    setVariation(nextVariation)
     const res = await fetch('/api/research-lead', {
       method:'POST', headers:{'Content-Type':'application/json'},
-      body: JSON.stringify({ lead: selected }),
+      body: JSON.stringify({ lead: selected, variation: nextVariation }),
     })
     const data = await res.json()
     if (data.success) { setResSubject(data.subject); setResBody(data.body) }
@@ -629,7 +632,7 @@ export default function SmartOutreach() {
                                 }}>
                                   {regenerating
                                     ? <><span style={{display:'inline-block',width:9,height:9,border:'1.5px solid #a78bfa',borderTopColor:'transparent',borderRadius:'50%',animation:'spin 0.7s linear infinite'}}/>Writing...</>
-                                    : '↻ Regenerate'}
+                                    : `↻ Regenerate (v${variation + 1}/4)`}
                                 </button>
                                 <button onClick={()=>copyText(resBody,'body')} style={{fontSize:11,padding:'3px 10px',borderRadius:6,border:'1px solid rgba(255,255,255,0.08)',background:'rgba(255,255,255,0.03)',color:copied==='body'?'#22d3a5':'#4A4F6A',cursor:'pointer'}}>
                                   {copied==='body'?'✓ Copied':'Copy'}
