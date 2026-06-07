@@ -36,14 +36,40 @@ export default function Leads() {
   const [mapsProgress, setMapsProgress] = useState(null)   // { step, total, label } | null
   const [phLoading, setPhLoading] = useState(false)
 
-  // Google Maps search labels for progress display
+  // Google Maps search labels for progress display (mirrors route.js SEARCHES order)
   const MAPS_SEARCHES = [
-    'Marketing agencies · London','Marketing agencies · Manchester','Marketing agencies · Dublin',
-    'Marketing agencies · Sydney','Marketing agencies · Dubai','Marketing agencies · Singapore',
-    'Consulting · London','Consulting · Dublin','Consulting · Sydney',
-    'Consulting · Dubai','Consulting · Singapore',
-    'Legal Tech · London','Legal Tech · Sydney','Legal Tech · Singapore',
+    'Marketing Agencies · London','Marketing Agencies · Manchester','Marketing Agencies · Dublin',
+    'Marketing Agencies · Sydney','Marketing Agencies · Melbourne','Marketing Agencies · Dubai',
+    'Marketing Agencies · Singapore','Marketing Agencies · New York','Marketing Agencies · LA',
+    'Marketing Agencies · Chicago','Marketing Agencies · Austin','Marketing Agencies · Miami',
+    'Consulting · London','Consulting · Dublin','Consulting · Sydney','Consulting · Dubai',
+    'Consulting · Singapore','Consulting · New York','Consulting · San Francisco',
+    'Consulting · Chicago','Consulting · Austin',
+    'SaaS · London','SaaS · Dublin','SaaS · Sydney','SaaS · Singapore',
+    'SaaS · New York','SaaS · San Francisco','SaaS · Austin','SaaS · Boston','SaaS · Seattle',
+    'E-commerce · London','E-commerce · Melbourne','E-commerce · New York',
+    'E-commerce · Los Angeles','E-commerce · Dubai',
+    'Recruitment · London','Recruitment · Dublin','Recruitment · Sydney',
+    'Recruitment · New York','Recruitment · Chicago','Recruitment · Atlanta','Recruitment · Singapore',
+    'Accounting · London','Accounting · Dublin','Accounting · Sydney',
+    'Accounting · New York','Accounting · Chicago','Accounting · Dubai',
+    'PR Agency · London','PR Agency · New York','PR Agency · Los Angeles',
+    'PR Agency · Sydney','PR Agency · Singapore',
+    'Legal Tech · London','Legal Tech · Sydney','Legal Tech · New York',
+    'Legal Tech · Chicago','Legal Tech · Singapore',
     'PropTech · London','PropTech · Dubai','PropTech · Sydney',
+    'PropTech · New York','PropTech · Miami',
+    'HR Tech · London','HR Tech · New York','HR Tech · San Francisco',
+    'HR Tech · Sydney','HR Tech · Singapore',
+    'FinTech · London','FinTech · Dublin','FinTech · New York','FinTech · San Francisco',
+    'FinTech · Sydney','FinTech · Singapore','FinTech · Dubai',
+    'EdTech · London','EdTech · New York','EdTech · Sydney','EdTech · Singapore',
+    'Events · London','Events · Dubai','Events · New York','Events · Sydney',
+    'Creative Agency · London','Creative Agency · New York','Creative Agency · Los Angeles',
+    'Creative Agency · Sydney','Creative Agency · Singapore',
+    'HealthTech · London','HealthTech · New York','HealthTech · San Francisco',
+    'HealthTech · Sydney','HealthTech · Singapore',
+    'Logistics · London','Logistics · New York','Logistics · Dubai','Logistics · Singapore',
   ]
 
   useEffect(()=>{load()},[])
@@ -156,8 +182,9 @@ export default function Leads() {
           }}>
             {mapsProgress
               ? <><span style={{display:'inline-block',width:11,height:11,border:'2px solid currentColor',borderTopColor:'transparent',borderRadius:'50%',animation:'spin 0.7s linear infinite'}}/>
-                  {mapsProgress.label} ({mapsProgress.step}/{mapsProgress.total})</>
-              : <>📍 Google Maps</>
+                  <span style={{maxWidth:280,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{mapsProgress.label}</span>
+                  <span style={{flexShrink:0}}>({mapsProgress.step}/{mapsProgress.total})</span></>
+              : <>📍 Google Maps <span style={{fontSize:11,opacity:0.6,fontWeight:400}}>{MAPS_SEARCHES.length} searches</span></>
             }
           </button>
 
