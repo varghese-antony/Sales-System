@@ -17,65 +17,195 @@ function extractDomain(url) {
   } catch { return null }
 }
 
-// Pull all emails from raw HTML
-function extractEmails(html) {
-  const found = new Set()
-  const pattern = /[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}/g
-  let m
-  while ((m = pattern.exec(html)) !== null) {
-    const email = m[0].toLowerCase()
-    // Skip image/asset/code false positives
-    if (email.includes('.png') || email.includes('.jpg') || email.includes('.svg')) continue
-    if (email.includes('@2x') || email.includes('@3x')) continue
-    if (email.endsWith('.js') || email.endsWith('.css')) continue
-    found.add(email)
-  }
-  return [...found]
+function stripTags(html) {
+  return html
+    .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, ' ')
+    .replace(/<script[^>]*>[\s\S]*?<\/script>/gi, ' ')
+    .replace(/<[^>]+>/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
 }
 
-// Try to find a founder/CEO name from HTML
-function extractFounderName(html) {
-  // Patterns: "CEO", "Founder", "Co-Founder", "Managing Director", "Owner", "Director"
-  const titlePattern = /(?:CEO|Founder|Co-?Founder|Managing Director|Owner|President|Principal|Director)\s*[,:\-–|•]?\s*([A-Z][a-z]+(?:\s[A-Z][a-z]+){1,2})/g
+// ── EMAIL EXTRACTION ─────────────────────────────────────────────────────────
+
+function extractEmails(html, domain) {
+  const found = new Set()
+
+  // 1. mailto: links — most reliable source
+  const mailtoPattern = /mailto:([a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,})/gi
   let m
-  while ((m = titlePattern.exec(html)) !== null) {
-    const name = m[1].trim()
-    if (name.length > 3 && name.length < 50) return name
+  while ((m = mailtoPattern.exec(html)) !== null) {
+    found.add(m[1].toLowerCase())
   }
 
-  // Reverse: name then title
-  const reversePattern = /([A-Z][a-z]+\s[A-Z][a-z]+(?:\s[A-Z][a-z]+)?)[,\s\-–|•]+(?:CEO|Founder|Co-?Founder|Managing Director|Owner|President)/g
-  while ((m = reversePattern.exec(html)) !== null) {
-    const name = m[1].trim()
-    if (name.length > 3 && name.length < 50) return name
+  // 2. Meta tags — some sites use <meta name="author" content="email@...">
+  const metaPattern = /<meta[^>]+content=["']([a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,})["']/gi
+  while ((m = metaPattern.exec(html)) !== null) {
+    found.add(m[1].toLowerCase())
   }
 
+  // 3. Plain text emails in the page
+  const text = stripTags(html)
+  const plainPattern = /[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}/g
+  while ((m = plainPattern.exec(text)) !== null) {
+    const email = m[0].toLowerCase()
+    // Filter out false positives
+    if (email.includes('.png') || email.includes('.jpg') || email.includes('.svg')) continue
+    if (email.includes('@2x') || email.includes('@3x')) continue
+    if (email.endsWith('.js') || email.endsWith('.css') || email.endsWith('.min')) continue
+    if (email.includes('sentry') || email.includes('example.com') || email.includes('test.com')) continue
+    found.add(email)
+  }
+
+  // Filter to own domain emails first, keep others as fallback
+  const all = [...found]
+  const ownDomain = domain ? all.filter(e => e.endsWith(`@${domain}`)) : []
+  const other = all.filter(e => domain ? !e.endsWith(`@${domain}`) : true)
+
+  return { ownDomain, other, all }
+}
+
+// Pick best email — personal over generic
+function pickBestEmail(emails) {
+  const generic = ['info', 'hello', 'contact', 'enquiries', 'enquiry', 'sales',
+    'support', 'admin', 'mail', 'office', 'team', 'hey', 'hi', 'help',
+    'press', 'media', 'privacy', 'legal', 'billing', 'no-reply', 'noreply']
+
+  const personal = emails.filter(e => {
+    const prefix = e.split('@')[0]
+    return !generic.includes(prefix) && !prefix.includes('+')
+  })
+  const genericMatches = emails.filter(e => {
+    const prefix = e.split('@')[0]
+    return generic.includes(prefix)
+  })
+
+  return personal[0] || genericMatches[0] || null
+}
+
+// ── FOUNDER NAME EXTRACTION ──────────────────────────────────────────────────
+
+function extractFounderName(text) {
+  const patterns = [
+    // "I'm Sarah Johnson, founder" or "I'm Sarah, founder"
+    /I(?:'m|'m| am)\s+([A-Z][a-z]+(?:\s[A-Z][a-z]+)?),?\s+(?:the\s+)?(?:CEO|Founder|Co-?Founder|Owner|Director|Managing)/,
+    // "Sarah Johnson — CEO" or "Sarah Johnson | Founder"
+    /([A-Z][a-z]+\s[A-Z][a-z]+(?:\s[A-Z][a-z]+)?)\s*[—\-–|•,]\s*(?:CEO|Founder|Co-?Founder|Managing Director|Owner|President|Principal|Director|Partner)/,
+    // "CEO: Sarah Johnson" or "Founder — Sarah Johnson"
+    /(?:CEO|Founder|Co-?Founder|Managing Director|Owner|President|Director|Partner)\s*[:\-–|•]?\s*([A-Z][a-z]+\s[A-Z][a-z]+(?:\s[A-Z][a-z]+)?)/,
+    // "Meet Sarah Johnson, our founder"
+    /[Mm]eet\s+([A-Z][a-z]+\s[A-Z][a-z]+),?\s+(?:our\s+)?(?:CEO|Founder|Co-?Founder|Owner|Director)/,
+    // "Founded by Sarah Johnson"
+    /[Ff]ounded\s+by\s+([A-Z][a-z]+\s[A-Z][a-z]+(?:\s[A-Z][a-z]+)?)/,
+    // "Sarah Johnson started/built/created"
+    /([A-Z][a-z]+\s[A-Z][a-z]+)\s+(?:started|built|created|launched|founded)\s+(?:this|the|our)/,
+    // "says Sarah Johnson, CEO"
+    /says\s+([A-Z][a-z]+\s[A-Z][a-z]+),\s*(?:CEO|Founder|Owner|Director)/,
+  ]
+
+  for (const pattern of patterns) {
+    const m = text.match(pattern)
+    if (m) {
+      const name = m[1].trim()
+      // Sanity check: proper name, not a common word
+      if (name.length > 4 && name.length < 50 && /^[A-Z]/.test(name)) {
+        return name
+      }
+    }
+  }
   return null
 }
 
-// Strip HTML tags to plain text for cleaner regex
-function stripTags(html) {
-  return html.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ')
-}
+// ── COMPANIES HOUSE (UK) — free, no API key needed ───────────────────────────
 
-// Fetch one URL and return text, null on fail
-async function fetchPage(url) {
+async function lookupCompaniesHouse(companyName) {
   try {
-    const res = await fetch(url, {
-      headers: FETCH_HEADERS,
-      signal: AbortSignal.timeout(7000),
+    const encoded = encodeURIComponent(companyName)
+    // Companies House has a free search API — requires API key but key is free
+    // Fallback: use their public search page which returns JSON
+    const searchUrl = `https://api.companieshouse.gov.uk/search/companies?q=${encoded}&items_per_page=1`
+
+    // Note: Companies House API requires a free API key (COMPANIES_HOUSE_API_KEY)
+    const apiKey = process.env.COMPANIES_HOUSE_API_KEY
+    if (!apiKey) return null
+
+    const res = await fetch(searchUrl, {
+      headers: {
+        'Authorization': 'Basic ' + Buffer.from(apiKey + ':').toString('base64'),
+        'Accept': 'application/json',
+      },
+      signal: AbortSignal.timeout(6000),
     })
     if (!res.ok) return null
-    return await res.text()
+    const data = await res.json()
+    const company = data.items?.[0]
+    if (!company) return null
+
+    // Get company officers (directors)
+    const officersUrl = `https://api.companieshouse.gov.uk/company/${company.company_number}/officers?items_per_page=10`
+    const officersRes = await fetch(officersUrl, {
+      headers: {
+        'Authorization': 'Basic ' + Buffer.from(apiKey + ':').toString('base64'),
+        'Accept': 'application/json',
+      },
+      signal: AbortSignal.timeout(6000),
+    })
+    if (!officersRes.ok) return null
+    const officersData = await officersRes.json()
+
+    // Find active director/CEO/founder
+    const officers = officersData.items || []
+    const active = officers.filter(o =>
+      !o.resigned_on &&
+      (o.officer_role === 'director' || o.officer_role === 'chief-executive-officer')
+    )
+
+    if (active.length === 0) return null
+
+    // Format: Companies House returns "SURNAME, Firstname"
+    const officer = active[0]
+    const raw = officer.name || ''
+    const parts = raw.split(',').map(s => s.trim())
+    if (parts.length >= 2) {
+      const firstName = parts[1].split(' ')[0]
+      const lastName = parts[0]
+      return `${firstName} ${lastName}` // "John Smith"
+    }
+    return raw
+
   } catch { return null }
 }
 
-// Generate the 6 most common business email patterns
-function guessEmailPatterns(firstName, lastName, domain) {
-  if (!firstName || !domain) return []
-  const f = firstName.toLowerCase().trim()
-  const l = lastName ? lastName.toLowerCase().trim() : null
+// ── GOOGLE SEARCH FALLBACK ───────────────────────────────────────────────────
 
+async function googleSearchFounder(companyName, website) {
+  try {
+    const queries = [
+      `"${companyName}" founder CEO site:linkedin.com`,
+      `"${companyName}" founder OR CEO OR director contact`,
+    ]
+
+    for (const query of queries) {
+      const url = `https://www.google.com/search?q=${encodeURIComponent(query)}&num=5`
+      const res = await fetch(url, { headers: FETCH_HEADERS, signal: AbortSignal.timeout(7000) })
+      if (!res.ok) continue
+      const html = await res.text()
+      const text = stripTags(html)
+      const name = extractFounderName(text)
+      if (name) return name
+      await sleep(500)
+    }
+  } catch {}
+  return null
+}
+
+// ── EMAIL PATTERN GENERATOR ──────────────────────────────────────────────────
+
+function guessEmailPatterns(fullName, domain) {
+  if (!fullName || !domain) return []
+  const parts = fullName.trim().toLowerCase().split(/\s+/)
+  const f = parts[0]
+  const l = parts[1] || null
   const patterns = [`${f}@${domain}`]
   if (l) {
     patterns.push(
@@ -86,8 +216,26 @@ function guessEmailPatterns(firstName, lastName, domain) {
       `${f}${l[0]}@${domain}`,
     )
   }
-  return patterns
+  // Add generic fallbacks so Varghese has something to try
+  patterns.push(`hello@${domain}`, `info@${domain}`, `contact@${domain}`)
+  return [...new Set(patterns)] // deduplicate
 }
+
+// ── FETCH HELPER ─────────────────────────────────────────────────────────────
+
+async function fetchPage(url) {
+  try {
+    const res = await fetch(url, {
+      headers: FETCH_HEADERS,
+      signal: AbortSignal.timeout(7000),
+      redirect: 'follow',
+    })
+    if (!res.ok) return null
+    return await res.text()
+  } catch { return null }
+}
+
+// ── MAIN HANDLER ─────────────────────────────────────────────────────────────
 
 export async function POST(request) {
   const supabase = createClient(
@@ -98,7 +246,6 @@ export async function POST(request) {
   const { leadId } = await request.json()
   if (!leadId) return NextResponse.json({ success: false, error: 'leadId required' }, { status: 400 })
 
-  // Load the lead
   const { data: lead, error: loadErr } = await supabase
     .from('leads')
     .select('*')
@@ -109,117 +256,91 @@ export async function POST(request) {
     return NextResponse.json({ success: false, error: 'Lead not found' }, { status: 404 })
   }
 
-  const website = lead.website
-  if (!website) {
+  if (!lead.website) {
     return NextResponse.json({ success: false, error: 'Lead has no website — add one first' }, { status: 400 })
   }
 
-  const base = website.startsWith('http') ? website.rstrip?.('/') ?? website : `https://${website}`
-  const cleanBase = base.replace(/\/$/, '')
-  const domain = extractDomain(website)
+  const cleanBase = (lead.website.startsWith('http') ? lead.website : `https://${lead.website}`).replace(/\/$/, '')
+  const domain = extractDomain(lead.website)
 
-  const results = {
-    founderName: null,
-    email: null,
-    emailPatterns: [],
-    pagesChecked: [],
-    source: null,
-  }
+  let founderName = lead.full_name || null
+  let foundEmail = lead.email || null
+  let emailPatterns = []
+  let pagesChecked = 0
+  let source = []
 
-  // ── STEP 1: Scrape key pages for emails + founder name ──────────────
-  const pagesToCheck = [
-    cleanBase,
-    `${cleanBase}/about`,
-    `${cleanBase}/about-us`,
-    `${cleanBase}/team`,
-    `${cleanBase}/our-team`,
-    `${cleanBase}/contact`,
-    `${cleanBase}/contact-us`,
-    `${cleanBase}/leadership`,
-    `${cleanBase}/founders`,
-    `${cleanBase}/people`,
+  // ── STEP 1: Scrape website pages ─────────────────────────────────
+  const pageSlugs = [
+    '', '/about', '/about-us', '/team', '/our-team', '/contact', '/contact-us',
+    '/leadership', '/founders', '/people', '/who-we-are', '/management',
+    '/founder', '/ceo', '/partners', '/meet-the-team', '/staff', '/crew',
   ]
 
-  let allEmails = []
+  let allOwnEmails = []
+  let allOtherEmails = []
 
-  for (const pageUrl of pagesToCheck) {
-    const html = await fetchPage(pageUrl)
+  for (const slug of pageSlugs) {
+    const html = await fetchPage(cleanBase + slug)
     if (!html) continue
+    pagesChecked++
 
-    results.pagesChecked.push(pageUrl)
-    const text = stripTags(html)
+    const { ownDomain, other } = extractEmails(html, domain)
+    allOwnEmails.push(...ownDomain)
+    allOtherEmails.push(...other)
 
-    // Collect emails
-    const emails = extractEmails(text)
-    for (const e of emails) allEmails.push(e)
-
-    // Try to find founder name if we don't have one yet
-    if (!results.founderName) {
-      results.founderName = extractFounderName(text)
+    if (!founderName) {
+      const text = stripTags(html)
+      founderName = extractFounderName(text)
+      if (founderName) source.push('website')
     }
 
-    // Stop early if we have both
-    if (results.founderName && allEmails.length > 0) break
-
-    await sleep(400)
+    // Stop early if we have everything
+    if (founderName && allOwnEmails.length > 0) break
+    await sleep(300)
   }
 
-  // ── STEP 2: Pick the best email ─────────────────────────────────────
-  // Prefer personal emails (contain a name) over generic ones
-  const genericPrefixes = ['info', 'hello', 'contact', 'enquiries', 'enquiry',
-    'sales', 'support', 'admin', 'mail', 'office', 'team', 'hey', 'hi']
-
-  // Only keep emails on the company's own domain
-  const ownDomainEmails = allEmails.filter(e => e.endsWith(`@${domain}`))
-  const personalEmails = ownDomainEmails.filter(e => {
-    const prefix = e.split('@')[0]
-    return !genericPrefixes.includes(prefix)
-  })
-  const genericEmails = ownDomainEmails.filter(e => {
-    const prefix = e.split('@')[0]
-    return genericPrefixes.includes(prefix)
-  })
-
-  results.email = personalEmails[0] || genericEmails[0] || null
-
-  // ── STEP 3: Google search for founder name if still missing ─────────
-  if (!results.founderName) {
-    try {
-      const query = encodeURIComponent(`"${lead.company}" CEO OR Founder site:linkedin.com`)
-      const googleUrl = `https://www.google.com/search?q=${query}&num=5`
-      const googleHtml = await fetchPage(googleUrl)
-      if (googleHtml) {
-        const googleText = stripTags(googleHtml)
-        results.founderName = extractFounderName(googleText)
-        if (results.founderName) results.source = 'google'
-      }
-    } catch {}
+  // Pick best email from own domain
+  if (!foundEmail && allOwnEmails.length > 0) {
+    foundEmail = pickBestEmail([...new Set(allOwnEmails)])
+    if (foundEmail) source.push('website-email')
   }
 
-  // ── STEP 4: Generate email patterns if we have a name but no email ──
-  if (!results.email && results.founderName && domain) {
-    const parts = results.founderName.trim().split(/\s+/)
-    const firstName = parts[0]
-    const lastName = parts[1] || null
-    results.emailPatterns = guessEmailPatterns(firstName, lastName, domain)
+  // ── STEP 2: Companies House (UK only, free) ───────────────────────
+  if (!founderName && lead.country === 'United Kingdom') {
+    const chName = await lookupCompaniesHouse(lead.company)
+    if (chName) {
+      founderName = chName
+      source.push('companies-house')
+    }
   }
 
-  // ── STEP 5: Save back to leads table ────────────────────────────────
+  // ── STEP 3: Google search for founder name ────────────────────────
+  if (!founderName) {
+    founderName = await googleSearchFounder(lead.company, lead.website)
+    if (founderName) source.push('google')
+  }
+
+  // ── STEP 4: Generate email patterns ──────────────────────────────
+  if (!foundEmail && founderName && domain) {
+    emailPatterns = guessEmailPatterns(founderName, domain)
+  } else if (!foundEmail && !founderName && domain) {
+    // At least give generic contact patterns
+    emailPatterns = [`hello@${domain}`, `info@${domain}`, `contact@${domain}`]
+  }
+
+  // ── STEP 5: Save updates ─────────────────────────────────────────
   const updates = {}
 
-  if (results.founderName && !lead.full_name) {
-    updates.full_name = results.founderName
-    updates.first_name = results.founderName.split(' ')[0]
+  if (founderName && !lead.full_name) {
+    updates.full_name = founderName
+    updates.first_name = founderName.split(' ')[0]
   }
-
-  if (results.email && !lead.email) {
-    updates.email = results.email
+  if (foundEmail && !lead.email) {
+    updates.email = foundEmail
   }
-
-  if (results.emailPatterns.length > 0 && !lead.email) {
-    // Store patterns in notes so Varghese can pick the right one
-    const existing = lead.notes || ''
-    updates.notes = existing + `\nEmail patterns: ${results.emailPatterns.join(' | ')}`
+  if (emailPatterns.length > 0 && !lead.email) {
+    const existingNotes = (lead.notes || '').replace(/\nEmail patterns:.*$/s, '') // replace old patterns
+    updates.notes = existingNotes + `\nEmail patterns: ${emailPatterns.join(' | ')}`
   }
 
   if (Object.keys(updates).length > 0) {
@@ -228,10 +349,11 @@ export async function POST(request) {
 
   return NextResponse.json({
     success: true,
-    founderName: results.founderName || lead.full_name,
-    email: results.email || lead.email,
-    emailPatterns: results.emailPatterns,
-    pagesChecked: results.pagesChecked.length,
+    founderName: founderName || lead.full_name || null,
+    email: foundEmail || lead.email || null,
+    emailPatterns,
+    pagesChecked,
+    source: source.join(', ') || 'none',
     updated: Object.keys(updates),
   })
 }
