@@ -387,12 +387,39 @@ export default function Leads() {
             </div>
             {/* Email */}
             <div style={{minWidth:0,paddingRight:12}}>
-              {l.email?(
+              {l.email ? (
                 <div>
                   <div style={{fontSize:12,color:'#60a5fa',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{l.email}</div>
                   {l.email_verified&&<div style={{fontSize:11,color:'#22d3a5',marginTop:1}}>✓ verified</div>}
                 </div>
-              ):<span style={{fontSize:12,color:'#2a2d4a'}}>—</span>}
+              ) : (() => {
+                // Parse email patterns from notes
+                const match = (l.notes||'').match(/Email patterns: ([^\n]+)/)
+                const patterns = match ? match[1].split(' | ').filter(Boolean) : []
+                return patterns.length > 0 ? (
+                  <div>
+                    <div style={{fontSize:10,color:'#4A4F6A',marginBottom:3}}>Pick one:</div>
+                    <div style={{display:'flex',flexDirection:'column',gap:2}}>
+                      {patterns.slice(0,3).map(p=>(
+                        <button key={p} onClick={async()=>{
+                          await supabase.from('leads').update({email:p}).eq('id',l.id)
+                          setLeads(prev=>prev.map(x=>x.id===l.id?{...x,email:p}:x))
+                          setToast({type:'ok',msg:`Email set to ${p}`})
+                          setTimeout(()=>setToast(null),4000)
+                        }} style={{
+                          fontSize:10,padding:'2px 6px',borderRadius:5,border:'1px solid rgba(96,165,250,0.2)',
+                          background:'rgba(96,165,250,0.06)',color:'#60a5fa',cursor:'pointer',
+                          textAlign:'left',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',
+                          maxWidth:160,
+                        }}>{p}</button>
+                      ))}
+                      {patterns.length > 3 && (
+                        <span style={{fontSize:10,color:'#2a2d4a'}}>+{patterns.length-3} more in notes</span>
+                      )}
+                    </div>
+                  </div>
+                ) : <span style={{fontSize:12,color:'#2a2d4a'}}>—</span>
+              })()}
             </div>
             {/* Source badge */}
             <div>
