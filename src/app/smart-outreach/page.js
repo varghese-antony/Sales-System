@@ -28,9 +28,11 @@ function getSeqBadge(leadId, sequences) {
   if (seq.replied) return { label:'💬 Replied', color:'#22d3a5', bg:'rgba(34,211,165,0.08)' }
   if (seq.complete) return { label:'⚫ Done', color:'#4A4F6A', bg:'rgba(74,79,106,0.08)' }
   const due = new Date(seq.next_due_at).getTime() <= Date.now()
-  if (seq.step === 1) return due
-    ? { label:'🔴 F/U Due', color:'#f87171', bg:'rgba(248,113,113,0.08)' }
-    : { label:'🟡 Waiting', color:'#fbbf24', bg:'rgba(251,191,36,0.08)' }
+  if (seq.step === 1) {
+    if (due) return { label:'🔴 F/U Due', color:'#f87171', bg:'rgba(248,113,113,0.08)' }
+    if (seq.opened_at) return { label:'👁 Opened', color:'#00F6FF', bg:'rgba(0,246,255,0.08)' }
+    return { label:'🟡 Waiting', color:'#fbbf24', bg:'rgba(251,191,36,0.08)' }
+  }
   if (seq.step === 2) return due
     ? { label:'🔴 F/U2 Due', color:'#f87171', bg:'rgba(248,113,113,0.08)' }
     : { label:'🟠 F/U2', color:'#fb923c', bg:'rgba(251,146,60,0.08)' }
@@ -221,10 +223,26 @@ export default function SmartOutreach() {
   const [followupSending, setFollowupSending] = useState(false)
   const [followupSent, setFollowupSent]       = useState(false)
 
+  // Replies inbox state
+  const [replies, setReplies]               = useState([])
+  const [repliesLoading, setRepliesLoading] = useState(false)
+  const [repliesLoaded, setRepliesLoaded]   = useState(false)
+  const [expandedReply, setExpandedReply]   = useState(null)
+
   async function loadSequences() {
     const res = await fetch('/api/sequences')
     const data = await res.json()
     if (data.success) setSequences(data.sequences || [])
+  }
+
+  async function loadReplies() {
+    setRepliesLoading(true)
+    try {
+      const res = await fetch('/api/check-replies')
+      const data = await res.json()
+      if (data.success) { setReplies(data.messages || []); setRepliesLoaded(true) }
+    } catch {}
+    setRepliesLoading(false)
   }
 
   useEffect(() => {
@@ -418,6 +436,7 @@ export default function SmartOutreach() {
   const hasEmail = !!selected?.email
   const pendingCount = leads.filter(l => l.linkedin_status==='requested').length
   const seqCount = sequences.filter(s => !s.complete && !s.replied).length
+  const unreadCount = replies.filter(r => !r.seen).length
 
   // Current lead's sequence
   const currentSeq = selected ? sequences.find(s => s.lead_id === selected.id) : null
@@ -437,14 +456,15 @@ export default function SmartOutreach() {
       <div style={{width:270,flexShrink:0,background:'#060610',borderRight:'1px solid rgba(0,246,255,0.06)',display:'flex',flexDirection:'column'}}>
         <div style={{padding:'18px 16px 12px',borderBottom:'1px solid rgba(0,246,255,0.06)'}}>
           <div style={{fontSize:15,fontWeight:700,color:'#fff',marginBottom:10}}>Smart Outreach</div>
-          {/* 3-way toggle */}
+          {/* 4-way toggle */}
           <div style={{display:'flex',background:'rgba(255,255,255,0.03)',borderRadius:8,padding:3,gap:2}}>
             {[
-              { key:'all',       label:'All Leads',   activeColor:'#00F6FF', activeBg:'rgba(0,246,255,0.1)' },
-              { key:'pending',   label:'⏳',           activeColor:'#fb923c', activeBg:'rgba(251,146,60,0.12)', count:pendingCount },
-              { key:'sequences', label:'📊',           activeColor:'#a78bfa', activeBg:'rgba(167,139,250,0.12)', count:seqCount },
+              { key:'all',       label:'Leads',  activeColor:'#00F6FF', activeBg:'rgba(0,246,255,0.1)' },
+              { key:'pending',   label:'⏳',      activeColor:'#fb923c', activeBg:'rgba(251,146,60,0.12)', count:pendingCount },
+              { key:'sequences', label:'📊',      activeColor:'#a78bfa', activeBg:'rgba(167,139,250,0.12)', count:seqCount },
+              { key:'replies',   label:'📬',      activeColor:'#22d3a5', activeBg:'rgba(34,211,165,0.12)', count:unreadCount },
             ].map(t=>(
-              <button key={t.key} onClick={()=>setView(t.key)} style={{
+              <button key={t.key} onClick={()=>{ setView(t.key); if(t.key==='replies'&&!repliesLoaded) loadReplies() }} style={{
                 flex:1,padding:'6px 0',border:'none',borderRadius:6,cursor:'pointer',fontSize:11,fontWeight:600,
                 background:view===t.key ? t.activeBg : 'transparent',
                 color:view===t.key ? t.activeColor : '#4A4F6A',
@@ -461,8 +481,9 @@ export default function SmartOutreach() {
               </button>
             ))}
           </div>
-          {view==='pending'&&<div style={{fontSize:10,color:'#4A4F6A',textAlign:'center',marginTop:6}}>Pending LinkedIn</div>}
+          {view==='pending'&&<div style={{fontSize:10,color:'#4A4F6A',textAlign:'center',marginTop:6}}>LinkedIn pending</div>}
           {view==='sequences'&&<div style={{fontSize:10,color:'#4A4F6A',textAlign:'center',marginTop:6}}>Email sequences</div>}
+          {view==='replies'&&<div style={{fontSize:10,color:'#4A4F6A',textAlign:'center',marginTop:6}}>Inbox replies</div>}
         </div>
 
         <div style={{flex:1,overflowY:'auto',padding:'8px'}}>
@@ -473,9 +494,9 @@ export default function SmartOutreach() {
           )}
           {loading
             ? [1,2,3,4,5].map(i=><div key={i} style={{height:68,borderRadius:10,background:'#111120',marginBottom:6}}/>)
-            : view==='pending'||view==='sequences'
+            : view==='pending'||view==='sequences'||view==='replies'
             ? <div style={{padding:'12px 8px',fontSize:12,color:'#4A4F6A'}}>
-                {view==='pending'?'Check pending → on the right':'View sequences → on the right'}
+                {view==='pending'?'Check pending → on the right':view==='replies'?'View replies → on the right':'View sequences → on the right'}
               </div>
             : leads.filter(l => l.status!=='not_interested').map(lead => {
                 const active = selected?.id===lead.id
@@ -525,6 +546,102 @@ export default function SmartOutreach() {
               <div style={{fontSize:12,color:'#4A4F6A',marginTop:3}}>Track every email thread — who&apos;s waiting, who&apos;s due, who replied</div>
             </div>
             <SequencesOverview sequences={sequences} onSelectLead={(lead,seq)=>{selectLead(lead,seq);setStep('message')}}/>
+          </div>
+
+        ) : view==='replies' ? (
+          <div style={{flex:1,display:'flex',flexDirection:'column',overflow:'hidden'}}>
+            <div style={{padding:'20px 24px 16px',borderBottom:'1px solid rgba(255,255,255,0.05)',display:'flex',justifyContent:'space-between',alignItems:'center',flexShrink:0}}>
+              <div>
+                <div style={{fontSize:16,fontWeight:700,color:'#fff'}}>Replies Inbox</div>
+                <div style={{fontSize:12,color:'#4A4F6A',marginTop:3}}>Emails sent back to antonyv@blendery.tech from your leads</div>
+              </div>
+              <button onClick={loadReplies} disabled={repliesLoading} style={{
+                display:'flex',alignItems:'center',gap:6,padding:'7px 14px',borderRadius:8,
+                border:'1px solid rgba(34,211,165,0.25)',background:'rgba(34,211,165,0.08)',
+                color:'#22d3a5',fontSize:12,fontWeight:600,cursor:repliesLoading?'not-allowed':'pointer',opacity:repliesLoading?0.6:1,
+              }}>
+                {repliesLoading
+                  ? <><span style={{display:'inline-block',width:10,height:10,border:'2px solid #22d3a5',borderTopColor:'transparent',borderRadius:'50%',animation:'spin 0.7s linear infinite'}}/>Checking...</>
+                  : '↻ Refresh'}
+              </button>
+            </div>
+            <div style={{flex:1,overflowY:'auto',padding:'16px 24px'}}>
+              {repliesLoading && !repliesLoaded ? (
+                <div style={{textAlign:'center',padding:'60px 0',color:'#4A4F6A'}}>
+                  <div style={{display:'inline-block',width:24,height:24,border:'3px solid #22d3a5',borderTopColor:'transparent',borderRadius:'50%',animation:'spin 0.7s linear infinite',marginBottom:12}}/>
+                  <div style={{fontSize:13}}>Checking your inbox...</div>
+                </div>
+              ) : !repliesLoaded ? (
+                <div style={{textAlign:'center',padding:'60px 0',color:'#4A4F6A'}}>
+                  <div style={{fontSize:36,marginBottom:12}}>📬</div>
+                  <div style={{fontSize:13}}>Click Refresh to load your inbox</div>
+                </div>
+              ) : replies.length === 0 ? (
+                <div style={{textAlign:'center',padding:'60px 0',color:'#4A4F6A'}}>
+                  <div style={{fontSize:36,marginBottom:12}}>✅</div>
+                  <div style={{fontSize:14,fontWeight:700,color:'#fff',marginBottom:6}}>No replies yet</div>
+                  <div style={{fontSize:12,lineHeight:1.6}}>Emails from your leads will appear here when they reply</div>
+                </div>
+              ) : (
+                <div style={{display:'flex',flexDirection:'column',gap:8}}>
+                  {replies.map((msg, i) => {
+                    const isExpanded = expandedReply === i
+                    const isLead = !!msg.lead
+                    const seq = msg.lead ? sequences.find(s => s.lead_id === msg.lead.id) : null
+                    const timeAgo = daysSince(msg.date)
+                    return (
+                      <div key={i} style={{
+                        borderRadius:12,overflow:'hidden',
+                        border:`1px solid ${!msg.seen?'rgba(34,211,165,0.2)':isLead?'rgba(0,246,255,0.1)':'rgba(255,255,255,0.06)'}`,
+                        background:!msg.seen?'rgba(34,211,165,0.03)':'rgba(255,255,255,0.02)',
+                      }}>
+                        <div onClick={()=>setExpandedReply(isExpanded?null:i)} style={{
+                          padding:'14px 18px',cursor:'pointer',display:'flex',justifyContent:'space-between',alignItems:'flex-start',gap:12,
+                        }}>
+                          <div style={{flex:1,minWidth:0}}>
+                            <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:4}}>
+                              {!msg.seen&&<span style={{width:7,height:7,borderRadius:'50%',background:'#22d3a5',flexShrink:0,display:'inline-block'}}/>}
+                              <div style={{fontSize:13,fontWeight:!msg.seen?700:500,color:'#e8ecf0',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>
+                                {msg.fromName||msg.from}
+                              </div>
+                              {isLead&&<span style={{fontSize:9,padding:'2px 6px',borderRadius:99,background:'rgba(0,246,255,0.1)',color:'#00F6FF',fontWeight:700,flexShrink:0}}>LEAD</span>}
+                            </div>
+                            <div style={{fontSize:12,color:'#c8cad8',marginBottom:4,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{msg.subject}</div>
+                            {!isExpanded&&<div style={{fontSize:11,color:'#4A4F6A',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{msg.snippet}</div>}
+                          </div>
+                          <div style={{fontSize:11,color:'#4A4F6A',flexShrink:0,textAlign:'right'}}>
+                            {timeAgo===0?'Today':timeAgo===1?'Yesterday':`${timeAgo}d ago`}
+                            {isLead&&<div style={{fontSize:10,color:'#4A4F6A',marginTop:2}}>{msg.lead.company}</div>}
+                          </div>
+                        </div>
+                        {isExpanded&&(
+                          <div style={{borderTop:'1px solid rgba(255,255,255,0.05)',padding:'14px 18px'}}>
+                            <div style={{fontSize:11,color:'#4A4F6A',marginBottom:8}}>From: {msg.from}</div>
+                            <pre style={{fontSize:12,lineHeight:1.8,color:'#c8cad8',whiteSpace:'pre-wrap',fontFamily:'inherit',margin:0,marginBottom:14}}>{msg.snippet||'(no preview available)'}</pre>
+                            <div style={{display:'flex',gap:8,flexWrap:'wrap'}}>
+                              {isLead&&seq&&!seq.replied&&(
+                                <button onClick={async()=>{
+                                  await fetch('/api/sequences',{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({sequenceId:seq.id})})
+                                  await loadSequences()
+                                  setReplies(replies.map((r,j)=>j===i?{...r,seen:true}:r))
+                                }} style={{padding:'7px 14px',borderRadius:8,border:'1px solid rgba(34,211,165,0.3)',background:'rgba(34,211,165,0.08)',color:'#22d3a5',fontSize:12,fontWeight:600,cursor:'pointer'}}>
+                                  ✓ Mark as Replied — stop sequence
+                                </button>
+                              )}
+                              {isLead&&(
+                                <button onClick={()=>{selectLead(msg.lead);setView('all');setStep('message')}} style={{padding:'7px 14px',borderRadius:8,border:'1px solid rgba(0,246,255,0.2)',background:'rgba(0,246,255,0.06)',color:'#00F6FF',fontSize:12,fontWeight:600,cursor:'pointer'}}>
+                                  Open lead →
+                                </button>
+                              )}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    )
+                  })}
+                </div>
+              )}
+            </div>
           </div>
 
         ) : !selected ? (
@@ -777,6 +894,19 @@ export default function SmartOutreach() {
                     <div style={{borderTop:'1px solid rgba(255,255,255,0.06)',paddingTop:20}}>
                       <div style={{fontSize:15,fontWeight:700,color:'#fff',marginBottom:4}}>Email</div>
                       <div style={{fontSize:12,color:'#4A4F6A',marginBottom:14}}>✓ {selected.email}</div>
+
+                      {/* OPEN TRACKING BANNER */}
+                      {seqIsActive&&currentSeq?.opened_at&&!seqIsDue&&(
+                        <div style={{padding:'12px 16px',borderRadius:10,background:'rgba(0,246,255,0.04)',border:'1px solid rgba(0,246,255,0.15)',marginBottom:12,display:'flex',alignItems:'center',gap:10}}>
+                          <span style={{fontSize:18}}>👁</span>
+                          <div>
+                            <div style={{fontSize:12,fontWeight:700,color:'#00F6FF'}}>They opened your email!</div>
+                            <div style={{fontSize:11,color:'#4A4F6A',marginTop:2}}>
+                              Opened {daysSince(currentSeq.opened_at)===0?'today':daysSince(currentSeq.opened_at)===1?'yesterday':`${daysSince(currentSeq.opened_at)} days ago`} · Good time to follow up or connect on LinkedIn
+                            </div>
+                          </div>
+                        </div>
+                      )}
 
                       {/* SEQUENCE STATUS BANNER */}
                       {currentSeq?.replied&&(

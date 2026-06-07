@@ -58,6 +58,7 @@ export async function POST(req) {
   if (!to || !subject || !body) return NextResponse.json({ success:false, error:'Missing fields' }, { status:400 })
 
   const cleanBody = stripSignOff(body)
+  const trackingUrl = `https://sales-system-blendery.vercel.app/api/track-open/${leadId}`
   const htmlEmail = `<!DOCTYPE html>
 <html lang="en"><head><meta charset="UTF-8"/></head>
 <body style="margin:0;padding:32px 24px;background:#fff;font-family:Arial,sans-serif;">
@@ -66,6 +67,7 @@ export async function POST(req) {
     <p style="margin:0 0 0;font-family:Arial,sans-serif;font-size:14px;color:#222;">Best,</p>
     ${SIGNATURE_HTML}
   </div>
+  <img src="${trackingUrl}" width="1" height="1" style="display:none;border:0;width:1px;height:1px;" alt="" />
 </body></html>`
 
   const transporter = nodemailer.createTransport({
