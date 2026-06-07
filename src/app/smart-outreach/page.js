@@ -100,8 +100,9 @@ export default function SmartOutreach() {
   const [connNote, setConnNote]     = useState('')
   const [dmSaved, setDmSaved]       = useState(false)
   const [emailSaved, setEmailSaved] = useState(false)
-  const [emailSent, setEmailSent]   = useState(false)
+  const [emailSent, setEmailSent]       = useState(false)
   const [emailSending, setEmailSending] = useState(false)
+  const [regenerating, setRegenerating] = useState(false)
   const [copied, setCopied]         = useState('')
 
   useEffect(() => {
@@ -205,6 +206,19 @@ export default function SmartOutreach() {
     const nextLead = leads.find((l, i) => i > currentIndex && l.status !== 'not_interested')
     if (nextLead) selectLead(nextLead)
     else setSelected(null)
+  }
+
+  async function regenerateEmail() {
+    if (!selected) return
+    setRegenerating(true)
+    setResSubject(''); setResBody(''); setEmailSent(false)
+    const res = await fetch('/api/research-lead', {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ lead: selected }),
+    })
+    const data = await res.json()
+    if (data.success) { setResSubject(data.subject); setResBody(data.body) }
+    setRegenerating(false)
   }
 
   async function sendEmail() {
@@ -604,9 +618,23 @@ export default function SmartOutreach() {
                           <div style={{background:'#0d0d18',border:'1px solid rgba(34,211,165,0.12)',borderRadius:12,overflow:'hidden',marginBottom:10}}>
                             <div style={{padding:'10px 16px',borderBottom:'1px solid rgba(255,255,255,0.04)',display:'flex',justifyContent:'space-between',alignItems:'center'}}>
                               <span style={{fontSize:12,fontWeight:600,color:'#22d3a5'}}>✉ Body</span>
-                              <button onClick={()=>copyText(resBody,'body')} style={{fontSize:11,padding:'3px 10px',borderRadius:6,border:'1px solid rgba(255,255,255,0.08)',background:'rgba(255,255,255,0.03)',color:copied==='body'?'#22d3a5':'#4A4F6A',cursor:'pointer'}}>
-                                {copied==='body'?'✓ Copied':'Copy'}
-                              </button>
+                              <div style={{display:'flex',gap:6}}>
+                                <button onClick={regenerateEmail} disabled={regenerating} style={{
+                                  fontSize:11,padding:'3px 10px',borderRadius:6,
+                                  border:'1px solid rgba(167,139,250,0.3)',
+                                  background:regenerating?'transparent':'rgba(167,139,250,0.08)',
+                                  color:regenerating?'#4A4F6A':'#a78bfa',
+                                  cursor:regenerating?'not-allowed':'pointer',
+                                  display:'flex',alignItems:'center',gap:4,
+                                }}>
+                                  {regenerating
+                                    ? <><span style={{display:'inline-block',width:9,height:9,border:'1.5px solid #a78bfa',borderTopColor:'transparent',borderRadius:'50%',animation:'spin 0.7s linear infinite'}}/>Writing...</>
+                                    : '↻ Regenerate'}
+                                </button>
+                                <button onClick={()=>copyText(resBody,'body')} style={{fontSize:11,padding:'3px 10px',borderRadius:6,border:'1px solid rgba(255,255,255,0.08)',background:'rgba(255,255,255,0.03)',color:copied==='body'?'#22d3a5':'#4A4F6A',cursor:'pointer'}}>
+                                  {copied==='body'?'✓ Copied':'Copy'}
+                                </button>
+                              </div>
                             </div>
                             <textarea value={resBody} onChange={e=>setResBody(e.target.value)} rows={12}
                               style={{width:'100%',padding:'14px 16px',background:'transparent',border:'none',color:'#c8cad8',fontSize:13,lineHeight:1.8,outline:'none',resize:'none',fontFamily:'inherit'}}
