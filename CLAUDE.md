@@ -18,7 +18,7 @@ Built and owned by **Varghese Antony** — solo ops automation consultant, brand
 - **Email:** antonyv@blendery.tech via Hostinger SMTP (smtp.hostinger.com:465)
 
 ## Project Location
-/Users/anthony/Downloads/lighting /Ligting-Catalogue
+/Users/anthony/Downloads/lighting /sales system
 
 ---
 
