@@ -522,7 +522,7 @@ export default function SmartOutreach() {
           <div style={{flex:1,overflowY:'auto'}}>
             <div style={{padding:'20px 24px 0',borderBottom:'1px solid rgba(255,255,255,0.05)',paddingBottom:16}}>
               <div style={{fontSize:16,fontWeight:700,color:'#fff'}}>Sequence Overview</div>
-              <div style={{fontSize:12,color:'#4A4F6A',marginTop:3}}>Track every email thread — who's waiting, who's due, who replied</div>
+              <div style={{fontSize:12,color:'#4A4F6A',marginTop:3}}>Track every email thread — who&apos;s waiting, who&apos;s due, who replied</div>
             </div>
             <SequencesOverview sequences={sequences} onSelectLead={(lead,seq)=>{selectLead(lead,seq);setStep('message')}}/>
           </div>
