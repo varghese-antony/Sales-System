@@ -341,12 +341,12 @@ export default function SmartOutreach() {
                 {selected.linkedin_url && <a href={selected.linkedin_url} target="_blank" rel="noreferrer" style={{padding:'4px 10px',borderRadius:6,background:'rgba(10,102,194,0.1)',border:'1px solid rgba(10,102,194,0.2)',fontSize:11,color:'#4a9eff',textDecoration:'none'}}>in LinkedIn</a>}
                 {liStatus!=='none'&&<div style={{padding:'4px 10px',borderRadius:6,background:'rgba(34,211,165,0.08)',border:'1px solid rgba(34,211,165,0.15)',fontSize:11,color:'#22d3a5',textTransform:'capitalize'}}>● {liStatus}</div>}
                 {selected.status === 'not_interested'
-                  ? <div style={{padding:'4px 10px',borderRadius:6,background:'rgba(248,113,113,0.08)',border:'1px solid rgba(248,113,113,0.2)',fontSize:11,color:'#f87171'}}>✕ Discarded</div>
+                  ? <div style={{padding:'6px 14px',borderRadius:8,background:'rgba(248,113,113,0.08)',border:'1px solid rgba(248,113,113,0.2)',fontSize:12,color:'#f87171',fontWeight:600}}>✕ Discarded</div>
                   : <button onClick={discardLead} style={{
-                      padding:'5px 12px',borderRadius:6,border:'1px solid rgba(248,113,113,0.2)',
-                      background:'rgba(248,113,113,0.06)',color:'#f87171',fontSize:11,fontWeight:600,
-                      cursor:'pointer',transition:'all 0.15s',
-                    }}>✕ Discard</button>
+                      padding:'6px 14px',borderRadius:8,border:'1px solid rgba(248,113,113,0.25)',
+                      background:'rgba(248,113,113,0.08)',color:'#f87171',fontSize:12,fontWeight:600,
+                      cursor:'pointer',
+                    }}>✕ Not Useful</button>
                 }
               </div>
             </div>
@@ -476,46 +476,68 @@ export default function SmartOutreach() {
 
               {/* ③ Connect */}
               {step==='connect' && (
-                <div>
-                  <div style={{fontSize:15,fontWeight:700,color:'#fff',marginBottom:4}}>Connection Request</div>
-                  <div style={{fontSize:12,color:'#4A4F6A',marginBottom:20}}>Send a connection request to {selected.full_name} on LinkedIn (no note needed on free plan)</div>
+                <div style={{maxWidth:500}}>
+                  <div style={{fontSize:15,fontWeight:700,color:'#fff',marginBottom:4}}>Send Connection Request</div>
+                  <div style={{fontSize:12,color:'#4A4F6A',marginBottom:28}}>Open {selected.full_name}&apos;s LinkedIn profile and hit Connect</div>
 
-                  {liStatus==='connected' ? (
-                    <div style={{padding:'20px',borderRadius:12,background:'rgba(34,211,165,0.06)',border:'1px solid rgba(34,211,165,0.2)',marginBottom:16}}>
-                      <div style={{fontSize:14,fontWeight:700,color:'#22d3a5',marginBottom:4}}>✅ Connected!</div>
-                      <div style={{fontSize:12,color:'#4A4F6A'}}>You&apos;re connected with {selected.full_name}. Now send them a DM.</div>
-                      <button onClick={()=>setStep('message')} style={{marginTop:12,padding:'9px 18px',borderRadius:9,border:'1px solid rgba(0,246,255,0.2)',background:'rgba(0,246,255,0.08)',color:'#00F6FF',fontSize:12,fontWeight:600,cursor:'pointer'}}>
+                  {/* Status banners */}
+                  {liStatus==='connected' && (
+                    <div style={{padding:'18px 20px',borderRadius:12,background:'rgba(34,211,165,0.06)',border:'1px solid rgba(34,211,165,0.2)',marginBottom:20}}>
+                      <div style={{fontSize:14,fontWeight:700,color:'#22d3a5',marginBottom:6}}>✅ Connected with {selected.full_name}!</div>
+                      <div style={{fontSize:12,color:'#4A4F6A',marginBottom:14}}>You can now send them a DM directly on LinkedIn.</div>
+                      <button onClick={()=>setStep('message')} style={{padding:'9px 18px',borderRadius:9,border:'1px solid rgba(0,246,255,0.2)',background:'rgba(0,246,255,0.08)',color:'#00F6FF',fontSize:12,fontWeight:600,cursor:'pointer'}}>
                         Go to Message →
                       </button>
                     </div>
-                  ) : liStatus==='requested' ? (
-                    <div style={{padding:'20px',borderRadius:12,background:'rgba(251,146,60,0.06)',border:'1px solid rgba(251,146,60,0.2)',marginBottom:16}}>
-                      <div style={{fontSize:14,fontWeight:700,color:'#fb923c',marginBottom:4}}>⏳ Request Sent — Waiting</div>
-                      <div style={{fontSize:12,color:'#4A4F6A',marginBottom:14}}>Check your LinkedIn 🔔 notifications. When {selected.full_name} accepts, click below.</div>
+                  )}
+
+                  {liStatus==='requested' && (
+                    <div style={{padding:'18px 20px',borderRadius:12,background:'rgba(251,146,60,0.06)',border:'1px solid rgba(251,146,60,0.2)',marginBottom:20}}>
+                      <div style={{fontSize:14,fontWeight:700,color:'#fb923c',marginBottom:6}}>⏳ Request sent — waiting for {selected.full_name} to accept</div>
+                      <div style={{fontSize:12,color:'#4A4F6A',marginBottom:14}}>Check your LinkedIn 🔔 bell. When they accept, click below.</div>
                       <button onClick={()=>updateLinkedInStatus('connected')} style={{padding:'9px 18px',borderRadius:9,border:'1px solid rgba(34,211,165,0.25)',background:'rgba(34,211,165,0.1)',color:'#22d3a5',fontSize:12,fontWeight:600,cursor:'pointer'}}>
-                        ✓ They Accepted — Mark as Connected
+                        ✓ They Accepted — Go to DM
                       </button>
                     </div>
-                  ) : null}
+                  )}
 
-                  <div style={{padding:'14px 18px',borderRadius:10,background:'rgba(0,246,255,0.04)',border:'1px solid rgba(0,246,255,0.08)',fontSize:12,color:'#4A4F6A',lineHeight:1.7,marginBottom:16}}>
-                    <span style={{color:'#00F6FF',fontWeight:600}}>Free LinkedIn tip:</span> You can&apos;t add a note without Premium — just send the default request. Once connected, you can send a full DM for free.
-                  </div>
-
-                  <div style={{display:'flex',gap:10,flexWrap:'wrap'}}>
-                    {selected.linkedin_url && (
-                      <a href={selected.linkedin_url} target="_blank" rel="noreferrer"
-                        onClick={()=>{ if(liStatus==='none') updateLinkedInStatus('requested') }}
-                        style={{display:'inline-flex',alignItems:'center',gap:6,padding:'10px 18px',borderRadius:9,background:'rgba(10,102,194,0.15)',border:'1px solid rgba(10,102,194,0.3)',color:'#4a9eff',fontSize:13,fontWeight:600,textDecoration:'none'}}>
-                        <span style={{fontWeight:800}}>in</span> Open Profile &amp; Send Request
-                      </a>
-                    )}
-                    {liStatus==='none' && (
-                      <button onClick={()=>updateLinkedInStatus('requested')} style={{padding:'10px 18px',borderRadius:9,border:'1px solid rgba(251,146,60,0.25)',background:'rgba(251,146,60,0.08)',color:'#fb923c',fontSize:13,fontWeight:600,cursor:'pointer'}}>
-                        Mark Request as Sent
-                      </button>
-                    )}
-                  </div>
+                  {/* Main action buttons */}
+                  {liStatus !== 'connected' && (
+                    <div style={{display:'flex',flexDirection:'column',gap:12}}>
+                      {selected.linkedin_url ? (
+                        <a href={selected.linkedin_url} target="_blank" rel="noreferrer"
+                          onClick={()=>{ if(liStatus==='none') updateLinkedInStatus('requested') }}
+                          style={{
+                            display:'flex',alignItems:'center',justifyContent:'center',gap:10,
+                            padding:'16px 24px',borderRadius:12,textDecoration:'none',
+                            background:'rgba(10,102,194,0.2)',border:'2px solid rgba(10,102,194,0.4)',
+                            color:'#4a9eff',fontSize:15,fontWeight:700,transition:'all 0.15s',
+                          }}>
+                          <span style={{fontSize:18,fontWeight:900,fontFamily:'serif'}}>in</span>
+                          Open {selected.full_name}&apos;s LinkedIn Profile →
+                        </a>
+                      ) : (
+                        <a href={`https://www.linkedin.com/search/results/people/?keywords=${encodeURIComponent(selected.full_name+' '+selected.company)}`} target="_blank" rel="noreferrer"
+                          onClick={()=>{ if(liStatus==='none') updateLinkedInStatus('requested') }}
+                          style={{
+                            display:'flex',alignItems:'center',justifyContent:'center',gap:10,
+                            padding:'16px 24px',borderRadius:12,textDecoration:'none',
+                            background:'rgba(10,102,194,0.15)',border:'2px solid rgba(10,102,194,0.3)',
+                            color:'#4a9eff',fontSize:15,fontWeight:700,
+                          }}>
+                          <span style={{fontSize:18,fontWeight:900,fontFamily:'serif'}}>in</span>
+                          Search {selected.full_name} on LinkedIn →
+                        </a>
+                      )}
+                      <div style={{fontSize:11,color:'#2a2d4a',textAlign:'center'}}>Clicking above opens LinkedIn and marks request as sent automatically</div>
+                      {liStatus==='none' && (
+                        <button onClick={()=>updateLinkedInStatus('requested')} style={{
+                          padding:'10px',borderRadius:9,border:'1px solid rgba(255,255,255,0.06)',
+                          background:'transparent',color:'#4A4F6A',fontSize:12,cursor:'pointer',
+                        }}>Already sent the request? Click here to mark it</button>
+                      )}
+                    </div>
+                  )}
                 </div>
               )}
 
