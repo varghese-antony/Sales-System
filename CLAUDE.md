@@ -113,6 +113,7 @@ In priority order:
 - [ ] Dashboard — activity summary
 
 ## Rules
+- **ALWAYS read LOCKS.md before editing any file** — if another session has a lock on it, stop and warn the user before touching it. Write your own lock when you start, remove it when you push.
 - Always use .env.local for keys — never hardcode
 - Vercel env vars for all secrets (SMTP_HOST, SMTP_USER, SMTP_PASS, SUPABASE_SERVICE_ROLE_KEY)
 - Always push code to GitHub after each feature is done
