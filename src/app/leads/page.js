@@ -18,6 +18,8 @@ const sourceStyle = {
   google:      { bg:'rgba(66,133,244,0.12)',  color:'#6baeff',  icon:'G',  label:'Google' },
   curated:     { bg:'rgba(167,139,250,0.1)',  color:'#a78bfa',  icon:'★',  label:'Curated' },
   manual:      { bg:'rgba(251,146,60,0.1)',   color:'#fb923c',  icon:'✎',  label:'Manual' },
+  clutch:      { bg:'rgba(251,146,60,0.1)',   color:'#fb923c',  icon:'🌐', label:'Clutch' },
+  csv:         { bg:'rgba(167,139,250,0.1)',  color:'#a78bfa',  icon:'📄', label:'CSV' },
 }
 const getSource = s => sourceStyle[s] || { bg:'rgba(255,255,255,0.05)', color:'#4A4F6A', icon:'?', label: s||'Unknown' }
 const sc = s => s>=8?'#22d3a5':s>=6?'#00F6FF':'#4A4F6A'
@@ -29,6 +31,52 @@ export default function Leads() {
   const [filter, setFilter] = useState('all')
   const [search, setSearch] = useState('')
   const [toast, setToast] = useState(null)
+  const [clutchProgress, setClutchProgress] = useState(null) // {step, total, label} or null
+  const [csvLoading, setCsvLoading] = useState(false)
+
+  // All combos for Clutch scraping
+  const CLUTCH_COMBOS = [
+    {industry:'agencies/digital-marketing', country:'united-kingdom'},
+    {industry:'agencies/digital-marketing', country:'ireland'},
+    {industry:'agencies/digital-marketing', country:'australia'},
+    {industry:'agencies/digital-marketing', country:'united-arab-emirates'},
+    {industry:'agencies/digital-marketing', country:'singapore'},
+    {industry:'it-services', country:'united-kingdom'},
+    {industry:'it-services', country:'ireland'},
+    {industry:'it-services', country:'australia'},
+    {industry:'it-services', country:'united-arab-emirates'},
+    {industry:'it-services', country:'singapore'},
+    {industry:'business-services', country:'united-kingdom'},
+    {industry:'business-services', country:'ireland'},
+    {industry:'business-services', country:'australia'},
+    {industry:'business-services', country:'united-arab-emirates'},
+    {industry:'business-services', country:'singapore'},
+    {industry:'hr/consulting', country:'united-kingdom'},
+    {industry:'hr/consulting', country:'ireland'},
+    {industry:'hr/consulting', country:'australia'},
+    {industry:'hr/consulting', country:'united-arab-emirates'},
+    {industry:'hr/consulting', country:'singapore'},
+    {industry:'legal', country:'united-kingdom'},
+    {industry:'legal', country:'ireland'},
+    {industry:'legal', country:'australia'},
+    {industry:'legal', country:'united-arab-emirates'},
+    {industry:'legal', country:'singapore'},
+    {industry:'real-estate', country:'united-kingdom'},
+    {industry:'real-estate', country:'ireland'},
+    {industry:'real-estate', country:'australia'},
+    {industry:'real-estate', country:'united-arab-emirates'},
+    {industry:'real-estate', country:'singapore'},
+  ]
+
+  const COUNTRY_LABELS = {
+    'united-kingdom':'UK','ireland':'Ireland','australia':'Australia',
+    'united-arab-emirates':'UAE','singapore':'Singapore',
+  }
+  const INDUSTRY_LABELS = {
+    'agencies/digital-marketing':'Marketing Agencies','it-services':'SaaS/IT',
+    'business-services':'Consulting','hr/consulting':'HR Tech',
+    'legal':'Legal Tech','real-estate':'PropTech',
+  }
 
   useEffect(()=>{load()},[])
 
@@ -50,6 +98,52 @@ export default function Leads() {
     setTimeout(()=>setToast(null),4000)
   }
 
+  async function importFromClutch() {
+    let totalAdded = 0
+    let totalSkipped = 0
+    for (let i = 0; i < CLUTCH_COMBOS.length; i++) {
+      const {industry, country} = CLUTCH_COMBOS[i]
+      const label = `${INDUSTRY_LABELS[industry]||industry} in ${COUNTRY_LABELS[country]||country}`
+      setClutchProgress({step:i+1, total:CLUTCH_COMBOS.length, label})
+      try {
+        const r = await fetch('/api/scrape-clutch', {
+          method:'POST',
+          headers:{'Content-Type':'application/json'},
+          body: JSON.stringify({industry, country}),
+        })
+        const d = await r.json()
+        if (d.success) {
+          totalAdded += d.added||0
+          totalSkipped += d.skipped||0
+        }
+      } catch {}
+    }
+    setClutchProgress(null)
+    setToast({type:'ok', msg:`Import done — ${totalAdded} new leads added, ${totalSkipped} skipped (already exist)`})
+    await load()
+    setTimeout(()=>setToast(null),8000)
+  }
+
+  async function importCSV(e) {
+    const file = e.target.files?.[0]
+    if (!file) return
+    setCsvLoading(true)
+    setToast({type:'info', msg:'Importing CSV...'})
+    const formData = new FormData()
+    formData.append('file', file)
+    const r = await fetch('/api/import-leads', {method:'POST', body:formData})
+    const d = await r.json()
+    setCsvLoading(false)
+    setToast(d.success
+      ? {type:'ok', msg:`CSV imported — ${d.added} new leads added, ${d.skipped} skipped`}
+      : {type:'err', msg: d.error || 'Import failed'}
+    )
+    if (d.success) await load()
+    setTimeout(()=>setToast(null),6000)
+    // Reset file input
+    e.target.value = ''
+  }
+
   async function setStatus(id,status) {
     await supabase.from('leads').update({status}).eq('id',id)
     setLeads(leads.map(l=>l.id===id?{...l,status}:l))
@@ -69,14 +163,44 @@ export default function Leads() {
           <h1 style={{fontSize:22,fontWeight:700,color:'#fff',letterSpacing:'-0.02em'}}>Leads</h1>
           <p style={{fontSize:13,color:'#4A4F6A',marginTop:4}}>{leads.length} leads in database</p>
         </div>
-        <button onClick={find} disabled={finding} style={{
-          display:'flex',alignItems:'center',gap:8,padding:'9px 18px',borderRadius:10,border:'1px solid rgba(0,246,255,0.3)',cursor:finding?'default':'pointer',
-          background:finding?'rgba(0,246,255,0.05)':'rgba(0,246,255,0.1)',
-          color:'#00F6FF',fontSize:13,fontWeight:600,transition:'all 0.2s',opacity:finding?0.7:1,
-          boxShadow: finding?'none':'0 0 16px rgba(0,246,255,0.1)',
-        }}>
-          {finding?<><span style={{display:'inline-block',width:12,height:12,border:'2px solid currentColor',borderTopColor:'transparent',borderRadius:'50%',animation:'spin 0.7s linear infinite'}}/>Searching...</>:<>＋ Find New Leads</>}
-        </button>
+        <div style={{display:'flex',gap:8,alignItems:'center'}}>
+          {/* CSV Import (hidden file input) */}
+          <label style={{
+            display:'flex',alignItems:'center',gap:6,padding:'9px 14px',borderRadius:10,
+            border:'1px solid rgba(167,139,250,0.3)',cursor:csvLoading?'default':'pointer',
+            background:csvLoading?'rgba(167,139,250,0.03)':'rgba(167,139,250,0.08)',
+            color:'#a78bfa',fontSize:13,fontWeight:600,transition:'all 0.2s',opacity:csvLoading?0.7:1,
+          }}>
+            {csvLoading
+              ? <><span style={{display:'inline-block',width:11,height:11,border:'2px solid currentColor',borderTopColor:'transparent',borderRadius:'50%',animation:'spin 0.7s linear infinite'}}/>Importing...</>
+              : <>⬆ Import CSV</>
+            }
+            <input type="file" accept=".csv" onChange={importCSV} disabled={csvLoading} style={{display:'none'}}/>
+          </label>
+
+          {/* Clutch Import */}
+          <button onClick={importFromClutch} disabled={!!clutchProgress} style={{
+            display:'flex',alignItems:'center',gap:6,padding:'9px 14px',borderRadius:10,
+            border:'1px solid rgba(251,146,60,0.3)',cursor:clutchProgress?'default':'pointer',
+            background:clutchProgress?'rgba(251,146,60,0.03)':'rgba(251,146,60,0.08)',
+            color:'#fb923c',fontSize:13,fontWeight:600,transition:'all 0.2s',opacity:clutchProgress?0.7:1,
+          }}>
+            {clutchProgress
+              ? <><span style={{display:'inline-block',width:11,height:11,border:'2px solid currentColor',borderTopColor:'transparent',borderRadius:'50%',animation:'spin 0.7s linear infinite'}}/>Scraping {clutchProgress.label}... ({clutchProgress.step}/{clutchProgress.total})</>
+              : <>🌐 Import from Clutch</>
+            }
+          </button>
+
+          {/* Find New Leads */}
+          <button onClick={find} disabled={finding} style={{
+            display:'flex',alignItems:'center',gap:8,padding:'9px 18px',borderRadius:10,border:'1px solid rgba(0,246,255,0.3)',cursor:finding?'default':'pointer',
+            background:finding?'rgba(0,246,255,0.05)':'rgba(0,246,255,0.1)',
+            color:'#00F6FF',fontSize:13,fontWeight:600,transition:'all 0.2s',opacity:finding?0.7:1,
+            boxShadow: finding?'none':'0 0 16px rgba(0,246,255,0.1)',
+          }}>
+            {finding?<><span style={{display:'inline-block',width:12,height:12,border:'2px solid currentColor',borderTopColor:'transparent',borderRadius:'50%',animation:'spin 0.7s linear infinite'}}/>Searching...</>:<>＋ Find New Leads</>}
+          </button>
+        </div>
       </div>
 
       {/* Toast */}
