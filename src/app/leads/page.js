@@ -31,54 +31,11 @@ export default function Leads() {
   const [filter, setFilter] = useState('all')
   const [search, setSearch] = useState('')
   const [toast, setToast] = useState(null)
-  const [clutchProgress, setClutchProgress] = useState(null) // {step, total, label} or null
   const [csvLoading, setCsvLoading] = useState(false)
-
-  // All combos for Clutch scraping
-  const CLUTCH_COMBOS = [
-    {industry:'agencies/digital-marketing', country:'united-kingdom'},
-    {industry:'agencies/digital-marketing', country:'ireland'},
-    {industry:'agencies/digital-marketing', country:'australia'},
-    {industry:'agencies/digital-marketing', country:'united-arab-emirates'},
-    {industry:'agencies/digital-marketing', country:'singapore'},
-    {industry:'it-services', country:'united-kingdom'},
-    {industry:'it-services', country:'ireland'},
-    {industry:'it-services', country:'australia'},
-    {industry:'it-services', country:'united-arab-emirates'},
-    {industry:'it-services', country:'singapore'},
-    {industry:'business-services', country:'united-kingdom'},
-    {industry:'business-services', country:'ireland'},
-    {industry:'business-services', country:'australia'},
-    {industry:'business-services', country:'united-arab-emirates'},
-    {industry:'business-services', country:'singapore'},
-    {industry:'hr/consulting', country:'united-kingdom'},
-    {industry:'hr/consulting', country:'ireland'},
-    {industry:'hr/consulting', country:'australia'},
-    {industry:'hr/consulting', country:'united-arab-emirates'},
-    {industry:'hr/consulting', country:'singapore'},
-    {industry:'legal', country:'united-kingdom'},
-    {industry:'legal', country:'ireland'},
-    {industry:'legal', country:'australia'},
-    {industry:'legal', country:'united-arab-emirates'},
-    {industry:'legal', country:'singapore'},
-    {industry:'real-estate', country:'united-kingdom'},
-    {industry:'real-estate', country:'ireland'},
-    {industry:'real-estate', country:'australia'},
-    {industry:'real-estate', country:'united-arab-emirates'},
-    {industry:'real-estate', country:'singapore'},
-  ]
-
-  const COUNTRY_LABELS = {
-    'united-kingdom':'UK','ireland':'Ireland','australia':'Australia',
-    'united-arab-emirates':'UAE','singapore':'Singapore',
-  }
-  const INDUSTRY_LABELS = {
-    'agencies/digital-marketing':'Marketing Agencies','it-services':'SaaS/IT',
-    'business-services':'Consulting','hr/consulting':'HR Tech',
-    'legal':'Legal Tech','real-estate':'PropTech',
-  }
+  const [showClutchGuide, setShowClutchGuide] = useState(false)
 
   useEffect(()=>{load()},[])
+
 
   async function load() {
     setLoading(true)
@@ -96,32 +53,6 @@ export default function Leads() {
     if(d.success) await load()
     setFinding(false)
     setTimeout(()=>setToast(null),4000)
-  }
-
-  async function importFromClutch() {
-    let totalAdded = 0
-    let totalSkipped = 0
-    for (let i = 0; i < CLUTCH_COMBOS.length; i++) {
-      const {industry, country} = CLUTCH_COMBOS[i]
-      const label = `${INDUSTRY_LABELS[industry]||industry} in ${COUNTRY_LABELS[country]||country}`
-      setClutchProgress({step:i+1, total:CLUTCH_COMBOS.length, label})
-      try {
-        const r = await fetch('/api/scrape-clutch', {
-          method:'POST',
-          headers:{'Content-Type':'application/json'},
-          body: JSON.stringify({industry, country}),
-        })
-        const d = await r.json()
-        if (d.success) {
-          totalAdded += d.added||0
-          totalSkipped += d.skipped||0
-        }
-      } catch {}
-    }
-    setClutchProgress(null)
-    setToast({type:'ok', msg:`Import done — ${totalAdded} new leads added, ${totalSkipped} skipped (already exist)`})
-    await load()
-    setTimeout(()=>setToast(null),8000)
   }
 
   async function importCSV(e) {
@@ -164,12 +95,23 @@ export default function Leads() {
           <p style={{fontSize:13,color:'#4A4F6A',marginTop:4}}>{leads.length} leads in database</p>
         </div>
         <div style={{display:'flex',gap:8,alignItems:'center'}}>
-          {/* CSV Import (hidden file input) */}
+          {/* How to get Clutch leads */}
+          <button onClick={()=>setShowClutchGuide(g=>!g)} style={{
+            display:'flex',alignItems:'center',gap:6,padding:'9px 14px',borderRadius:10,
+            border:`1px solid ${showClutchGuide?'rgba(251,146,60,0.5)':'rgba(251,146,60,0.25)'}`,
+            background:showClutchGuide?'rgba(251,146,60,0.12)':'rgba(251,146,60,0.06)',
+            color:'#fb923c',fontSize:13,fontWeight:600,cursor:'pointer',
+          }}>
+            🌐 Clutch Leads
+          </button>
+
+          {/* CSV Import */}
           <label style={{
             display:'flex',alignItems:'center',gap:6,padding:'9px 14px',borderRadius:10,
-            border:'1px solid rgba(167,139,250,0.3)',cursor:csvLoading?'default':'pointer',
-            background:csvLoading?'rgba(167,139,250,0.03)':'rgba(167,139,250,0.08)',
+            border:'1px solid rgba(167,139,250,0.35)',cursor:csvLoading?'default':'pointer',
+            background:csvLoading?'rgba(167,139,250,0.03)':'rgba(167,139,250,0.1)',
             color:'#a78bfa',fontSize:13,fontWeight:600,transition:'all 0.2s',opacity:csvLoading?0.7:1,
+            boxShadow:csvLoading?'none':'0 0 14px rgba(167,139,250,0.08)',
           }}>
             {csvLoading
               ? <><span style={{display:'inline-block',width:11,height:11,border:'2px solid currentColor',borderTopColor:'transparent',borderRadius:'50%',animation:'spin 0.7s linear infinite'}}/>Importing...</>
@@ -177,19 +119,6 @@ export default function Leads() {
             }
             <input type="file" accept=".csv" onChange={importCSV} disabled={csvLoading} style={{display:'none'}}/>
           </label>
-
-          {/* Clutch Import */}
-          <button onClick={importFromClutch} disabled={!!clutchProgress} style={{
-            display:'flex',alignItems:'center',gap:6,padding:'9px 14px',borderRadius:10,
-            border:'1px solid rgba(251,146,60,0.3)',cursor:clutchProgress?'default':'pointer',
-            background:clutchProgress?'rgba(251,146,60,0.03)':'rgba(251,146,60,0.08)',
-            color:'#fb923c',fontSize:13,fontWeight:600,transition:'all 0.2s',opacity:clutchProgress?0.7:1,
-          }}>
-            {clutchProgress
-              ? <><span style={{display:'inline-block',width:11,height:11,border:'2px solid currentColor',borderTopColor:'transparent',borderRadius:'50%',animation:'spin 0.7s linear infinite'}}/>Scraping {clutchProgress.label}... ({clutchProgress.step}/{clutchProgress.total})</>
-              : <>🌐 Import from Clutch</>
-            }
-          </button>
 
           {/* Find New Leads */}
           <button onClick={find} disabled={finding} style={{
@@ -202,6 +131,54 @@ export default function Leads() {
           </button>
         </div>
       </div>
+
+      {/* Clutch step-by-step guide */}
+      {showClutchGuide&&<div style={{
+        marginBottom:20,padding:'20px 24px',borderRadius:12,
+        background:'rgba(251,146,60,0.05)',border:'1px solid rgba(251,146,60,0.2)',
+      }}>
+        <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:14}}>
+          <span style={{fontSize:14,fontWeight:700,color:'#fb923c'}}>🌐 How to get leads from Clutch.co</span>
+          <button onClick={()=>setShowClutchGuide(false)} style={{background:'none',border:'none',color:'#4A4F6A',cursor:'pointer',fontSize:18,lineHeight:1}}>×</button>
+        </div>
+        <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:16}}>
+          <div>
+            <p style={{fontSize:12,fontWeight:600,color:'#e8ecf0',marginBottom:10}}>Step-by-step:</p>
+            {[
+              ['1','Go to clutch.co in your browser'],
+              ['2','Use these filters: Country → UK / Ireland / Australia / UAE / Singapore'],
+              ['3','Filter by: employees 2–49, at least 1 review'],
+              ['4','Pick one category: Marketing Agencies, IT Services, Consulting, HR, Legal, or Real Estate'],
+              ['5','Scroll through results — right-click the page → Save As... or use a browser export extension'],
+              ['6','Or: copy-paste company rows into a spreadsheet, save as CSV'],
+              ['7','Upload the CSV here with the ⬆ Import CSV button'],
+            ].map(([n,t])=>(
+              <div key={n} style={{display:'flex',gap:10,marginBottom:8,alignItems:'flex-start'}}>
+                <span style={{width:20,height:20,borderRadius:'50%',background:'rgba(251,146,60,0.15)',color:'#fb923c',fontSize:11,fontWeight:700,display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0,marginTop:1}}>{n}</span>
+                <span style={{fontSize:12,color:'#c8cad8',lineHeight:1.5}}>{t}</span>
+              </div>
+            ))}
+          </div>
+          <div>
+            <p style={{fontSize:12,fontWeight:600,color:'#e8ecf0',marginBottom:10}}>CSV format (any of these column names work):</p>
+            <div style={{background:'rgba(0,0,0,0.3)',borderRadius:8,padding:'12px 14px',fontFamily:'monospace',fontSize:11,color:'#a78bfa',lineHeight:1.8}}>
+              Company, Website, Country, Industry<br/>
+              <span style={{color:'#4A4F6A'}}>— or —</span><br/>
+              company_name, url, location, sector<br/>
+              <span style={{color:'#4A4F6A'}}>— or —</span><br/>
+              business, web, region, category
+            </div>
+            <div style={{marginTop:12,padding:'10px 12px',borderRadius:8,background:'rgba(34,211,165,0.06)',border:'1px solid rgba(34,211,165,0.15)'}}>
+              <p style={{fontSize:11,color:'#22d3a5',fontWeight:600,marginBottom:4}}>✓ Optional extra columns</p>
+              <p style={{fontSize:11,color:'#4A4F6A',lineHeight:1.5}}>Full Name / Email / LinkedIn — if you have them, they&apos;ll be imported too. Leave blank otherwise.</p>
+            </div>
+            <div style={{marginTop:12,padding:'10px 12px',borderRadius:8,background:'rgba(251,146,60,0.06)',border:'1px solid rgba(251,146,60,0.15)'}}>
+              <p style={{fontSize:11,color:'#fb923c',fontWeight:600,marginBottom:4}}>⚡ Quick tip</p>
+              <p style={{fontSize:11,color:'#4A4F6A',lineHeight:1.5}}>Clutch URLs follow a pattern — paste this into your browser and swap the category + country:<br/><span style={{color:'#fb923c'}}>clutch.co/agencies/digital-marketing?country=united-kingdom</span></p>
+            </div>
+          </div>
+        </div>
+      </div>}
 
       {/* Toast */}
       {toast&&<div style={{
