@@ -37,6 +37,9 @@ export default function Leads() {
   const [phLoading, setPhLoading] = useState(false)
   const [enrichingId, setEnrichingId] = useState(null)
   const [enrichAllProgress, setEnrichAllProgress] = useState(null)
+  const [sequencedIds, setSequencedIds] = useState(new Set())
+  const [markingId, setMarkingId] = useState(null)
+  const [showMarkModal, setShowMarkModal] = useState(null) // lead object
   const [autoSendStatus, setAutoSendStatus] = useState(null)
   const [togglingAutoSend, setTogglingAutoSend] = useState(false)
 
@@ -76,7 +79,36 @@ export default function Leads() {
     'Logistics · London','Logistics · New York','Logistics · Dubai','Logistics · Singapore',
   ]
 
-  useEffect(()=>{ load(); loadAutoSendStatus() },[])
+  useEffect(()=>{ load(); loadAutoSendStatus(); loadSequencedIds() },[])
+
+  async function loadSequencedIds() {
+    const { data } = await supabase.from('sequences').select('lead_id')
+    setSequencedIds(new Set((data || []).map(s => s.lead_id)))
+  }
+
+  async function markEmailed(lead, subject) {
+    setMarkingId(lead.id)
+    try {
+      const r = await fetch('/api/mark-emailed', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ leadId: lead.id, subject }),
+      })
+      const d = await r.json()
+      if (d.success) {
+        setLeads(prev => prev.map(l => l.id === lead.id ? { ...l, status: 'contacted' } : l))
+        setSequencedIds(prev => new Set([...prev, lead.id]))
+        setToast({ type: 'ok', msg: `✓ ${lead.company} marked — follow-up will fire in 3 days` })
+      } else {
+        setToast({ type: 'err', msg: d.error || 'Failed to mark as emailed' })
+      }
+    } catch {
+      setToast({ type: 'err', msg: 'Something went wrong' })
+    }
+    setMarkingId(null)
+    setShowMarkModal(null)
+    setTimeout(() => setToast(null), 5000)
+  }
 
   async function loadAutoSendStatus() {
     try {
@@ -551,7 +583,7 @@ export default function Leads() {
               </select>
             </div>
             {/* Actions */}
-            <div style={{display:'flex',gap:5,alignItems:'center'}}>
+            <div style={{display:'flex',gap:5,alignItems:'center',flexWrap:'wrap'}}>
               {/* Enrich — only show if no email yet */}
               {!l.email && l.website && (
                 <button
@@ -568,6 +600,20 @@ export default function Leads() {
                     : <>✦ Enrich</>}
                 </button>
               )}
+              {/* Mark as Emailed — show if new status and not yet in a sequence */}
+              {l.status === 'new' && !sequencedIds.has(l.id) && (
+                <button
+                  onClick={()=>setShowMarkModal(l)}
+                  disabled={markingId===l.id}
+                  title="Already sent this person an email manually? Mark it so follow-ups fire automatically"
+                  style={{
+                    fontSize:11,padding:'4px 9px',borderRadius:7,border:'1px solid rgba(251,146,60,0.25)',
+                    background:'rgba(251,146,60,0.07)',color:'#fb923c',cursor:'pointer',
+                    fontWeight:600,whiteSpace:'nowrap',
+                  }}>
+                  ✓ Sent
+                </button>
+              )}
               <Link href={`/smart-outreach?lead=${l.id}`} style={{
                 fontSize:11,padding:'4px 9px',borderRadius:7,background:'rgba(0,246,255,0.08)',
                 color:'#00F6FF',textDecoration:'none',fontWeight:600,border:'1px solid rgba(0,246,255,0.18)',
@@ -578,6 +624,60 @@ export default function Leads() {
           )
         })}
       </div>
+
+      {/* Mark as Emailed modal */}
+      {showMarkModal && (() => {
+        let subjectInput = `Re: following up`
+        return (
+          <div style={{
+            position:'fixed',inset:0,background:'rgba(0,0,0,0.7)',zIndex:1000,
+            display:'flex',alignItems:'center',justifyContent:'center',
+          }} onClick={()=>setShowMarkModal(null)}>
+            <div style={{
+              background:'#0d0d18',border:'1px solid rgba(251,146,60,0.3)',borderRadius:14,
+              padding:'28px 28px',width:440,
+            }} onClick={e=>e.stopPropagation()}>
+              <h3 style={{fontSize:15,fontWeight:700,color:'#e8ecf0',marginBottom:4}}>
+                Mark as already emailed
+              </h3>
+              <p style={{fontSize:12,color:'#4A4F6A',marginBottom:20,lineHeight:1.5}}>
+                This will enrol <span style={{color:'#fb923c'}}>{showMarkModal.company}</span> in the follow-up sequence.
+                Follow-up 1 will fire in 3 days, Follow-up 2 on day 7 — automatically.
+              </p>
+              <label style={{fontSize:11,color:'#4A4F6A',fontWeight:600,textTransform:'uppercase',letterSpacing:'0.05em'}}>
+                Subject line you used (optional)
+              </label>
+              <input
+                defaultValue=""
+                placeholder="e.g. Quick question about Acme Co"
+                onChange={e=>{ subjectInput = e.target.value }}
+                style={{
+                  width:'100%',marginTop:6,marginBottom:20,padding:'9px 12px',
+                  borderRadius:8,background:'#111120',border:'1px solid rgba(255,255,255,0.08)',
+                  color:'#e8ecf0',fontSize:13,outline:'none',boxSizing:'border-box',
+                }}
+                onFocus={e=>e.target.style.borderColor='rgba(251,146,60,0.4)'}
+                onBlur={e=>e.target.style.borderColor='rgba(255,255,255,0.08)'}
+              />
+              <div style={{display:'flex',gap:8,justifyContent:'flex-end'}}>
+                <button onClick={()=>setShowMarkModal(null)} style={{
+                  padding:'8px 16px',borderRadius:8,border:'1px solid rgba(255,255,255,0.08)',
+                  background:'transparent',color:'#4A4F6A',fontSize:13,cursor:'pointer',
+                }}>Cancel</button>
+                <button onClick={()=>markEmailed(showMarkModal, subjectInput)} disabled={markingId===showMarkModal.id} style={{
+                  padding:'8px 18px',borderRadius:8,border:'1px solid rgba(251,146,60,0.4)',
+                  background:'rgba(251,146,60,0.12)',color:'#fb923c',fontSize:13,fontWeight:600,cursor:'pointer',
+                }}>
+                  {markingId===showMarkModal.id
+                    ? <><span style={{display:'inline-block',width:11,height:11,border:'2px solid currentColor',borderTopColor:'transparent',borderRadius:'50%',animation:'spin 0.7s linear infinite',marginRight:6}}/>Saving...</>
+                    : '✓ Yes, I already sent this'}
+                </button>
+              </div>
+            </div>
+          </div>
+        )
+      })()}
+
     </div>
   )
 }
