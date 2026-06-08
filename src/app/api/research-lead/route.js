@@ -158,77 +158,78 @@ function buildEmail(variation, { first, company, industry, country, tagline, ser
 
   const angles = [
     // Angle 0 — Mirror
-    // Opens by referencing something real from their site, then connects it to the problem.
-    // Feels like the sender actually spent 5 minutes on their website before writing.
+    // Subject: just their first name. Nothing else. Most personal subject line possible.
+    // Body: opens with something specific from their site, then asks a real question.
+    // Does NOT open with "I work with..." — that's a cold email tell.
     {
-      subject: `question for you, ${first}`,
+      subject: `${first}`,
       body: `Hi ${first},
 
 ${mirrorPhrase
-  ? `I was on the ${company} website earlier and read this: "${mirrorPhrase}". Got me curious about how the team is set up behind that.`
-  : `Came across ${company} while looking at ${industry} businesses in ${country}${tagline ? ` and read "${tagline}"` : ''}. Spent a few minutes on the site.`
+  ? `I was reading through the ${company} site earlier and came across this: "${mirrorPhrase}".`
+  : `Had a look through the ${company} site earlier.${tagline ? ` "${tagline}" caught my attention.` : ''}`
 }
 
-The reason I'm writing is I work with founders at ${industry} businesses on one specific thing: the admin and process work that quietly takes over more time than it should. Things like ${shortPain}. It's rarely obvious how much time it's taking until someone actually maps it out.
+Curious how much of your week actually goes into the work behind that versus the admin and process stuff that builds up around it. Things like ${shortPain}. Most founders I speak to don't realise how much time it's taking until someone maps it out.
 
-I worked with ${proofContext} recently. Got ${proofStat} back per week for them. Same tools, same team, just set up properly.
+I've been helping a few ${industry} businesses sort this out. The last one got ${proofStat} back without changing anything they use or hiring anyone new.
 
-If that sounds even vaguely relevant to where ${company} is right now, happy to show you exactly what we did on a call. 20 minutes.
+Anyway, if it's something you think about, happy to show you what that looked like. Would take about 20 minutes.
 
 Varghese`,
     },
 
     // Angle 1 — Signal-led
-    // Hooks off something happening at the company right now (hiring, launch, news).
-    // Reads like a genuine observation, not a template trigger.
+    // Subject: references the company only, no promise, no hook word.
+    // Body: opens with the signal (hiring/launch/news) as context, not as a sales trigger.
     {
-      subject: hasSignal ? `${company} and a thought` : `saw ${company} is growing`,
+      subject: `${company}`,
       body: `Hi ${first},
 
 ${hasSignal
-  ? `I came across this recently: ${signal.slice(0, 110)}. Sounds like there's a lot moving at ${company} at the moment.`
-  : `I've been looking at ${industry} teams in ${country} that are growing and ${company} kept coming up.`
+  ? `I came across this about ${company} recently: ${signal.slice(0, 100)}. Sounds like a busy period.`
+  : `I've been looking at a few ${industry} businesses in ${country} and ${company} came up a couple of times.`
 }
 
-When businesses hit that kind of pace, the stuff that worked fine at half the size starts getting messy. ${shortPain} in particular tend to take two or three times longer than they should and the team just absorbs it because there's no obvious moment to stop and fix it.
+The reason I'm writing is that when things are moving fast, the back-end stuff, ${shortPain}, tends to pile up quietly. Teams patch it as they go because there's never a good moment to stop and fix it properly.
 
-I help founders sort that layer out. ${proofStat} is what I typically see come back once we've fixed it properly. No new tools, no restructuring.
+I help founders deal with exactly that. Not a big consultancy project, just someone who comes in, looks at what's actually eating time, and fixes it. Usually ${proofStat} comes back per week.
 
-Worth a 20 minute call to see if it's the same picture at ${company}?
+Is that something that's on your radar at the moment?
 
 Varghese`,
     },
 
     // Angle 2 — Proof first
-    // Leads with a real result from a real situation, then bridges to this person.
-    // No "I'd love to", no "no pitch". Just here's what happened, does it sound familiar.
+    // Subject: reads like a normal email between two people who've spoken before.
+    // Body: tells a real story first, then makes the connection. No "similar to you" framing.
     {
-      subject: `something that might be relevant to ${company}`,
+      subject: `thought this might be relevant`,
       body: `Hi ${first},
 
-I was working with ${proofContext} a few months back. The problem was ${shortPain} eating up more time than anyone had properly accounted for.
+A few months back I was working with ${proofContext}. Nobody had really sat down and looked at where the time was going. When we did, most of it was disappearing into ${shortPain}.
 
-We fixed it without changing their tools or hiring anyone new. ${proofStat} came back to the team every week. They'd just never had anyone sit down and connect everything properly.
+We fixed it without changing their tools or bringing anyone new in. They got ${proofStat} back every week from that point.
 
-I looked at ${company}${svc ? ` and what you're doing around ${svc}` : ''} and the setup looks similar. Not identical, but the same category of problem is usually there at this stage.
+I had a look at ${company}${svc ? ` and the work you're doing around ${svc}` : ''} and it looks like a similar picture. Could be wrong but thought it was worth asking.
 
-If you're open to it, I can walk you through what we did in about 20 minutes and you can tell me if any of it fits. No obligation either way.
+If you've got 20 minutes I can walk you through what we did and you can tell me if any of it sounds familiar.
 
 Varghese`,
     },
 
     // Angle 3 — Short and direct
-    // 6 lines. No story, no proof, no setup. Just a direct human ask.
-    // Reads like a founder who respects that the other person is also busy.
+    // Subject: their name and company, reads like a calendar invite or internal email.
+    // Body: 4 sentences. No setup. Respects that they're busy.
     {
-      subject: `${first} at ${company}`,
+      subject: `${first} / ${company}`,
       body: `Hi ${first},
 
-${svc ? `Came across ${company} and had a look at what you're doing around ${svc}.` : `Came across ${company} and had a quick look at the site.`}
+${svc ? `Had a look at ${company} and the work you do around ${svc}.` : `Had a look at ${company}.`}
 
-I help ${industry} founders get back the time that goes into ${shortPain}. Usually ${proofStat} a week once it's sorted. No new software, no big project.
+I help ${industry} founders deal with the time that goes into ${shortPain}. It's usually more than people realise and it's fixable without any big changes.
 
-Would it be worth a 20 minute chat to see if there's something here?
+Got 20 minutes to find out if it's the same story here?
 
 Varghese`,
     },
