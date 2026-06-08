@@ -30,7 +30,7 @@
     },
     {
       "path": "/api/enrich-batch",
-      "schedule": "*/5 * * * *"
+      "schedule": "0 3 * * *"
     }
   ]
 }
