@@ -392,6 +392,20 @@ export default function Leads() {
             }
           </button>
 
+          {/* Sync Sent Folder — always visible */}
+          <button onClick={syncSent} disabled={syncing} style={{
+            display:'flex',alignItems:'center',gap:6,padding:'9px 14px',borderRadius:10,
+            border:'1px solid rgba(167,139,250,0.35)',cursor:syncing?'default':'pointer',
+            background:syncing?'rgba(167,139,250,0.03)':'rgba(167,139,250,0.1)',
+            color:'#a78bfa',fontSize:13,fontWeight:600,transition:'all 0.2s',opacity:syncing?0.7:1,
+            whiteSpace:'nowrap',
+          }}>
+            {syncing
+              ? <><span style={{display:'inline-block',width:11,height:11,border:'2px solid currentColor',borderTopColor:'transparent',borderRadius:'50%',animation:'spin 0.7s linear infinite'}}/>Syncing...</>
+              : <>⟳ Sync Sent</>
+            }
+          </button>
+
           {/* Find New Leads (Hunter.io) */}
           <button onClick={find} disabled={finding} style={{
             display:'flex',alignItems:'center',gap:8,padding:'9px 18px',borderRadius:10,
