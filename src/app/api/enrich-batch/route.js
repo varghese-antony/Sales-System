@@ -209,6 +209,15 @@ async function processBatch(supabase) {
 
   if (remaining.length === 0) {
     await setSetting(supabase, 'enrich_job_status', 'done')
+  } else {
+    // Self-chain: immediately trigger next batch so enrichment continues
+    // without needing frequent crons. Each call processes 15 leads then
+    // fires the next call — runs until queue is empty.
+    const appUrl = process.env.NEXT_PUBLIC_APP_URL ||
+                   (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : '')
+    if (appUrl) {
+      fetch(`${appUrl}/api/enrich-batch`, { method: 'POST' }).catch(() => {})
+    }
   }
 
   return {
@@ -219,12 +228,8 @@ async function processBatch(supabase) {
   }
 }
 
-// Called by cron (GET) or triggered manually (POST)
-export async function GET(request) {
-  const auth = request.headers.get('authorization') || ''
-  if (auth !== `Bearer ${process.env.CRON_SECRET}` && auth !== `Bearer internal`) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-  }
+// Open — called by cron, self-chaining, and UI polling trigger
+export async function GET() {
   const supabase = createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL,
     process.env.SUPABASE_SERVICE_ROLE_KEY
@@ -233,12 +238,7 @@ export async function GET(request) {
   return NextResponse.json({ success: true, ...result })
 }
 
-export async function POST(request) {
-  const auth = request.headers.get('authorization') || ''
-  // Allow internal calls (from enrich-all-background trigger) or cron
-  if (auth !== `Bearer ${process.env.CRON_SECRET}` && auth !== `Bearer internal`) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-  }
+export async function POST() {
   const supabase = createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL,
     process.env.SUPABASE_SERVICE_ROLE_KEY

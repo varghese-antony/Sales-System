@@ -44,6 +44,7 @@ export default function Leads() {
   const [togglingAutoSend, setTogglingAutoSend] = useState(false)
   const [syncing, setSyncing] = useState(false)
   const [enrichJob, setEnrichJob] = useState(null) // { status, done, total, found }
+  const [sendingNow, setSendingNow] = useState(false)
 
   // Google Maps search labels for progress display (mirrors route.js SEARCHES order)
   const MAPS_SEARCHES = [
@@ -180,6 +181,29 @@ export default function Leads() {
       setToast({ type: 'err', msg: 'Sync failed — check connection' })
     }
     setSyncing(false)
+    setTimeout(() => setToast(null), 7000)
+  }
+
+  async function sendNow() {
+    setSendingNow(true)
+    setToast({ type: 'info', msg: '📤 Sending batch now...' })
+    try {
+      const r = await fetch('/api/auto-send', { method: 'POST' })
+      const d = await r.json()
+      if (d.sent > 0) {
+        setToast({ type: 'ok', msg: `✅ Sent ${d.sent} emails — next follow-ups scheduled` })
+        await loadAutoSendStatus()
+        await loadSequencedIds()
+        await load()
+      } else if (d.skipped || d.reason) {
+        setToast({ type: 'info', msg: d.reason || d.message || 'Nothing to send right now' })
+      } else {
+        setToast({ type: 'info', msg: d.message || 'No emails sent — check leads have emails' })
+      }
+    } catch {
+      setToast({ type: 'err', msg: 'Send failed — check connection' })
+    }
+    setSendingNow(false)
     setTimeout(() => setToast(null), 7000)
   }
 
@@ -495,8 +519,20 @@ export default function Leads() {
             </div>
           </div>
 
-          {/* Right — sync + schedule */}
+          {/* Right — send now + sync + schedule */}
           <div style={{display:'flex',flexDirection:'column',alignItems:'flex-end',gap:8}}>
+            {/* Send Now — manual trigger */}
+            <button onClick={sendNow} disabled={sendingNow || !autoSendStatus.enabled} style={{
+              display:'flex',alignItems:'center',gap:6,padding:'7px 14px',borderRadius:8,
+              border:'1px solid rgba(34,211,165,0.4)',cursor:(sendingNow||!autoSendStatus.enabled)?'default':'pointer',
+              background: autoSendStatus.enabled ? 'rgba(34,211,165,0.12)' : 'rgba(255,255,255,0.03)',
+              color: autoSendStatus.enabled ? '#22d3a5' : '#4A4F6A',
+              fontSize:12,fontWeight:700,opacity:(sendingNow||!autoSendStatus.enabled)?0.6:1,whiteSpace:'nowrap',
+            }}>
+              {sendingNow
+                ? <><span style={{display:'inline-block',width:10,height:10,border:'2px solid currentColor',borderTopColor:'transparent',borderRadius:'50%',animation:'spin 0.7s linear infinite'}}/>Sending...</>
+                : <>📤 Send Now</>}
+            </button>
             <button onClick={syncSent} disabled={syncing} style={{
               display:'flex',alignItems:'center',gap:6,padding:'6px 12px',borderRadius:8,
               border:'1px solid rgba(167,139,250,0.3)',cursor:syncing?'default':'pointer',
@@ -508,10 +544,10 @@ export default function Leads() {
                 : <>⟳ Sync Sent Folder</>}
             </button>
             <div style={{fontSize:11,color:'#4A4F6A',textAlign:'right',lineHeight:1.7}}>
-              Auto-syncs daily at 7:30am UTC<br/>
+              Cron: Mon–Fri 8am/10am/12pm/2pm UTC<br/>
               {autoSendStatus.lastSentAt
                 ? `Last sent: ${new Date(autoSendStatus.lastSentAt).toLocaleDateString('en-GB',{day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'})}`
-                : 'No emails sent yet'}
+                : 'No emails sent yet — click Send Now to start'}
             </div>
           </div>
         </div>
