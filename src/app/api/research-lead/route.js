@@ -141,94 +141,95 @@ function extractMirrorPhrase(siteData) {
   return null
 }
 
-// 4 genuinely different email angles — different research focus, structure, and tone
+// 4 email angles — each written to sound like a real person dashed this off between meetings.
+// Rules baked into every angle:
+//   - No em dashes. Humans in email use commas, full stops, or just start a new sentence.
+//   - No "I'd love to", "I hope this finds you", "just wanted to reach out"
+//   - No self-congratulating subject lines ("quick thought", "worth sharing")
+//   - Sentences vary in length. Some short. Some run a bit longer because that's how people actually write.
+//   - The compliment (if any) has to be specific, not "that's a strong positioning"
+//   - CTA is low pressure and sounds like something a person would actually say
+//   - No word "leverage", "streamline", "synergy", "ops cracks", "operational drag"
+//   - Sign off is just "Varghese" — no "Best," or "Kind regards" robot sign-off
 function buildEmail(variation, { first, company, industry, country, tagline, services, pain, outcome, shortPain, proofStat, proofContext, signals, mirrorPhrase, stage }) {
   const svc = services[0] || ''
   const signal = signals[0] || ''
   const hasSignal = signal.length > 20
 
   const angles = [
-    // Angle 0 — Mirror their language back
-    // Research focus: their own website copy. Opens by quoting or reflecting their positioning.
-    // Tone: observant, empathetic. Makes them feel seen, not sold to.
+    // Angle 0 — Mirror
+    // Opens by referencing something real from their site, then connects it to the problem.
+    // Feels like the sender actually spent 5 minutes on their website before writing.
     {
-      subject: `${first} — a question about how ${company} runs behind the scenes`,
+      subject: `question for you, ${first}`,
       body: `Hi ${first},
 
 ${mirrorPhrase
-  ? `I was reading about ${company} — "${mirrorPhrase}." That's a strong positioning.`
-  : `I came across ${company} while researching ${industry} teams in ${country}${tagline ? ` — "${tagline}"` : ''}.`
+  ? `I was on the ${company} website earlier and read this: "${mirrorPhrase}". Got me curious about how the team is set up behind that.`
+  : `Came across ${company} while looking at ${industry} businesses in ${country}${tagline ? ` and read "${tagline}"` : ''}. Spent a few minutes on the site.`
 }
 
-One thing I've noticed with founders doing work like this: the ops side rarely keeps up with the ambition. ${shortPain} tend to quietly eat time that should be going into the actual work.
+The reason I'm writing is I work with founders at ${industry} businesses on one specific thing: the admin and process work that quietly takes over more time than it should. Things like ${shortPain}. It's rarely obvious how much time it's taking until someone actually maps it out.
 
-I recently worked with ${proofContext}. We fixed it in a few weeks — ${proofStat} back, no new tools, no new hires.
+I worked with ${proofContext} recently. Got ${proofStat} back per week for them. Same tools, same team, just set up properly.
 
-Would it be worth 20 minutes to see if something similar applies to ${company}?
+If that sounds even vaguely relevant to where ${company} is right now, happy to show you exactly what we did on a call. 20 minutes.
 
-Best,
 Varghese`,
     },
 
-    // Angle 1 — Signal-led (news/hiring/launch)
-    // Research focus: Google signals about what's happening at the company RIGHT NOW.
-    // Tone: timely, conversational. Feels like a genuine reaction to something real.
+    // Angle 1 — Signal-led
+    // Hooks off something happening at the company right now (hiring, launch, news).
+    // Reads like a genuine observation, not a template trigger.
     {
-      subject: hasSignal ? `Spotted something about ${company} — quick thought` : `${company}'s growth — and the ops question that usually follows`,
+      subject: hasSignal ? `${company} and a thought` : `saw ${company} is growing`,
       body: `Hi ${first},
 
 ${hasSignal
-  ? `I noticed ${signal.slice(0, 120)} — looks like things are moving at ${company}.`
-  : `I've been looking at ${industry} teams in ${country} that are building something real, and ${company} came up.`
+  ? `I came across this recently: ${signal.slice(0, 110)}. Sounds like there's a lot moving at ${company} at the moment.`
+  : `I've been looking at ${industry} teams in ${country} that are growing and ${company} kept coming up.`
 }
 
-In my experience, that kind of momentum is exactly when the ops cracks start showing — ${shortPain} start taking longer than they should, and the team patches it manually because there's no time to fix it properly.
+When businesses hit that kind of pace, the stuff that worked fine at half the size starts getting messy. ${shortPain} in particular tend to take two or three times longer than they should and the team just absorbs it because there's no obvious moment to stop and fix it.
 
-I help founders like you automate that layer. ${proofStat} recovered per week is typical. No new tools, no restructuring — just the existing setup connected properly.
+I help founders sort that layer out. ${proofStat} is what I typically see come back once we've fixed it properly. No new tools, no restructuring.
 
-Worth a quick call to see if it applies here?
+Worth a 20 minute call to see if it's the same picture at ${company}?
 
-Best,
 Varghese`,
     },
 
-    // Angle 2 — Proof-first, then bridge
-    // Research focus: their industry + company stage. Opens with a concrete result, earns the connection.
-    // Tone: confident, credible. No hedging. The proof does the persuading.
+    // Angle 2 — Proof first
+    // Leads with a real result from a real situation, then bridges to this person.
+    // No "I'd love to", no "no pitch". Just here's what happened, does it sound familiar.
     {
-      subject: `How ${proofStat} came back to a ${industry} founder — relevant to ${company}?`,
+      subject: `something that might be relevant to ${company}`,
       body: `Hi ${first},
 
-I recently worked with ${proofContext}.
+I was working with ${proofContext} a few months back. The problem was ${shortPain} eating up more time than anyone had properly accounted for.
 
-${proofStat} came back every week. Not by hiring, not by rebuilding their tech stack — just by connecting what they already had.
+We fixed it without changing their tools or hiring anyone new. ${proofStat} came back to the team every week. They'd just never had anyone sit down and connect everything properly.
 
-${company}${svc ? ` — particularly what you're doing around ${svc}` : ''} — is at a similar stage. The same pattern almost always exists: ${shortPain} eating time that should be going into growth.
+I looked at ${company}${svc ? ` and what you're doing around ${svc}` : ''} and the setup looks similar. Not identical, but the same category of problem is usually there at this stage.
 
-I'd love to spend 20 minutes walking you through exactly what we did and whether the same applies to you. No pitch — just a practical look.
+If you're open to it, I can walk you through what we did in about 20 minutes and you can tell me if any of it fits. No obligation either way.
 
-Free any time this week?
-
-Best,
 Varghese`,
     },
 
-    // Angle 3 — Short & direct
-    // Research focus: one specific thing from their site (service or tagline). No setup, no story.
-    // Tone: respects their time completely. 6 lines max.
+    // Angle 3 — Short and direct
+    // 6 lines. No story, no proof, no setup. Just a direct human ask.
+    // Reads like a founder who respects that the other person is also busy.
     {
-      subject: `${company} — ops question`,
+      subject: `${first} at ${company}`,
       body: `Hi ${first},
 
-I'll be brief.
+${svc ? `Came across ${company} and had a look at what you're doing around ${svc}.` : `Came across ${company} and had a quick look at the site.`}
 
-${svc ? `I saw ${company} works on ${svc}.` : `I came across ${company}.`} Founders running ${industry} businesses at your stage typically lose ${proofStat} a week to ${shortPain} — usually without realising it.
+I help ${industry} founders get back the time that goes into ${shortPain}. Usually ${proofStat} a week once it's sorted. No new software, no big project.
 
-I fix that. Specifically and quickly.
+Would it be worth a 20 minute chat to see if there's something here?
 
-Worth 20 minutes to find out if it applies here?
-
-Best,
 Varghese`,
     },
   ]

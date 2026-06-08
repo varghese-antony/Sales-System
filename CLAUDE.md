@@ -107,9 +107,11 @@ In priority order:
 
 ## What's In Progress / Next
 - [x] Rewrite email engine with genuine personalisation (done — see research-lead/route.js)
-- [ ] **Outreach sequence tracker + UI** ← TECH HEAD: read full brief below
-- [ ] Auto follow-up sequence (day 3 no-reply trigger)
-- [ ] Rotating company list — 500 companies, 50/day for daily cron
+- [x] Outreach sequence tracker + UI (done — sequences table, badges, overview tab)
+- [x] Auto follow-up sequence (day 3 / day 7 cron — vercel.json, check-sequences/route.js)
+- [x] Reply inbox checker (check-replies/route.js — matches incoming emails to leads)
+- [x] CRON_SECRET + NEXT_PUBLIC_APP_URL set in Vercel env vars
+- [ ] **Clutch.co lead scraper + importer** ← TECH HEAD: read full brief below
 - [ ] Pipeline board — visual stages
 - [ ] Dashboard — activity summary
 
@@ -239,6 +241,194 @@ A simple table showing all leads in active sequences:
 
 Columns: Name, Company, Angle name (not number), Step (e.g. "1 of 3"), Days since last send, Next due date, Status badge.
 Clicking a row opens that lead in the Smart Outreach flow.
+
+---
+
+## 🛠 TECH HEAD BRIEF — Lead Sourcing (Google Maps + ProductHunt)
+
+### Why Two Sources
+Clutch.co was the original plan but it renders with JavaScript — server-side fetching returns an empty shell. We're replacing it with two genuinely free, automatable sources:
+
+- **Google Maps API** → Marketing Agencies, Consulting, Legal Tech, PropTech (businesses with physical presence)
+- **ProductHunt** → SaaS, HR Tech (founders list their own products, static HTML, no auth needed)
+
+Both auto-import into the `leads` table. Varghese clicks one button, leads appear.
+
+---
+
+### SOURCE 1 — Google Maps API
+
+#### Setup
+- API: Google Places API (Text Search endpoint)
+- Free tier: 28,500 calls/month — more than enough
+- Key: add `GOOGLE_MAPS_API_KEY` to `.env.local` and Vercel env vars
+- Varghese gets a free key from console.cloud.google.com → Enable "Places API"
+
+#### API Endpoint to use
+```
+GET https://maps.googleapis.com/maps/api/place/textsearch/json
+  ?query=marketing+agency+London
+  &key=YOUR_KEY
+```
+Returns: `name`, `formatted_address`, `website` (sometimes), `place_id`
+
+For website (not always in Text Search), follow up with Place Details:
+```
+GET https://maps.googleapis.com/maps/api/place/details/json
+  ?place_id=PLACE_ID
+  &fields=name,website,formatted_address
+  &key=YOUR_KEY
+```
+
+#### Search Queries to Run (hardcoded)
+```js
+const SEARCHES = [
+  // Marketing Agencies
+  { query: 'marketing agency London',         industry: 'Marketing Agency', country: 'United Kingdom' },
+  { query: 'marketing agency Manchester',     industry: 'Marketing Agency', country: 'United Kingdom' },
+  { query: 'digital marketing agency Dublin', industry: 'Marketing Agency', country: 'Ireland' },
+  { query: 'marketing agency Sydney',         industry: 'Marketing Agency', country: 'Australia' },
+  { query: 'marketing agency Dubai',          industry: 'Marketing Agency', country: 'UAE' },
+  { query: 'marketing agency Singapore',      industry: 'Marketing Agency', country: 'Singapore' },
+
+  // Consulting
+  { query: 'business consulting firm London',    industry: 'Consulting', country: 'United Kingdom' },
+  { query: 'management consulting Dublin',       industry: 'Consulting', country: 'Ireland' },
+  { query: 'business consulting Sydney',         industry: 'Consulting', country: 'Australia' },
+  { query: 'management consulting Dubai',        industry: 'Consulting', country: 'UAE' },
+  { query: 'consulting firm Singapore',          industry: 'Consulting', country: 'Singapore' },
+
+  // Legal Tech
+  { query: 'legal technology firm London',    industry: 'Legal Tech SaaS', country: 'United Kingdom' },
+  { query: 'legal tech company Sydney',       industry: 'Legal Tech SaaS', country: 'Australia' },
+  { query: 'legal services firm Singapore',   industry: 'Legal Tech SaaS', country: 'Singapore' },
+
+  // PropTech
+  { query: 'property technology company London',  industry: 'PropTech SaaS', country: 'United Kingdom' },
+  { query: 'proptech startup Dubai',              industry: 'PropTech SaaS', country: 'UAE' },
+  { query: 'real estate tech company Sydney',     industry: 'PropTech SaaS', country: 'Australia' },
+]
+```
+
+#### New API Route: `/api/import-google-maps/route.js`
+- POST endpoint — no body needed, runs all SEARCHES above in sequence
+- For each search: call Text Search → get up to 20 results → for each result call Place Details to get website
+- Skip results with no website
+- Deduplicate against existing leads by website domain
+- Insert new leads into `leads` table
+- Add 500ms delay between API calls to stay within rate limits
+- Return `{ added, skipped, total }`
+
+**Fields to populate:**
+```
+company     → place name from Google
+website     → from Place Details
+industry    → from SEARCHES config
+country     → from SEARCHES config
+full_name   → leave blank (Google won't have this)
+first_name  → leave blank
+email       → leave blank
+status      → 'new'
+notes       → 'Source: Google Maps'
+```
+
+---
+
+### SOURCE 2 — ProductHunt
+
+#### Why it works
+ProductHunt pages are server-rendered HTML — `fetch()` + regex works fine. No auth needed for browsing. Founders post their own products, so company + founder name + website are all present.
+
+#### Pages to scrape
+```
+https://www.producthunt.com/topics/saas          (SaaS products)
+https://www.producthunt.com/topics/human-resources (HR Tech)
+https://www.producthunt.com/topics/productivity   (cross-industry)
+```
+
+Each product card contains:
+- Product/company name
+- Tagline
+- Website link (sometimes direct, sometimes via product page)
+- Maker name (the founder who posted it)
+- Maker profile link (leads to their Twitter/LinkedIn)
+
+#### New API Route: `/api/import-producthunt/route.js`
+- POST endpoint
+- Fetches each topic page above
+- Regex-extracts product cards: name, tagline, website, maker name
+- Maps topic to industry:
+  ```js
+  'saas'             → 'SaaS'
+  'human-resources'  → 'HR Tech'
+  'productivity'     → 'SaaS'
+  ```
+- Country → leave blank (ProductHunt is global — Varghese can filter/delete non-target countries manually)
+- Deduplicates by website domain
+- Inserts into `leads` table
+- Return `{ added, skipped, total }`
+
+**Fields to populate:**
+```
+company     → product/company name
+website     → product website
+industry    → mapped from topic
+country     → leave blank
+full_name   → maker name if found
+first_name  → first word of maker name
+email       → leave blank
+status      → 'new'
+notes       → 'Source: ProductHunt'
+```
+
+#### Regex approach for ProductHunt
+Same pattern as `research-lead/route.js`. Example:
+```js
+const res = await fetch('https://www.producthunt.com/topics/saas', {
+  headers: {
+    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+    'Accept': 'text/html,application/xhtml+xml',
+    'Accept-Language': 'en-GB,en;q=0.9',
+  },
+  signal: AbortSignal.timeout(8000),
+})
+const html = await res.text()
+// parse with regex
+```
+
+---
+
+### UI Changes — Leads Page
+
+Replace the old "Import from Clutch" button with two new buttons:
+
+**Button 1: "Import via Google Maps"**
+- Calls `/api/import-google-maps`
+- Progress: "Searching marketing agencies in London... (3/18)"
+- Done toast: "32 new leads added, 8 skipped"
+
+**Button 2: "Import from ProductHunt"**
+- Calls `/api/import-producthunt`
+- Progress: "Scraping SaaS products..."
+- Done toast: "21 new leads added, 4 skipped"
+
+Both buttons disabled while running. Simple inline style spinner. No modals.
+
+Also add a **CSV Import** button as a manual fallback:
+- File input (accepts .csv)
+- Calls `/api/import-csv/route.js`
+- Expected CSV columns: `Company, Website, Country, Industry, Full Name, Email` (all except Company optional)
+- Parses, deduplicates by domain, inserts into leads
+- Useful when Varghese finds companies manually anywhere
+
+---
+
+### What NOT to Build
+- Do not find emails automatically — Varghese adds these manually via Skrapp.io (150 free/month)
+- Do not add these to the cron job yet — manual trigger only
+- Do not build country filtering on ProductHunt — Varghese handles that manually
+- Inline styles only — no Tailwind
+- Supabase client inside handler functions only — never at module level
 
 ### What NOT to Build
 - Do not build reply detection automatically (no email parsing) — Varghese will manually mark a lead as "Replied" via a button

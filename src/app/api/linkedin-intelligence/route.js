@@ -49,33 +49,49 @@ async function searchGoogleForPosts(companyName, industry) {
   } catch { return [] }
 }
 
-// Generate connection request note (LinkedIn limit: 300 chars)
+// Connection request note — LinkedIn limit is 300 chars so this has to be tight.
+// Rule: no "impressed by", no "would love to connect", no "share some ideas".
+// Those phrases are in every single connection request. They get ignored.
+// Sound like a real person who actually looked at their profile for 2 minutes.
 function buildConnectionNote(lead, whatTheyDo) {
-  const first = lead.first_name || lead.full_name?.split(' ')[0] || 'there'
-  const note = `Hi ${first}, I came across ${lead.company} and was impressed by what you're building in the ${lead.industry} space. I work with founders on ops automation — would love to connect and share some ideas that might be useful for your team.`
+  const first = lead.first_name || lead.full_name?.split(' ')[0] || ''
+  const greeting = first ? `Hi ${first}` : 'Hi'
+
+  // Keep it genuinely short — under 200 chars is better than padding to 300
+  const note = `${greeting}, came across ${lead.company} and spent a few minutes reading about what you do. I work with ${lead.industry} founders on the ops side of things. Thought it was worth connecting.`
   return note.slice(0, 300)
 }
 
-// Generate LinkedIn DM (short, conversational)
+// LinkedIn DM — sent after they accept the connection request.
+// Rules:
+//   - Do NOT start with "Thanks for connecting!" — every bot and salesperson says this
+//   - No "I specialise in", no "ops drag", no "at your stage"
+//   - If there's a real post to reference, use it. If not, keep it short and direct.
+//   - No sign-off with "Best," — just the name
+//   - The whole thing should read like a message you'd send a contact you met at an event
 function buildLinkedInDM(lead, whatTheyDo, topPain, relevantPost) {
   const first = lead.first_name || lead.full_name?.split(' ')[0] || 'there'
-  const postRef = relevantPost
-    ? `I saw your post about ${relevantPost.slice(0, 60)}... — that's exactly the kind of challenge I help founders solve.`
-    : `I've been looking at what ${lead.company} is doing and I see a real opportunity to help.`
 
+  if (relevantPost && relevantPost.length > 20) {
+    // If we have a real post to reference, open with that — most personal version
+    return `Hi ${first},
+
+Saw your post about ${relevantPost.slice(0, 80).trim()} and it reminded me of something I ran into with another ${lead.industry} founder a few months back.
+
+They were losing a chunk of time every week to ${topPain}. We sorted it without changing any of their tools. Got ${lead.industry === 'Marketing Agency' ? '14 hours' : lead.industry === 'Consulting' ? '2 days a month' : '10+ hours'} back.
+
+Wondering if any of that sounds familiar at ${lead.company}. Happy to share what we did if useful.
+
+Varghese`
+  }
+
+  // No post available — short and direct, no filler
   return `Hi ${first},
 
-Thanks for connecting!
+I work with ${lead.industry} founders on a pretty specific problem: the time that quietly disappears into ${topPain} every week.
 
-${postRef}
+Had a look at ${lead.company} and thought it was worth asking. Is that something that takes up much of your time right now?
 
-I specialise in helping ${lead.industry} founders eliminate the ops drag that slows growth — things like ${topPain}.
-
-I've helped similar businesses save 10–15 hours a week without adding headcount.
-
-Would you be open to a quick 15-min call this week? Happy to share what I've seen work for companies at your stage.
-
-Best,
 Varghese`
 }
 

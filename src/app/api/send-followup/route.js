@@ -33,17 +33,13 @@ async function saveToSentFolder(rawMessage) {
 const FOLLOWUP_TEMPLATES = {
   2: (first) => `Hi ${first},
 
-Just bumping this up in case it got buried.
-
-Still worth a quick chat if the timing's right.
+Just bringing this back up in case it got lost.
 
 Varghese`,
 
   3: (first) => `Hi ${first},
 
-Last nudge from me — I know the inbox gets busy.
-
-If ops automation ever becomes a priority, I'm easy to find.
+I'll leave it here. If the timing ever makes sense, you know where to find me.
 
 Varghese`,
 }
