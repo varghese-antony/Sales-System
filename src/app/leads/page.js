@@ -320,12 +320,26 @@ export default function Leads() {
     setTimeout(() => setToast(null), 6000)
   }
 
+  async function resetEnrich() {
+    // Force-reset a stuck enrichment job so it can be restarted
+    await fetch('/api/enrich-all-background', { method: 'DELETE' })
+    await loadEnrichJob()
+    setToast({ type: 'info', msg: 'Enrichment reset — click Enrich All to restart' })
+    setTimeout(() => setToast(null), 4000)
+  }
+
   async function enrichAll() {
-    // Start server-side background enrichment — survives page navigation
+    // If stuck running for too long (>10min with no update), allow reset+restart
     if (enrichJob?.status === 'running') {
-      setToast({ type: 'info', msg: 'Enrichment already running in background — you can navigate freely' })
-      setTimeout(() => setToast(null), 4000)
-      return
+      const lastUpdate = enrichJob?.updatedAt ? new Date(enrichJob.updatedAt) : null
+      const staleMs = lastUpdate ? Date.now() - lastUpdate.getTime() : 999999
+      if (staleMs < 10 * 60 * 1000) {
+        setToast({ type: 'info', msg: `Enriching ${enrichJob.done}/${enrichJob.total} leads — running in background` })
+        setTimeout(() => setToast(null), 4000)
+        return
+      }
+      // Stale — reset and restart
+      await resetEnrich()
     }
     try {
       const r = await fetch('/api/enrich-all-background', { method: 'POST' })
@@ -411,20 +425,42 @@ export default function Leads() {
           </label>
 
           {/* Enrich All — server-side background job, survives navigation */}
-          <button onClick={enrichAll} disabled={enrichJob?.status === 'running'} style={{
+          {(() => {
+            const isRunning = enrichJob?.status === 'running'
+            const lastUpdate = enrichJob?.updatedAt ? new Date(enrichJob.updatedAt) : null
+            const isStale = isRunning && lastUpdate && (Date.now() - lastUpdate.getTime() > 10 * 60 * 1000)
+            return (
+              <button onClick={isStale ? resetEnrich : enrichAll} style={{
+                display:'flex',alignItems:'center',gap:6,padding:'9px 14px',borderRadius:10,
+                border:`1px solid ${isStale?'rgba(251,146,60,0.5)':isRunning?'rgba(34,211,165,0.5)':'rgba(34,211,165,0.3)'}`,
+                cursor:'pointer',
+                background:isStale?'rgba(251,146,60,0.08)':isRunning?'rgba(34,211,165,0.06)':'rgba(34,211,165,0.08)',
+                color:isStale?'#fb923c':'#22d3a5',fontSize:13,fontWeight:600,transition:'all 0.2s',whiteSpace:'nowrap',
+              }}>
+                {isStale
+                  ? <>↺ Restart Enrich</>
+                  : isRunning
+                    ? <><span style={{display:'inline-block',width:11,height:11,border:'2px solid currentColor',borderTopColor:'transparent',borderRadius:'50%',animation:'spin 0.7s linear infinite'}}/>
+                        {enrichJob.done}/{enrichJob.total} enriched</>
+                    : enrichJob?.status === 'done' && enrichJob?.found > 0
+                      ? <>✦ Re-enrich ({enrichJob.found} found)</>
+                      : <>✦ Enrich All</>
+                }
+              </button>
+            )
+          })()}
+
+          {/* Send Now — always visible manual trigger */}
+          <button onClick={sendNow} disabled={sendingNow} style={{
             display:'flex',alignItems:'center',gap:6,padding:'9px 14px',borderRadius:10,
-            border:`1px solid ${enrichJob?.status==='running'?'rgba(34,211,165,0.5)':'rgba(34,211,165,0.3)'}`,
-            cursor:enrichJob?.status==='running'?'default':'pointer',
-            background:enrichJob?.status==='running'?'rgba(34,211,165,0.06)':'rgba(34,211,165,0.08)',
-            color:'#22d3a5',fontSize:13,fontWeight:600,transition:'all 0.2s',
-            opacity:enrichJob?.status==='running'?1:1,whiteSpace:'nowrap',
+            border:'1px solid rgba(34,211,165,0.35)',cursor:sendingNow?'default':'pointer',
+            background:sendingNow?'rgba(34,211,165,0.03)':'rgba(34,211,165,0.1)',
+            color:'#22d3a5',fontSize:13,fontWeight:700,transition:'all 0.2s',opacity:sendingNow?0.7:1,
+            whiteSpace:'nowrap',
           }}>
-            {enrichJob?.status === 'running'
-              ? <><span style={{display:'inline-block',width:11,height:11,border:'2px solid currentColor',borderTopColor:'transparent',borderRadius:'50%',animation:'spin 0.7s linear infinite'}}/>
-                  {enrichJob.done}/{enrichJob.total} enriched</>
-              : enrichJob?.status === 'done' && enrichJob?.found > 0
-                ? <>✦ Enriched {enrichJob.found} ✓</>
-                : <>✦ Enrich All</>
+            {sendingNow
+              ? <><span style={{display:'inline-block',width:11,height:11,border:'2px solid currentColor',borderTopColor:'transparent',borderRadius:'50%',animation:'spin 0.7s linear infinite'}}/>Sending...</>
+              : <>📤 Send Now</>
             }
           </button>
 

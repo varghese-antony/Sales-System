@@ -87,7 +87,15 @@ export async function POST() {
 
   return NextResponse.json({
     success: true,
-    message: `Queued ${ids.length} leads for enrichment — cron will process them every 5 min`,
+    message: `Queued ${ids.length} leads for enrichment — processing now`,
     total: ids.length,
   })
+}
+
+// DELETE — reset a stuck enrichment job so it can be restarted
+export async function DELETE() {
+  const supabase = supabaseClient()
+  await supabase.from('settings').upsert({ key: 'enrich_job_status', value: 'idle', updated_at: new Date().toISOString() })
+  await supabase.from('settings').upsert({ key: 'enrich_queue', value: '[]', updated_at: new Date().toISOString() })
+  return NextResponse.json({ success: true, message: 'Enrichment job reset' })
 }
