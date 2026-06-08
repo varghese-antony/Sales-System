@@ -43,6 +43,7 @@ export default function Leads() {
   const [autoSendStatus, setAutoSendStatus] = useState(null)
   const [togglingAutoSend, setTogglingAutoSend] = useState(false)
   const [syncing, setSyncing] = useState(false)
+  const [enrichJob, setEnrichJob] = useState(null) // { status, done, total, found }
 
   // Google Maps search labels for progress display (mirrors route.js SEARCHES order)
   const MAPS_SEARCHES = [
@@ -80,7 +81,20 @@ export default function Leads() {
     'Logistics · London','Logistics · New York','Logistics · Dubai','Logistics · Singapore',
   ]
 
-  useEffect(()=>{ load(); loadAutoSendStatus(); loadSequencedIds() },[])
+  useEffect(()=>{ load(); loadAutoSendStatus(); loadSequencedIds(); loadEnrichJob() },[])
+
+  // Poll enrichment job status every 4s while running
+  useEffect(() => {
+    if (!enrichJob || enrichJob.status !== 'running') return
+    const t = setInterval(async () => {
+      const status = await loadEnrichJob()
+      if (status !== 'running') {
+        clearInterval(t)
+        load() // refresh leads table once done
+      }
+    }, 4000)
+    return () => clearInterval(t)
+  }, [enrichJob?.status])
 
   async function loadSequencedIds() {
     const { data } = await supabase.from('sequences').select('lead_id')
@@ -109,6 +123,15 @@ export default function Leads() {
     setMarkingId(null)
     setShowMarkModal(null)
     setTimeout(() => setToast(null), 5000)
+  }
+
+  async function loadEnrichJob() {
+    try {
+      const r = await fetch('/api/enrich-all-background')
+      const d = await r.json()
+      setEnrichJob(d)
+      return d.status
+    } catch { return 'idle' }
   }
 
   async function loadAutoSendStatus() {
@@ -274,41 +297,27 @@ export default function Leads() {
   }
 
   async function enrichAll() {
-    const toEnrich = leads.filter(l => !l.email && l.website)
-    if (!toEnrich.length) {
-      setToast({ type: 'info', msg: 'All leads with websites already have emails' })
+    // Start server-side background enrichment — survives page navigation
+    if (enrichJob?.status === 'running') {
+      setToast({ type: 'info', msg: 'Enrichment already running in background — you can navigate freely' })
       setTimeout(() => setToast(null), 4000)
       return
     }
-    let done = 0
-    let found = 0
-    setEnrichAllProgress({ done: 0, total: toEnrich.length })
-    for (const lead of toEnrich) {
-      try {
-        const r = await fetch('/api/enrich-lead', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ leadId: lead.id }),
-        })
-        const d = await r.json()
-        if (d.success && (d.email || d.founderName)) {
-          found++
-          setLeads(prev => prev.map(l => l.id !== lead.id ? l : {
-            ...l,
-            full_name: d.founderName || l.full_name,
-            first_name: (d.founderName || l.full_name || '').split(' ')[0] || l.first_name,
-            email: d.email || l.email,
-          }))
-        }
-      } catch {}
-      done++
-      setEnrichAllProgress({ done, total: toEnrich.length })
-      // Small delay between requests to be polite
-      await new Promise(r => setTimeout(r, 800))
+    try {
+      const r = await fetch('/api/enrich-all-background', { method: 'POST' })
+      const d = await r.json()
+      if (d.total === 0) {
+        setToast({ type: 'info', msg: 'All leads with websites already have emails' })
+        setTimeout(() => setToast(null), 4000)
+        return
+      }
+      setToast({ type: 'ok', msg: `✦ Enriching ${d.total} leads in background — you can navigate away, it keeps running` })
+      setTimeout(() => setToast(null), 7000)
+      await loadEnrichJob()
+    } catch {
+      setToast({ type: 'err', msg: 'Failed to start enrichment' })
+      setTimeout(() => setToast(null), 4000)
     }
-    setEnrichAllProgress(null)
-    setToast({ type: 'ok', msg: `Enrich All done — found info for ${found} of ${toEnrich.length} leads` })
-    setTimeout(() => setToast(null), 8000)
   }
 
   async function setStatus(id,status) {
@@ -377,18 +386,21 @@ export default function Leads() {
             <input type="file" accept=".csv" onChange={importCSV} disabled={csvLoading} style={{display:'none'}}/>
           </label>
 
-          {/* Enrich All */}
-          <button onClick={enrichAll} disabled={!!enrichAllProgress} style={{
+          {/* Enrich All — server-side background job, survives navigation */}
+          <button onClick={enrichAll} disabled={enrichJob?.status === 'running'} style={{
             display:'flex',alignItems:'center',gap:6,padding:'9px 14px',borderRadius:10,
-            border:'1px solid rgba(34,211,165,0.3)',cursor:enrichAllProgress?'default':'pointer',
-            background:enrichAllProgress?'rgba(34,211,165,0.03)':'rgba(34,211,165,0.08)',
-            color:'#22d3a5',fontSize:13,fontWeight:600,transition:'all 0.2s',opacity:enrichAllProgress?0.8:1,
-            whiteSpace:'nowrap',
+            border:`1px solid ${enrichJob?.status==='running'?'rgba(34,211,165,0.5)':'rgba(34,211,165,0.3)'}`,
+            cursor:enrichJob?.status==='running'?'default':'pointer',
+            background:enrichJob?.status==='running'?'rgba(34,211,165,0.06)':'rgba(34,211,165,0.08)',
+            color:'#22d3a5',fontSize:13,fontWeight:600,transition:'all 0.2s',
+            opacity:enrichJob?.status==='running'?1:1,whiteSpace:'nowrap',
           }}>
-            {enrichAllProgress
+            {enrichJob?.status === 'running'
               ? <><span style={{display:'inline-block',width:11,height:11,border:'2px solid currentColor',borderTopColor:'transparent',borderRadius:'50%',animation:'spin 0.7s linear infinite'}}/>
-                  Enriching... ({enrichAllProgress.done}/{enrichAllProgress.total})</>
-              : <>✦ Enrich All</>
+                  {enrichJob.done}/{enrichJob.total} enriched</>
+              : enrichJob?.status === 'done' && enrichJob?.found > 0
+                ? <>✦ Enriched {enrichJob.found} ✓</>
+                : <>✦ Enrich All</>
             }
           </button>
 
