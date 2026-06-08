@@ -379,7 +379,7 @@ export default function Leads() {
             </button>
 
             {/* Stats */}
-            <div style={{display:'flex',gap:20}}>
+            <div style={{display:'flex',gap:16,flexWrap:'wrap'}}>
               <div style={{textAlign:'center'}}>
                 <div style={{fontSize:18,fontWeight:700,color:'#e8ecf0',lineHeight:1}}>{autoSendStatus.sentToday}</div>
                 <div style={{fontSize:10,color:'#4A4F6A',marginTop:2}}>sent today</div>
@@ -388,12 +388,23 @@ export default function Leads() {
                 <div style={{fontSize:18,fontWeight:700,color:'#00F6FF',lineHeight:1}}>{autoSendStatus.dailyLimit}</div>
                 <div style={{fontSize:10,color:'#4A4F6A',marginTop:2}}>daily limit</div>
               </div>
-              <div style={{textAlign:'center'}}>
-                <div style={{fontSize:18,fontWeight:700,color:'#a78bfa',lineHeight:1}}>{autoSendStatus.queueSize}</div>
-                <div style={{fontSize:10,color:'#4A4F6A',marginTop:2}}>in queue</div>
+              {/* Queue breakdown */}
+              <div style={{width:1,background:'rgba(255,255,255,0.06)',margin:'0 4px'}}/>
+              <div style={{textAlign:'center'}} title="Ready to send — have email">
+                <div style={{fontSize:18,fontWeight:700,color:'#22d3a5',lineHeight:1}}>{autoSendStatus.queueSize}</div>
+                <div style={{fontSize:10,color:'#4A4F6A',marginTop:2}}>✓ ready</div>
               </div>
+              <div style={{textAlign:'center'}} title="No email yet — auto-send will try to find it first">
+                <div style={{fontSize:18,fontWeight:700,color:'#fb923c',lineHeight:1}}>{autoSendStatus.needsEmail ?? 0}</div>
+                <div style={{fontSize:10,color:'#4A4F6A',marginTop:2}}>⟳ will enrich</div>
+              </div>
+              <div style={{textAlign:'center'}} title="No email and no website — need manual input">
+                <div style={{fontSize:18,fontWeight:700,color:'#f87171',lineHeight:1}}>{autoSendStatus.noWebsite ?? 0}</div>
+                <div style={{fontSize:10,color:'#4A4F6A',marginTop:2}}>✗ need info</div>
+              </div>
+              <div style={{width:1,background:'rgba(255,255,255,0.06)',margin:'0 4px'}}/>
               <div style={{textAlign:'center'}}>
-                <div style={{fontSize:18,fontWeight:700,color:'#fb923c',lineHeight:1}}>{autoSendStatus.totalSent}</div>
+                <div style={{fontSize:18,fontWeight:700,color:'#a78bfa',lineHeight:1}}>{autoSendStatus.totalSent}</div>
                 <div style={{fontSize:10,color:'#4A4F6A',marginTop:2}}>total sent</div>
               </div>
             </div>

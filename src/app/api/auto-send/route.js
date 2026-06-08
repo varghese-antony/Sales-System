@@ -197,6 +197,64 @@ function buildHtml(bodyText, leadId) {
   </div>`
 }
 
+// ── QUICK ENRICH — find email for a lead on the fly ──────────────────────────
+// Lightweight version: only checks mailto links and plain emails on key pages
+async function quickEnrich(lead, supabase) {
+  const base = (lead.website.startsWith('http') ? lead.website : `https://${lead.website}`).replace(/\/$/, '')
+  const domain = (() => {
+    try { return new URL(base).hostname.replace(/^www\./, '') } catch { return null }
+  })()
+  if (!domain) return null
+
+  const genericPrefixes = ['info','hello','contact','enquiries','sales','support','admin','mail','office','team']
+  const pages = [base, `${base}/contact`, `${base}/about`, `${base}/contact-us`, `${base}/about-us`]
+
+  let bestEmail = null
+
+  for (const url of pages) {
+    try {
+      const res = await fetch(url, {
+        headers: { 'User-Agent': 'Mozilla/5.0 (compatible)', 'Accept': 'text/html' },
+        signal: AbortSignal.timeout(5000),
+      })
+      if (!res.ok) continue
+      const html = await res.text()
+
+      // mailto links first
+      const mailtoMatches = [...html.matchAll(/mailto:([a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,})/gi)]
+      for (const m of mailtoMatches) {
+        const email = m[1].toLowerCase()
+        if (!email.endsWith(`@${domain}`)) continue
+        const prefix = email.split('@')[0]
+        if (!genericPrefixes.includes(prefix)) { bestEmail = email; break }
+        if (!bestEmail) bestEmail = email // keep generic as fallback
+      }
+      if (bestEmail && !genericPrefixes.includes(bestEmail.split('@')[0])) break
+
+      // Plain text emails
+      const text = html.replace(/<[^>]+>/g, ' ')
+      const matches = [...text.matchAll(/[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}/g)]
+      for (const m of matches) {
+        const email = m[0].toLowerCase()
+        if (!email.endsWith(`@${domain}`)) continue
+        if (email.includes('.png') || email.includes('.js')) continue
+        const prefix = email.split('@')[0]
+        if (!genericPrefixes.includes(prefix)) { bestEmail = email; break }
+        if (!bestEmail) bestEmail = email
+      }
+      if (bestEmail && !genericPrefixes.includes(bestEmail.split('@')[0])) break
+    } catch {}
+    await new Promise(r => setTimeout(r, 300))
+  }
+
+  // Save the found email back to the lead in Supabase
+  if (bestEmail) {
+    await supabase.from('leads').update({ email: bestEmail }).eq('id', lead.id)
+  }
+
+  return bestEmail || null
+}
+
 // ── MAIN HANDLER ─────────────────────────────────────────────────────────────
 export async function POST(request) {
   // Verify cron secret
@@ -242,27 +300,54 @@ export async function POST(request) {
   }
 
   // ── Pick leads to email ─────────────────────────────────────────────
-  // Get all lead IDs already in sequences (contacted)
   const { data: contactedSeqs } = await supabase
     .from('sequences')
     .select('lead_id')
 
   const contactedIds = new Set((contactedSeqs || []).map(s => s.lead_id))
 
-  // Get best uncontacted leads with emails
+  // Fetch all uncontacted new leads (with OR without email — we'll try to enrich no-email ones)
   const { data: allLeads } = await supabase
     .from('leads')
-    .select('id, full_name, first_name, company, email, industry, country, website')
+    .select('id, full_name, first_name, company, email, industry, country, website, notes')
     .eq('status', 'new')
-    .not('email', 'is', null)
     .order('score', { ascending: false })
     .order('created_at', { ascending: true })
 
-  const queue = (allLeads || []).filter(l => !contactedIds.has(l.id) && l.email)
-  const batch = queue.slice(0, toSendThisRun)
+  const uncontacted = (allLeads || []).filter(l => !contactedIds.has(l.id))
+
+  // Split into: ready (have email) and enrichable (no email but have website)
+  const ready = uncontacted.filter(l => l.email)
+  const needsEnrich = uncontacted.filter(l => !l.email && l.website)
+
+  // Fill batch: prefer leads already with emails, then try enrichable ones
+  // Fetch up to toSendThisRun * 3 enrichable leads so we have enough candidates
+  // (enrichment only succeeds ~50% of the time)
+  const enrichCandidates = needsEnrich.slice(0, toSendThisRun * 3)
+
+  // Try to enrich leads missing emails on the fly
+  const enriched = []
+  for (const lead of enrichCandidates) {
+    if (ready.length + enriched.length >= toSendThisRun) break
+    try {
+      const email = await quickEnrich(lead, supabase)
+      if (email) {
+        enriched.push({ ...lead, email })
+      }
+    } catch {}
+    await new Promise(r => setTimeout(r, 500))
+  }
+
+  const batch = [...ready, ...enriched].slice(0, toSendThisRun)
 
   if (batch.length === 0) {
-    return NextResponse.json({ success: true, skipped: true, reason: 'No uncontacted leads with emails in queue' })
+    return NextResponse.json({
+      success: true,
+      skipped: true,
+      reason: 'No leads ready — add emails manually or run Enrich All',
+      readyCount: ready.length,
+      enrichableCount: needsEnrich.length,
+    })
   }
 
   // ── Send emails ─────────────────────────────────────────────────────

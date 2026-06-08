@@ -48,18 +48,21 @@ export async function GET() {
     .from('sequences')
     .select('*', { count: 'exact', head: true })
 
-  // Queue — uncontacted leads with emails
+  // Queue breakdown
   const { data: contactedSeqs } = await supabase
     .from('sequences')
     .select('lead_id')
   const contactedIds = new Set((contactedSeqs || []).map(s => s.lead_id))
 
-  const { data: queueLeads } = await supabase
+  const { data: allNewLeads } = await supabase
     .from('leads')
-    .select('id')
+    .select('id, email, website')
     .eq('status', 'new')
-    .not('email', 'is', null)
-  const queueSize = (queueLeads || []).filter(l => !contactedIds.has(l.id)).length
+
+  const uncontacted = (allNewLeads || []).filter(l => !contactedIds.has(l.id))
+  const queueSize = uncontacted.filter(l => l.email).length          // ready to send
+  const needsEmail = uncontacted.filter(l => !l.email && l.website).length  // enrichable
+  const noWebsite  = uncontacted.filter(l => !l.email && !l.website).length // stuck
 
   // Last send time
   const { data: lastSeq } = await supabase
@@ -74,7 +77,9 @@ export async function GET() {
     dailyLimit,
     sentToday: sentToday || 0,
     remaining: Math.max(0, dailyLimit - (sentToday || 0)),
-    queueSize,
+    queueSize,      // leads with email — ready to send
+    needsEmail,     // leads with website but no email — auto-enrich will try these
+    noWebsite,      // leads with no email and no website — need manual input
     totalSent: totalSent || 0,
     phase,
     lastSentAt,
