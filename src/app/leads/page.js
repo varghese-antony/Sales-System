@@ -36,7 +36,9 @@ export default function Leads() {
   const [mapsProgress, setMapsProgress] = useState(null)
   const [phLoading, setPhLoading] = useState(false)
   const [enrichingId, setEnrichingId] = useState(null)
-  const [enrichAllProgress, setEnrichAllProgress] = useState(null) // { done, total } | null
+  const [enrichAllProgress, setEnrichAllProgress] = useState(null)
+  const [autoSendStatus, setAutoSendStatus] = useState(null)
+  const [togglingAutoSend, setTogglingAutoSend] = useState(false)
 
   // Google Maps search labels for progress display (mirrors route.js SEARCHES order)
   const MAPS_SEARCHES = [
@@ -74,7 +76,35 @@ export default function Leads() {
     'Logistics · London','Logistics · New York','Logistics · Dubai','Logistics · Singapore',
   ]
 
-  useEffect(()=>{load()},[])
+  useEffect(()=>{ load(); loadAutoSendStatus() },[])
+
+  async function loadAutoSendStatus() {
+    try {
+      const r = await fetch('/api/auto-send-status')
+      const d = await r.json()
+      setAutoSendStatus(d)
+    } catch {}
+  }
+
+  async function toggleAutoSend() {
+    if (!autoSendStatus) return
+    setTogglingAutoSend(true)
+    const newEnabled = !autoSendStatus.enabled
+    try {
+      const r = await fetch('/api/auto-send-status', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ enabled: newEnabled }),
+      })
+      const d = await r.json()
+      if (d.success) {
+        setAutoSendStatus(prev => ({ ...prev, enabled: newEnabled }))
+        setToast({ type: newEnabled ? 'ok' : 'info', msg: newEnabled ? '✅ Auto-send enabled — emails will go out Mon–Fri automatically' : 'Auto-send paused' })
+        setTimeout(() => setToast(null), 5000)
+      }
+    } catch {}
+    setTogglingAutoSend(false)
+  }
 
   async function load() {
     setLoading(true)
@@ -321,6 +351,68 @@ export default function Leads() {
 
         </div>
       </div>
+
+      {/* Auto-Send Status Panel */}
+      {autoSendStatus && (
+        <div style={{
+          marginBottom:16,padding:'16px 20px',borderRadius:12,
+          background: autoSendStatus.enabled ? 'rgba(34,211,165,0.05)' : 'rgba(255,255,255,0.03)',
+          border: `1px solid ${autoSendStatus.enabled ? 'rgba(34,211,165,0.2)' : 'rgba(255,255,255,0.07)'}`,
+          display:'flex',alignItems:'center',justifyContent:'space-between',gap:16,flexWrap:'wrap',
+        }}>
+          {/* Left — status info */}
+          <div style={{display:'flex',alignItems:'center',gap:24,flexWrap:'wrap'}}>
+            {/* Toggle */}
+            <button onClick={toggleAutoSend} disabled={togglingAutoSend} style={{
+              display:'flex',alignItems:'center',gap:8,padding:'7px 14px',borderRadius:8,
+              border:`1px solid ${autoSendStatus.enabled ? 'rgba(34,211,165,0.4)' : 'rgba(255,255,255,0.1)'}`,
+              background: autoSendStatus.enabled ? 'rgba(34,211,165,0.12)' : 'rgba(255,255,255,0.05)',
+              color: autoSendStatus.enabled ? '#22d3a5' : '#4A4F6A',
+              fontSize:13,fontWeight:700,cursor:togglingAutoSend?'default':'pointer',
+            }}>
+              <span style={{
+                width:10,height:10,borderRadius:'50%',flexShrink:0,
+                background: autoSendStatus.enabled ? '#22d3a5' : '#2a2d4a',
+                boxShadow: autoSendStatus.enabled ? '0 0 6px #22d3a5' : 'none',
+              }}/>
+              Auto-Send {autoSendStatus.enabled ? 'ON' : 'OFF'}
+            </button>
+
+            {/* Stats */}
+            <div style={{display:'flex',gap:20}}>
+              <div style={{textAlign:'center'}}>
+                <div style={{fontSize:18,fontWeight:700,color:'#e8ecf0',lineHeight:1}}>{autoSendStatus.sentToday}</div>
+                <div style={{fontSize:10,color:'#4A4F6A',marginTop:2}}>sent today</div>
+              </div>
+              <div style={{textAlign:'center'}}>
+                <div style={{fontSize:18,fontWeight:700,color:'#00F6FF',lineHeight:1}}>{autoSendStatus.dailyLimit}</div>
+                <div style={{fontSize:10,color:'#4A4F6A',marginTop:2}}>daily limit</div>
+              </div>
+              <div style={{textAlign:'center'}}>
+                <div style={{fontSize:18,fontWeight:700,color:'#a78bfa',lineHeight:1}}>{autoSendStatus.queueSize}</div>
+                <div style={{fontSize:10,color:'#4A4F6A',marginTop:2}}>in queue</div>
+              </div>
+              <div style={{textAlign:'center'}}>
+                <div style={{fontSize:18,fontWeight:700,color:'#fb923c',lineHeight:1}}>{autoSendStatus.totalSent}</div>
+                <div style={{fontSize:10,color:'#4A4F6A',marginTop:2}}>total sent</div>
+              </div>
+            </div>
+
+            {/* Phase */}
+            <div style={{padding:'4px 10px',borderRadius:6,background:'rgba(0,246,255,0.06)',border:'1px solid rgba(0,246,255,0.12)'}}>
+              <span style={{fontSize:11,color:'#00F6FF'}}>{autoSendStatus.phase}</span>
+            </div>
+          </div>
+
+          {/* Right — schedule info */}
+          <div style={{fontSize:11,color:'#4A4F6A',textAlign:'right',lineHeight:1.7}}>
+            Runs Mon–Fri at 8am, 10am, 12pm, 2pm UTC<br/>
+            {autoSendStatus.lastSentAt
+              ? `Last sent: ${new Date(autoSendStatus.lastSentAt).toLocaleDateString('en-GB',{day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'})}`
+              : 'No emails sent yet'}
+          </div>
+        </div>
+      )}
 
       {/* Toast */}
       {toast&&<div style={{

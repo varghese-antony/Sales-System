@@ -7,6 +7,22 @@
     {
       "path": "/api/check-sequences",
       "schedule": "0 7 * * *"
+    },
+    {
+      "path": "/api/auto-send",
+      "schedule": "0 8 * * 1-5"
+    },
+    {
+      "path": "/api/auto-send",
+      "schedule": "0 10 * * 1-5"
+    },
+    {
+      "path": "/api/auto-send",
+      "schedule": "0 12 * * 1-5"
+    },
+    {
+      "path": "/api/auto-send",
+      "schedule": "0 14 * * 1-5"
     }
   ]
 }
