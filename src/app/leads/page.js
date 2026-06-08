@@ -42,6 +42,7 @@ export default function Leads() {
   const [showMarkModal, setShowMarkModal] = useState(null) // lead object
   const [autoSendStatus, setAutoSendStatus] = useState(null)
   const [togglingAutoSend, setTogglingAutoSend] = useState(false)
+  const [syncing, setSyncing] = useState(false)
 
   // Google Maps search labels for progress display (mirrors route.js SEARCHES order)
   const MAPS_SEARCHES = [
@@ -136,6 +137,27 @@ export default function Leads() {
       }
     } catch {}
     setTogglingAutoSend(false)
+  }
+
+  async function syncSent() {
+    setSyncing(true)
+    setToast({ type: 'info', msg: 'Scanning Sent folder...' })
+    try {
+      const r = await fetch('/api/sync-sent', { method: 'POST' })
+      const d = await r.json()
+      if (d.success) {
+        setToast({ type: 'ok', msg: d.message || `Sync done — ${d.synced} leads enrolled` })
+        await loadAutoSendStatus()
+        await loadSequencedIds()
+        await load()
+      } else {
+        setToast({ type: 'err', msg: d.error || 'Sync failed' })
+      }
+    } catch {
+      setToast({ type: 'err', msg: 'Sync failed — check connection' })
+    }
+    setSyncing(false)
+    setTimeout(() => setToast(null), 7000)
   }
 
   async function load() {
@@ -447,12 +469,24 @@ export default function Leads() {
             </div>
           </div>
 
-          {/* Right — schedule info */}
-          <div style={{fontSize:11,color:'#4A4F6A',textAlign:'right',lineHeight:1.7}}>
-            Runs Mon–Fri at 8am, 10am, 12pm, 2pm UTC<br/>
-            {autoSendStatus.lastSentAt
-              ? `Last sent: ${new Date(autoSendStatus.lastSentAt).toLocaleDateString('en-GB',{day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'})}`
-              : 'No emails sent yet'}
+          {/* Right — sync + schedule */}
+          <div style={{display:'flex',flexDirection:'column',alignItems:'flex-end',gap:8}}>
+            <button onClick={syncSent} disabled={syncing} style={{
+              display:'flex',alignItems:'center',gap:6,padding:'6px 12px',borderRadius:8,
+              border:'1px solid rgba(167,139,250,0.3)',cursor:syncing?'default':'pointer',
+              background:'rgba(167,139,250,0.08)',color:'#a78bfa',fontSize:12,fontWeight:600,
+              opacity:syncing?0.7:1,whiteSpace:'nowrap',
+            }}>
+              {syncing
+                ? <><span style={{display:'inline-block',width:10,height:10,border:'2px solid currentColor',borderTopColor:'transparent',borderRadius:'50%',animation:'spin 0.7s linear infinite'}}/>Scanning Sent folder...</>
+                : <>⟳ Sync Sent Folder</>}
+            </button>
+            <div style={{fontSize:11,color:'#4A4F6A',textAlign:'right',lineHeight:1.7}}>
+              Auto-syncs daily at 7:30am UTC<br/>
+              {autoSendStatus.lastSentAt
+                ? `Last sent: ${new Date(autoSendStatus.lastSentAt).toLocaleDateString('en-GB',{day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'})}`
+                : 'No emails sent yet'}
+            </div>
           </div>
         </div>
       )}
