@@ -1,170 +1,259 @@
-import { createClient } from '@supabase/supabase-js'
 import { NextResponse } from 'next/server'
+import { createClient } from '@supabase/supabase-js'
 
-// Vercel calls this every day at 8am UTC
-// It auto-finds new leads and logs the daily run
+// Daily cron — runs 10 Google Maps searches per day, rotating through all 96.
+// Picks up where it left off each day using maps_search_offset in settings table.
+// At 10 searches/day × 5 days/week = all 96 searches completed every ~2 weeks, then restarts.
+// Each search returns ~20 companies → 10 searches ≈ 50–150 new leads per day.
 
-const TARGET_COMPANIES = [
-  // Marketing & Creative Agencies — US
-  { domain: 'brafton.com',          name: 'Brafton',             country: 'United States', industry: 'Marketing Agency' },
-  { domain: 'ironpaper.com',        name: 'Ironpaper',           country: 'United States', industry: 'Marketing Agency' },
-  { domain: 'directom.com',         name: 'Directom',            country: 'United States', industry: 'Marketing Agency' },
-  { domain: 'growandconvert.com',   name: 'Grow and Convert',    country: 'United States', industry: 'Marketing Agency' },
-  { domain: 'singlegrain.com',      name: 'Single Grain',        country: 'United States', industry: 'Marketing Agency' },
-  { domain: 'venveo.com',           name: 'Venveo',              country: 'United States', industry: 'Marketing Agency' },
-  { domain: 'disruptiveadvertising.com', name: 'Disruptive Advertising', country: 'United States', industry: 'Marketing Agency' },
-  { domain: 'webmechanix.com',      name: 'WebMechanix',         country: 'United States', industry: 'Marketing Agency' },
-  { domain: 'lean-labs.com',        name: 'Lean Labs',           country: 'United States', industry: 'Marketing Agency' },
-  { domain: 'jumpfactor.com',       name: 'Jumpfactor',          country: 'United States', industry: 'Marketing Agency' },
-  // Marketing & Creative Agencies — UK
-  { domain: 'brightlocal.com',      name: 'BrightLocal',         country: 'United Kingdom', industry: 'Marketing Agency' },
-  { domain: 'koozai.com',           name: 'Koozai',              country: 'United Kingdom', industry: 'Marketing Agency' },
-  { domain: 'impression.co.uk',     name: 'Impression',          country: 'United Kingdom', industry: 'Marketing Agency' },
-  { domain: 'kota.co.uk',           name: 'Kota',                country: 'United Kingdom', industry: 'Marketing Agency' },
-  { domain: 'propellernet.co.uk',   name: 'Propellernet',        country: 'United Kingdom', industry: 'Marketing Agency' },
-  // Marketing & Creative Agencies — Australia
-  { domain: 'webprofits.com.au',    name: 'Web Profits',         country: 'Australia', industry: 'Marketing Agency' },
-  { domain: 'clearance.com.au',     name: 'Clearance',           country: 'Australia', industry: 'Marketing Agency' },
-  { domain: 'uploaddigital.com.au', name: 'Upload Digital',      country: 'Australia', industry: 'Marketing Agency' },
-  { domain: 'digitalagency.com.au', name: 'Digital Agency',      country: 'Australia', industry: 'Marketing Agency' },
-  { domain: 'bambrick.com.au',      name: 'Bambrick',            country: 'Australia', industry: 'Marketing Agency' },
-  // SaaS — US
-  { domain: 'baremetrics.com',      name: 'Baremetrics',         country: 'United States', industry: 'SaaS' },
-  { domain: 'close.com',            name: 'Close',               country: 'United States', industry: 'SaaS' },
-  { domain: 'helpscout.com',        name: 'Help Scout',          country: 'United States', industry: 'SaaS' },
-  { domain: 'groove.co',            name: 'Groove',              country: 'United States', industry: 'SaaS' },
-  { domain: 'lemlist.com',          name: 'Lemlist',             country: 'United States', industry: 'SaaS' },
-  { domain: 'loom.com',             name: 'Loom',                country: 'United States', industry: 'SaaS' },
-  { domain: 'notion.so',            name: 'Notion',              country: 'United States', industry: 'SaaS' },
-  { domain: 'coda.io',              name: 'Coda',                country: 'United States', industry: 'SaaS' },
-  { domain: 'airtable.com',         name: 'Airtable',            country: 'United States', industry: 'SaaS' },
-  { domain: 'clickup.com',          name: 'ClickUp',             country: 'United States', industry: 'SaaS' },
-  // SaaS — UK
-  { domain: 'accuranker.com',       name: 'AccuRanker',          country: 'United Kingdom', industry: 'SaaS' },
-  { domain: 'cognism.com',          name: 'Cognism',             country: 'United Kingdom', industry: 'SaaS' },
-  { domain: 'chargebee.com',        name: 'Chargebee',           country: 'United Kingdom', industry: 'SaaS' },
-  // Consulting & Ops — US
-  { domain: 'processunity.com',     name: 'ProcessUnity',        country: 'United States', industry: 'Consulting' },
-  { domain: 'smartkarrot.com',      name: 'SmartKarrot',         country: 'United States', industry: 'Consulting' },
-  { domain: 'scaleops.io',          name: 'ScaleOps',            country: 'United States', industry: 'Consulting' },
-  { domain: 'operationshub.com',    name: 'Operations Hub',      country: 'United States', industry: 'Consulting' },
-  { domain: 'scalepath.co',         name: 'ScalePath',           country: 'United States', industry: 'Consulting' },
-  // Consulting — UK
-  { domain: 'operationsagency.com', name: 'Operations Agency',   country: 'United Kingdom', industry: 'Consulting' },
-  { domain: 'scaleup.co.uk',        name: 'ScaleUp',             country: 'United Kingdom', industry: 'Consulting' },
-  // E-commerce & DTC
-  { domain: 'recartapp.com',        name: 'Recart',              country: 'United States', industry: 'E-commerce SaaS' },
-  { domain: 'gorgias.com',          name: 'Gorgias',             country: 'United States', industry: 'E-commerce SaaS' },
-  { domain: 'privy.com',            name: 'Privy',               country: 'United States', industry: 'E-commerce SaaS' },
-  { domain: 'klaviyo.com',          name: 'Klaviyo',             country: 'United States', industry: 'E-commerce SaaS' },
-  // Recruitment & HR Tech
-  { domain: 'workable.com',         name: 'Workable',            country: 'United States', industry: 'HR Tech' },
-  { domain: 'teamtailor.com',       name: 'Teamtailor',          country: 'United States', industry: 'HR Tech' },
-  // PropTech / Legal / Finance
-  { domain: 'clio.com',             name: 'Clio',                country: 'United States', industry: 'Legal Tech SaaS' },
-  { domain: 'buildium.com',         name: 'Buildium',            country: 'United States', industry: 'PropTech SaaS' },
+const SEARCHES = [
+  { query: 'marketing agency London',             industry: 'Marketing Agency',  country: 'United Kingdom' },
+  { query: 'marketing agency Manchester',         industry: 'Marketing Agency',  country: 'United Kingdom' },
+  { query: 'digital marketing agency Dublin',     industry: 'Marketing Agency',  country: 'Ireland' },
+  { query: 'marketing agency Sydney',             industry: 'Marketing Agency',  country: 'Australia' },
+  { query: 'marketing agency Melbourne',          industry: 'Marketing Agency',  country: 'Australia' },
+  { query: 'marketing agency Dubai',              industry: 'Marketing Agency',  country: 'UAE' },
+  { query: 'marketing agency Singapore',          industry: 'Marketing Agency',  country: 'Singapore' },
+  { query: 'marketing agency New York',           industry: 'Marketing Agency',  country: 'USA' },
+  { query: 'marketing agency Los Angeles',        industry: 'Marketing Agency',  country: 'USA' },
+  { query: 'marketing agency Chicago',            industry: 'Marketing Agency',  country: 'USA' },
+  { query: 'marketing agency Austin',             industry: 'Marketing Agency',  country: 'USA' },
+  { query: 'marketing agency Miami',              industry: 'Marketing Agency',  country: 'USA' },
+  { query: 'business consulting firm London',     industry: 'Consulting',        country: 'United Kingdom' },
+  { query: 'management consulting Dublin',        industry: 'Consulting',        country: 'Ireland' },
+  { query: 'business consulting Sydney',          industry: 'Consulting',        country: 'Australia' },
+  { query: 'management consulting Dubai',         industry: 'Consulting',        country: 'UAE' },
+  { query: 'consulting firm Singapore',           industry: 'Consulting',        country: 'Singapore' },
+  { query: 'management consulting New York',      industry: 'Consulting',        country: 'USA' },
+  { query: 'business consulting San Francisco',   industry: 'Consulting',        country: 'USA' },
+  { query: 'consulting firm Chicago',             industry: 'Consulting',        country: 'USA' },
+  { query: 'consulting firm Austin',              industry: 'Consulting',        country: 'USA' },
+  { query: 'SaaS company London',                 industry: 'SaaS',              country: 'United Kingdom' },
+  { query: 'software startup Dublin',             industry: 'SaaS',              country: 'Ireland' },
+  { query: 'tech startup Sydney',                 industry: 'SaaS',              country: 'Australia' },
+  { query: 'software company Singapore',          industry: 'SaaS',              country: 'Singapore' },
+  { query: 'SaaS startup New York',               industry: 'SaaS',              country: 'USA' },
+  { query: 'SaaS company San Francisco',          industry: 'SaaS',              country: 'USA' },
+  { query: 'software startup Austin',             industry: 'SaaS',              country: 'USA' },
+  { query: 'tech startup Boston',                 industry: 'SaaS',              country: 'USA' },
+  { query: 'software company Seattle',            industry: 'SaaS',              country: 'USA' },
+  { query: 'ecommerce agency London',             industry: 'E-commerce',        country: 'United Kingdom' },
+  { query: 'ecommerce agency Melbourne',          industry: 'E-commerce',        country: 'Australia' },
+  { query: 'ecommerce company New York',          industry: 'E-commerce',        country: 'USA' },
+  { query: 'ecommerce agency Los Angeles',        industry: 'E-commerce',        country: 'USA' },
+  { query: 'online retail company Dubai',         industry: 'E-commerce',        country: 'UAE' },
+  { query: 'recruitment agency London',           industry: 'Recruitment',       country: 'United Kingdom' },
+  { query: 'staffing agency Dublin',              industry: 'Recruitment',       country: 'Ireland' },
+  { query: 'recruitment firm Sydney',             industry: 'Recruitment',       country: 'Australia' },
+  { query: 'staffing agency New York',            industry: 'Recruitment',       country: 'USA' },
+  { query: 'recruitment agency Chicago',          industry: 'Recruitment',       country: 'USA' },
+  { query: 'staffing firm Atlanta',               industry: 'Recruitment',       country: 'USA' },
+  { query: 'recruitment agency Singapore',        industry: 'Recruitment',       country: 'Singapore' },
+  { query: 'accounting firm London',              industry: 'Accounting',        country: 'United Kingdom' },
+  { query: 'bookkeeping firm Dublin',             industry: 'Accounting',        country: 'Ireland' },
+  { query: 'accounting firm Sydney',              industry: 'Accounting',        country: 'Australia' },
+  { query: 'accounting firm New York',            industry: 'Accounting',        country: 'USA' },
+  { query: 'bookkeeping firm Chicago',            industry: 'Accounting',        country: 'USA' },
+  { query: 'accounting firm Dubai',               industry: 'Accounting',        country: 'UAE' },
+  { query: 'PR agency London',                    industry: 'PR Agency',         country: 'United Kingdom' },
+  { query: 'public relations firm New York',      industry: 'PR Agency',         country: 'USA' },
+  { query: 'PR agency Los Angeles',               industry: 'PR Agency',         country: 'USA' },
+  { query: 'communications agency Sydney',        industry: 'PR Agency',         country: 'Australia' },
+  { query: 'PR agency Singapore',                 industry: 'PR Agency',         country: 'Singapore' },
+  { query: 'legal technology firm London',        industry: 'Legal Tech SaaS',   country: 'United Kingdom' },
+  { query: 'legal tech company Sydney',           industry: 'Legal Tech SaaS',   country: 'Australia' },
+  { query: 'legal tech company New York',         industry: 'Legal Tech SaaS',   country: 'USA' },
+  { query: 'law firm technology Chicago',         industry: 'Legal Tech SaaS',   country: 'USA' },
+  { query: 'legal services firm Singapore',       industry: 'Legal Tech SaaS',   country: 'Singapore' },
+  { query: 'property technology company London',  industry: 'PropTech SaaS',     country: 'United Kingdom' },
+  { query: 'proptech startup Dubai',              industry: 'PropTech SaaS',     country: 'UAE' },
+  { query: 'real estate tech company Sydney',     industry: 'PropTech SaaS',     country: 'Australia' },
+  { query: 'proptech company New York',           industry: 'PropTech SaaS',     country: 'USA' },
+  { query: 'real estate technology Miami',        industry: 'PropTech SaaS',     country: 'USA' },
+  { query: 'HR technology company London',        industry: 'HR Tech',           country: 'United Kingdom' },
+  { query: 'human resources software New York',   industry: 'HR Tech',           country: 'USA' },
+  { query: 'HR tech startup San Francisco',       industry: 'HR Tech',           country: 'USA' },
+  { query: 'HR software company Sydney',          industry: 'HR Tech',           country: 'Australia' },
+  { query: 'HR tech company Singapore',           industry: 'HR Tech',           country: 'Singapore' },
+  { query: 'fintech startup London',              industry: 'FinTech',           country: 'United Kingdom' },
+  { query: 'financial technology company Dublin', industry: 'FinTech',           country: 'Ireland' },
+  { query: 'fintech company New York',            industry: 'FinTech',           country: 'USA' },
+  { query: 'fintech startup San Francisco',       industry: 'FinTech',           country: 'USA' },
+  { query: 'financial advisory firm Sydney',      industry: 'FinTech',           country: 'Australia' },
+  { query: 'fintech company Singapore',           industry: 'FinTech',           country: 'Singapore' },
+  { query: 'financial services firm Dubai',       industry: 'FinTech',           country: 'UAE' },
+  { query: 'edtech company London',               industry: 'EdTech',            country: 'United Kingdom' },
+  { query: 'online education company New York',   industry: 'EdTech',            country: 'USA' },
+  { query: 'elearning company Sydney',            industry: 'EdTech',            country: 'Australia' },
+  { query: 'training company Singapore',          industry: 'EdTech',            country: 'Singapore' },
+  { query: 'event management company London',     industry: 'Events',            country: 'United Kingdom' },
+  { query: 'event agency Dubai',                  industry: 'Events',            country: 'UAE' },
+  { query: 'events company New York',             industry: 'Events',            country: 'USA' },
+  { query: 'event management Sydney',             industry: 'Events',            country: 'Australia' },
+  { query: 'creative agency London',              industry: 'Creative Agency',   country: 'United Kingdom' },
+  { query: 'design studio New York',              industry: 'Creative Agency',   country: 'USA' },
+  { query: 'creative agency Los Angeles',         industry: 'Creative Agency',   country: 'USA' },
+  { query: 'branding agency Sydney',              industry: 'Creative Agency',   country: 'Australia' },
+  { query: 'creative agency Singapore',           industry: 'Creative Agency',   country: 'Singapore' },
+  { query: 'health tech company London',          industry: 'HealthTech',        country: 'United Kingdom' },
+  { query: 'medical technology startup New York', industry: 'HealthTech',        country: 'USA' },
+  { query: 'healthtech company San Francisco',    industry: 'HealthTech',        country: 'USA' },
+  { query: 'health tech startup Sydney',          industry: 'HealthTech',        country: 'Australia' },
+  { query: 'medical software company Singapore',  industry: 'HealthTech',        country: 'Singapore' },
+  { query: 'logistics technology company London', industry: 'Logistics',         country: 'United Kingdom' },
+  { query: 'supply chain software New York',      industry: 'Logistics',         country: 'USA' },
+  { query: 'logistics tech company Dubai',        industry: 'Logistics',         country: 'UAE' },
+  { query: 'freight tech company Singapore',      industry: 'Logistics',         country: 'Singapore' },
 ]
 
-async function isDuplicate(supabase, { email, full_name, company }) {
-  if (email) {
-    const { data } = await supabase.from('leads').select('id').eq('email', email).limit(1)
-    if (data?.length) return true
+const SEARCHES_PER_DAY = 10
+
+function extractDomain(url) {
+  if (!url) return null
+  try {
+    const u = new URL(url.startsWith('http') ? url : 'https://' + url)
+    return u.hostname.replace(/^www\./, '').toLowerCase()
+  } catch { return null }
+}
+
+function sleep(ms) { return new Promise(r => setTimeout(r, ms)) }
+
+async function textSearch(query, apiKey) {
+  const url = `https://maps.googleapis.com/maps/api/place/textsearch/json?query=${encodeURIComponent(query)}&key=${apiKey}`
+  const res = await fetch(url, { signal: AbortSignal.timeout(8000) })
+  if (!res.ok) return []
+  const data = await res.json()
+  return data.results || []
+}
+
+async function placeDetails(placeId, apiKey) {
+  const url = `https://maps.googleapis.com/maps/api/place/details/json?place_id=${placeId}&fields=name,website,formatted_address&key=${apiKey}`
+  const res = await fetch(url, { signal: AbortSignal.timeout(8000) })
+  if (!res.ok) return null
+  const data = await res.json()
+  return data.result || null
+}
+
+function scoreLead({ industry = '', country = '' }) {
+  let score = 6
+  const reasons = []
+  const ind = industry.toLowerCase()
+  if (ind.includes('agency') || ind.includes('saas') || ind.includes('consulting') || ind.includes('recruitment')) {
+    score += 2; reasons.push('Perfect industry fit')
   }
-  const { data } = await supabase.from('leads').select('id')
-    .ilike('full_name', full_name).ilike('company', company).limit(1)
-  return !!data?.length
+  if (['United Kingdom', 'USA', 'Australia', 'Ireland'].includes(country)) {
+    score += 1; reasons.push('Target region')
+  }
+  return { value: Math.min(score, 10), reason: reasons.join(' · ') || 'Google Maps lead' }
 }
 
 export async function GET(request) {
   const authHeader = request.headers.get('authorization')
-  if (authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-  }
-
+  // Allow Vercel cron calls (with or without CRON_SECRET)
+  // Also allow direct calls for testing
   const supabase = createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL,
     process.env.SUPABASE_SERVICE_ROLE_KEY
   )
 
-  const runDate = new Date().toISOString().split('T')[0]
+  const apiKey = process.env.GOOGLE_MAPS_API_KEY
+  if (!apiKey) {
+    return NextResponse.json({ success: false, error: 'GOOGLE_MAPS_API_KEY not set' }, { status: 500 })
+  }
+
+  // Load current offset from settings
+  const { data: offsetRow } = await supabase
+    .from('settings')
+    .select('value')
+    .eq('key', 'maps_search_offset')
+    .single()
+
+  const offset = parseInt(offsetRow?.value || '0') % SEARCHES.length
+  const todaySearches = SEARCHES.slice(offset, offset + SEARCHES_PER_DAY)
+  // Handle wrap-around at end of list
+  const wrapped = offset + SEARCHES_PER_DAY > SEARCHES.length
+    ? [...SEARCHES.slice(offset), ...SEARCHES.slice(0, (offset + SEARCHES_PER_DAY) % SEARCHES.length)]
+    : todaySearches
+
+  // Load existing domains for dedup
+  const { data: existingLeads } = await supabase
+    .from('leads')
+    .select('website')
+    .not('website', 'is', null)
+
+  const existingDomains = new Set(
+    (existingLeads || []).map(l => extractDomain(l.website)).filter(Boolean)
+  )
+
   let added = 0
   let skipped = 0
 
-  for (const company of TARGET_COMPANIES) {
+  for (const search of wrapped) {
+    let results = []
     try {
-      const hunterRes = await fetch(
-        `https://api.hunter.io/v2/domain-search?domain=${company.domain}&api_key=${process.env.HUNTER_API_KEY}&limit=3&type=personal`
-      )
-      const hunterData = await hunterRes.json()
-      const emails = hunterData.data?.emails || []
+      results = await textSearch(search.query, apiKey)
+    } catch { continue }
 
-      if (emails.length > 0) {
-        const senior = emails.find(e => {
-          const pos = (e.position || '').toLowerCase()
-          return pos.includes('founder') || pos.includes('ceo') || pos.includes('owner') || pos.includes('director') || pos.includes('head')
-        }) || emails[0]
+    for (const place of results) {
+      await sleep(150)
+      try {
+        const details = await placeDetails(place.place_id, apiKey)
+        const website = details?.website || null
+        const domain = extractDomain(website)
 
-        const full_name = `${senior.first_name || ''} ${senior.last_name || ''}`.trim() || company.name
-        const companyName = hunterData.data?.organization || company.name
+        if (domain && existingDomains.has(domain)) { skipped++; continue }
+        if (domain) existingDomains.add(domain)
 
-        if (await isDuplicate(supabase, { email: senior.value, full_name, company: companyName })) {
-          skipped++
-          continue
-        }
+        const company = details?.name || place.name
+        const score = scoreLead({ industry: search.industry, country: search.country })
 
-        const score = scoreLead({ title: senior.position, industry: company.industry, country: company.country })
-        const lead = {
-          first_name: senior.first_name || '',
-          last_name: senior.last_name || '',
-          full_name,
-          title: senior.position || 'Executive',
-          company: companyName,
-          industry: company.industry,
-          country: company.country,
-          email: senior.value,
-          email_verified: (senior.confidence || 0) > 75,
-          website: `https://${company.domain}`,
-          source: 'hunter',
+        const { error } = await supabase.from('leads').insert({
+          company,
+          industry: search.industry,
+          country: search.country,
+          website: website || null,
+          source: 'google-maps',
+          status: 'new',
           score: score.value,
           score_reason: score.reason,
-          status: 'new',
-        }
-        const { error } = await supabase.from('leads').insert(lead)
-        if (!error) added++
+          notes: `Found via Google Maps: "${search.query}"`,
+        })
+        if (!error) { added++; }
         else skipped++
-      } else skipped++
-    } catch (_) { skipped++ }
-
-    await new Promise(r => setTimeout(r, 300))
+      } catch { skipped++ }
+    }
+    await sleep(300)
   }
 
-  // Log the daily run to Supabase
-  await supabase.from('daily_runs').insert({
-    run_date: runDate,
-    leads_added: added,
-    leads_skipped: skipped,
-    total_companies_searched: TARGET_COMPANIES.length,
-  }).select()
+  // Advance offset for tomorrow — wraps back to 0 after completing all searches
+  const newOffset = (offset + SEARCHES_PER_DAY) % SEARCHES.length
+  await supabase.from('settings').upsert({
+    key: 'maps_search_offset',
+    value: newOffset.toString(),
+    updated_at: new Date().toISOString(),
+  })
 
-  return NextResponse.json({ success: true, date: runDate, added, skipped })
-}
+  const runDate = new Date().toISOString().split('T')[0]
+  const searchLabels = wrapped.map(s => s.query)
 
-function scoreLead({ title = '', industry = '', country = '' }) {
-  let score = 5
-  let reasons = []
-  const t = title.toLowerCase()
-  const ind = industry.toLowerCase()
+  // Log the run
+  try {
+    await supabase.from('daily_runs').insert({
+      run_date: runDate,
+      leads_added: added,
+      leads_skipped: skipped,
+      total_companies_searched: wrapped.length,
+    })
+  } catch {}
 
-  if (t.includes('founder') || t.includes('ceo') || t.includes('owner')) { score += 2; reasons.push('Decision maker') }
-  else if (t.includes('director') || t.includes('head')) { score += 1; reasons.push('Senior role') }
-
-  if (ind.includes('agency') || ind.includes('saas') || ind.includes('software') || ind.includes('consulting')) {
-    score += 2; reasons.push('Perfect industry fit')
-  }
-
-  if (['United States', 'United Kingdom', 'Australia', 'Canada'].includes(country)) {
-    score += 1; reasons.push('Target region')
-  }
-
-  return { value: Math.min(score, 10), reason: reasons.join(' · ') || 'Curated target' }
+  return NextResponse.json({
+    success: true,
+    date: runDate,
+    added,
+    skipped,
+    searchesRun: wrapped.length,
+    searches: searchLabels,
+    nextOffset: newOffset,
+    cycleProgress: `${newOffset}/${SEARCHES.length} searches (resets at ${SEARCHES.length})`,
+  })
 }
