@@ -658,8 +658,8 @@ export default function Leads() {
             {/* Email */}
             <div style={{minWidth:0,paddingRight:12}}>
               {l.email ? (
-                <div style={b}>
-                  <div style={{fontSize:12,color:'#60a5fa',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{l.email}</div>
+                <div>
+                  <div style={{fontSize:12,color:'#60a5fa',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',...b}}>{l.email}</div>
                   {l.email_verified&&<div style={{fontSize:11,color:'#22d3a5',marginTop:1}}>✓ verified</div>}
                 </div>
               ) : (() => {
@@ -667,7 +667,7 @@ export default function Leads() {
                 const match = (l.notes||'').match(/Email patterns: ([^\n]+)/)
                 const patterns = match ? match[1].split(' | ').filter(Boolean) : []
                 return patterns.length > 0 ? (
-                  <div>
+                  <div style={demoMode?{filter:'blur(6px)',userSelect:'none',pointerEvents:'none'}:{}}>
                     <div style={{fontSize:10,color:'#4A4F6A',marginBottom:3}}>Pick one:</div>
                     <div style={{display:'flex',flexDirection:'column',gap:2}}>
                       {patterns.slice(0,3).map(p=>(
@@ -690,8 +690,6 @@ export default function Leads() {
                   </div>
                 ) : <span style={{fontSize:12,color:'#2a2d4a'}}>—</span>
               })()}
-              {/* overlay blur for email cell when demo mode */}
-              {demoMode && l.email && null /* already blurred above */}
             </div>
             {/* Source badge */}
             <div>

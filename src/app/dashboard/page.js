@@ -2,6 +2,7 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import Link from 'next/link'
+import { useDemoMode } from '@/contexts/DemoModeContext'
 
 const S = {
   page:  { padding:'32px 36px', maxWidth:1300 },
@@ -13,6 +14,8 @@ const S = {
 const sc = s => s>=8?'#22d3a5':s>=6?'#00F6FF':'#4A4F6A'
 
 export default function Dashboard() {
+  const { demoMode } = useDemoMode()
+  const b = demoMode ? { filter:'blur(6px)', userSelect:'none', pointerEvents:'none', transition:'filter 0.2s' } : {}
   const [stats, setStats]     = useState({ total:0, new:0, contacted:0, interested:0, clients:0, today:0, needsContact:0 })
   const [leads, setLeads]     = useState([])
   const [runs, setRuns]       = useState([])
@@ -110,8 +113,8 @@ export default function Dashboard() {
                 <div key={l.id} style={{display:'flex',alignItems:'center',gap:12,padding:'10px 14px',borderRadius:10,background:'rgba(255,255,255,0.02)',border:'1px solid rgba(255,255,255,0.03)'}}>
                   <div style={{width:26,height:26,borderRadius:8,background:'rgba(0,246,255,0.08)',border:'1px solid rgba(0,246,255,0.15)',display:'flex',alignItems:'center',justifyContent:'center',fontSize:11,fontWeight:700,color:'#00F6FF',flexShrink:0}}>{i+1}</div>
                   <div style={{flex:1,minWidth:0}}>
-                    <div style={{fontSize:13,fontWeight:600,color:'#e8ecf0',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{l.full_name}</div>
-                    <div style={{fontSize:11,color:'#4A4F6A',marginTop:1,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{l.title} · {l.company}</div>
+                    <div style={{fontSize:13,fontWeight:600,color:'#e8ecf0',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',...b}}>{l.full_name}</div>
+                    <div style={{fontSize:11,color:'#4A4F6A',marginTop:1,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{l.title} · <span style={b}>{l.company}</span></div>
                   </div>
                   <div style={{display:'flex',alignItems:'center',gap:10,flexShrink:0}}>
                     {l.email && <span style={{fontSize:11,color:'#22d3a5'}}>✓ email</span>}
