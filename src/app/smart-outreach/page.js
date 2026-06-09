@@ -40,7 +40,7 @@ function getSeqBadge(leadId, sequences) {
   return null
 }
 
-function PendingTracker({ leads, onMarkConnected, onMarkEmail }) {
+function PendingTracker({ leads, onMarkConnected, onMarkEmail, b={} }) {
   const pending = leads.filter(l => l.linkedin_status === 'requested')
   if (pending.length === 0) return (
     <div style={{padding:'60px 32px',textAlign:'center'}}>
@@ -102,7 +102,7 @@ function PendingTracker({ leads, onMarkConnected, onMarkEmail }) {
   )
 }
 
-function SequencesOverview({ sequences, onSelectLead }) {
+function SequencesOverview({ sequences, onSelectLead, b={} }) {
   const active = sequences.filter(s => !s.complete && !s.replied)
   const replied = sequences.filter(s => s.replied)
   const done = sequences.filter(s => s.complete && !s.replied)
@@ -539,7 +539,7 @@ export default function SmartOutreach() {
 
         {view==='pending' ? (
           <div style={{flex:1,overflowY:'auto'}}>
-            <PendingTracker leads={leads} onMarkConnected={markConnectedFromPending} onMarkEmail={switchToEmail}/>
+            <PendingTracker leads={leads} onMarkConnected={markConnectedFromPending} onMarkEmail={switchToEmail} b={b}/>
           </div>
 
         ) : view==='sequences' ? (
@@ -548,7 +548,7 @@ export default function SmartOutreach() {
               <div style={{fontSize:16,fontWeight:700,color:'#fff'}}>Sequence Overview</div>
               <div style={{fontSize:12,color:'#4A4F6A',marginTop:3}}>Track every email thread — who&apos;s waiting, who&apos;s due, who replied</div>
             </div>
-            <SequencesOverview sequences={sequences} onSelectLead={(lead,seq)=>{selectLead(lead,seq);setStep('message')}}/>
+            <SequencesOverview sequences={sequences} onSelectLead={(lead,seq)=>{selectLead(lead,seq);setStep('message')}} b={b}/>
           </div>
 
         ) : view==='replies' ? (
@@ -723,7 +723,7 @@ export default function SmartOutreach() {
                     </div>
                   ) : (
                     <div>
-                      <pre style={{fontSize:12,lineHeight:1.9,color:'#c8cad8',whiteSpace:'pre-wrap',fontFamily:'monospace',background:'#0d0d18',border:'1px solid rgba(255,255,255,0.05)',borderRadius:12,padding:20,marginBottom:16}}>{research}</pre>
+                      <pre style={{fontSize:12,lineHeight:1.9,color:'#c8cad8',whiteSpace:'pre-wrap',fontFamily:'monospace',background:'#0d0d18',border:'1px solid rgba(255,255,255,0.05)',borderRadius:12,padding:20,marginBottom:16,...b}}>{research}</pre>
                       <button onClick={()=>setStep('posts')} style={{padding:'10px 20px',borderRadius:9,border:'1px solid rgba(0,246,255,0.2)',background:'rgba(0,246,255,0.08)',color:'#00F6FF',fontSize:13,fontWeight:600,cursor:'pointer'}}>
                         Next: Find Their Posts →
                       </button>
@@ -771,7 +771,7 @@ export default function SmartOutreach() {
                         <div style={{padding:'10px 16px',borderBottom:'1px solid rgba(255,255,255,0.04)',fontSize:12,fontWeight:600,color:'#fff'}}>Search for their posts</div>
                         <div style={{padding:'12px 16px',display:'flex',flexDirection:'column',gap:8}}>
                           <a href={liData.searchUrls.companyPosts} target="_blank" rel="noreferrer" style={{display:'flex',alignItems:'center',gap:8,padding:'9px 14px',borderRadius:8,background:'rgba(10,102,194,0.1)',border:'1px solid rgba(10,102,194,0.2)',color:'#4a9eff',textDecoration:'none',fontSize:12,fontWeight:500}}>
-                            <span style={{fontWeight:800,fontSize:10}}>in</span> Search {selected.company}&apos;s LinkedIn posts →
+                            <span style={{fontWeight:800,fontSize:10}}>in</span> Search <span style={b}>{selected.company}</span>&apos;s LinkedIn posts →
                           </a>
                           <a href={liData.searchUrls.teamPosts} target="_blank" rel="noreferrer" style={{display:'flex',alignItems:'center',gap:8,padding:'9px 14px',borderRadius:8,background:'rgba(96,165,250,0.08)',border:'1px solid rgba(96,165,250,0.15)',color:'#60a5fa',textDecoration:'none',fontSize:12,fontWeight:500}}>
                             🔍 Google: team members posting about ops/AI →
@@ -805,10 +805,10 @@ export default function SmartOutreach() {
               {step==='connect'&&(
                 <div style={{maxWidth:500}}>
                   <div style={{fontSize:15,fontWeight:700,color:'#fff',marginBottom:4}}>Send Connection Request</div>
-                  <div style={{fontSize:12,color:'#4A4F6A',marginBottom:28}}>Open {selected.full_name}&apos;s LinkedIn profile and hit Connect</div>
+                  <div style={{fontSize:12,color:'#4A4F6A',marginBottom:28}}>Open <span style={b}>{selected.full_name}</span>&apos;s LinkedIn profile and hit Connect</div>
                   {liStatus==='connected'&&(
                     <div style={{padding:'18px 20px',borderRadius:12,background:'rgba(34,211,165,0.06)',border:'1px solid rgba(34,211,165,0.2)',marginBottom:20}}>
-                      <div style={{fontSize:14,fontWeight:700,color:'#22d3a5',marginBottom:6}}>✅ Connected with {selected.full_name}!</div>
+                      <div style={{fontSize:14,fontWeight:700,color:'#22d3a5',marginBottom:6}}>✅ Connected with <span style={b}>{selected.full_name}</span>!</div>
                       <div style={{fontSize:12,color:'#4A4F6A',marginBottom:14}}>You can now send them a DM directly on LinkedIn.</div>
                       <button onClick={()=>setStep('message')} style={{padding:'9px 18px',borderRadius:9,border:'1px solid rgba(0,246,255,0.2)',background:'rgba(0,246,255,0.08)',color:'#00F6FF',fontSize:12,fontWeight:600,cursor:'pointer'}}>
                         Go to Message →
@@ -817,7 +817,7 @@ export default function SmartOutreach() {
                   )}
                   {liStatus==='requested'&&(
                     <div style={{padding:'18px 20px',borderRadius:12,background:'rgba(251,146,60,0.06)',border:'1px solid rgba(251,146,60,0.2)',marginBottom:20}}>
-                      <div style={{fontSize:14,fontWeight:700,color:'#fb923c',marginBottom:6}}>⏳ Request sent — waiting for {selected.full_name} to accept</div>
+                      <div style={{fontSize:14,fontWeight:700,color:'#fb923c',marginBottom:6}}>⏳ Request sent — waiting for <span style={b}>{selected.full_name}</span> to accept</div>
                       <div style={{fontSize:12,color:'#4A4F6A',marginBottom:14}}>Check your LinkedIn 🔔 bell. When they accept, click below.</div>
                       <button onClick={()=>updateLinkedInStatus('connected')} style={{padding:'9px 18px',borderRadius:9,border:'1px solid rgba(34,211,165,0.25)',background:'rgba(34,211,165,0.1)',color:'#22d3a5',fontSize:12,fontWeight:600,cursor:'pointer'}}>
                         ✓ They Accepted — Go to DM
@@ -831,14 +831,14 @@ export default function SmartOutreach() {
                           onClick={()=>{if(liStatus==='none') updateLinkedInStatus('requested')}}
                           style={{display:'flex',alignItems:'center',justifyContent:'center',gap:10,padding:'16px 24px',borderRadius:12,textDecoration:'none',background:'rgba(10,102,194,0.2)',border:'2px solid rgba(10,102,194,0.4)',color:'#4a9eff',fontSize:15,fontWeight:700,transition:'all 0.15s'}}>
                           <span style={{fontSize:18,fontWeight:900,fontFamily:'serif'}}>in</span>
-                          Open {selected.full_name}&apos;s LinkedIn Profile →
+                          Open <span style={b}>{selected.full_name}</span>&apos;s LinkedIn Profile →
                         </a>
                       ) : (
                         <a href={`https://www.linkedin.com/search/results/people/?keywords=${encodeURIComponent(selected.full_name+' '+selected.company)}`} target="_blank" rel="noreferrer"
                           onClick={()=>{if(liStatus==='none') updateLinkedInStatus('requested')}}
                           style={{display:'flex',alignItems:'center',justifyContent:'center',gap:10,padding:'16px 24px',borderRadius:12,textDecoration:'none',background:'rgba(10,102,194,0.15)',border:'2px solid rgba(10,102,194,0.3)',color:'#4a9eff',fontSize:15,fontWeight:700}}>
                           <span style={{fontSize:18,fontWeight:900,fontFamily:'serif'}}>in</span>
-                          Search {selected.full_name} on LinkedIn →
+                          Search <span style={b}>{selected.full_name}</span> on LinkedIn →
                         </a>
                       )}
                       <div style={{fontSize:11,color:'#2a2d4a',textAlign:'center'}}>Clicking above opens LinkedIn and marks request as sent automatically</div>
@@ -860,7 +860,7 @@ export default function SmartOutreach() {
                   <div>
                     <div style={{fontSize:15,fontWeight:700,color:'#fff',marginBottom:4}}>LinkedIn DM</div>
                     <div style={{fontSize:12,color:'#4A4F6A',marginBottom:14}}>
-                      {liStatus==='connected'?`✅ Connected with ${selected.full_name} — paste this DM now`:'Connect first, then send this DM'}
+                      {liStatus==='connected'?<>✅ Connected with <span style={b}>{selected.full_name}</span> — paste this DM now</>:'Connect first, then send this DM'}
                     </div>
                     {!dmMsg ? (
                       <div style={{padding:'14px 18px',borderRadius:10,background:'rgba(251,146,60,0.06)',border:'1px solid rgba(251,146,60,0.15)',fontSize:12,color:'#fb923c',marginBottom:12}}>
@@ -875,7 +875,7 @@ export default function SmartOutreach() {
                           </button>
                         </div>
                         <textarea value={dmMsg} onChange={e=>setDmMsg(e.target.value)} rows={10}
-                          style={{width:'100%',padding:'14px 16px',background:'transparent',border:'none',color:'#c8cad8',fontSize:13,lineHeight:1.8,outline:'none',resize:'none',fontFamily:'inherit'}}/>
+                          style={{width:'100%',padding:'14px 16px',background:'transparent',border:'none',color:'#c8cad8',fontSize:13,lineHeight:1.8,outline:'none',resize:'none',fontFamily:'inherit',...b}}/>
                       </div>
                     )}
                     <div style={{display:'flex',gap:10}}>
@@ -952,7 +952,7 @@ export default function SmartOutreach() {
                             Step {currentSeq.step}/3 · was due {Math.abs(daysUntil(currentSeq.next_due_at))} day{Math.abs(daysUntil(currentSeq.next_due_at))!==1?'s':''} ago
                           </div>
                           {/* Preview the follow-up */}
-                          <pre style={{fontSize:12,lineHeight:1.8,color:'#c8cad8',whiteSpace:'pre-wrap',fontFamily:'monospace',background:'#080810',border:'1px solid rgba(255,255,255,0.05)',borderRadius:10,padding:14,marginBottom:14}}>
+                          <pre style={{fontSize:12,lineHeight:1.8,color:'#c8cad8',whiteSpace:'pre-wrap',fontFamily:'monospace',background:'#080810',border:'1px solid rgba(255,255,255,0.05)',borderRadius:10,padding:14,marginBottom:14,...b}}>
                             {FOLLOWUP_PREVIEWS[seqNextStep]?.(selected.first_name||selected.full_name?.split(' ')[0]||'there')||''}
                           </pre>
                           <div style={{display:'flex',gap:8,flexWrap:'wrap'}}>
@@ -993,7 +993,7 @@ export default function SmartOutreach() {
                                   </button>
                                 </div>
                                 <input value={resSubject} onChange={e=>setResSubject(e.target.value)}
-                                  style={{width:'100%',padding:'12px 16px',background:'transparent',border:'none',color:'#e8ecf0',fontSize:14,fontWeight:500,outline:'none'}}/>
+                                  style={{width:'100%',padding:'12px 16px',background:'transparent',border:'none',color:'#e8ecf0',fontSize:14,fontWeight:500,outline:'none',...b}}/>
                               </div>
                               <div style={{background:'#0d0d18',border:'1px solid rgba(34,211,165,0.12)',borderRadius:12,overflow:'hidden',marginBottom:10}}>
                                 <div style={{padding:'10px 16px',borderBottom:'1px solid rgba(255,255,255,0.04)',display:'flex',justifyContent:'space-between',alignItems:'center'}}>
@@ -1017,7 +1017,7 @@ export default function SmartOutreach() {
                                   </div>
                                 </div>
                                 <textarea value={resBody} onChange={e=>setResBody(e.target.value)} rows={12}
-                                  style={{width:'100%',padding:'14px 16px',background:'transparent',border:'none',color:'#c8cad8',fontSize:13,lineHeight:1.8,outline:'none',resize:'none',fontFamily:'inherit'}}/>
+                                  style={{width:'100%',padding:'14px 16px',background:'transparent',border:'none',color:'#c8cad8',fontSize:13,lineHeight:1.8,outline:'none',resize:'none',fontFamily:'inherit',...b}}/>
                               </div>
                               <div style={{display:'flex',gap:10,flexWrap:'wrap',alignItems:'center'}}>
                                 <button onClick={sendEmail} disabled={emailSending||emailSent} style={{
@@ -1045,7 +1045,7 @@ export default function SmartOutreach() {
                       {currentSeq&&(currentSeq.complete||currentSeq.replied)&&resBody&&(
                         <div style={{marginTop:16}}>
                           <div style={{fontSize:12,color:'#2a2d4a',marginBottom:8}}>Original email sent:</div>
-                          <pre style={{fontSize:12,lineHeight:1.8,color:'#4A4F6A',whiteSpace:'pre-wrap',fontFamily:'monospace',background:'#0d0d18',border:'1px solid rgba(255,255,255,0.04)',borderRadius:10,padding:16}}>{resBody}</pre>
+                          <pre style={{fontSize:12,lineHeight:1.8,color:'#4A4F6A',whiteSpace:'pre-wrap',fontFamily:'monospace',background:'#0d0d18',border:'1px solid rgba(255,255,255,0.04)',borderRadius:10,padding:16,...b}}>{resBody}</pre>
                         </div>
                       )}
                     </div>
