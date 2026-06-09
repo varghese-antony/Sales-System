@@ -422,7 +422,7 @@ export async function POST(request) {
     failed,
     sentToday: (sentToday || 0) + sent,
     dailyLimit,
-    queueRemaining: queue.length - batch.length,
+    queueRemaining: uncontacted.length - batch.length,
     results,
   })
 }
