@@ -2,6 +2,7 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import Link from 'next/link'
+import { useDemoMode } from '@/contexts/DemoModeContext'
 
 const statusStyle = {
   new:           {bg:'rgba(167,139,250,0.1)',color:'#a78bfa'},
@@ -26,6 +27,8 @@ const getSource = s => sourceStyle[s] || { bg:'rgba(255,255,255,0.05)', color:'#
 const sc = s => s>=8?'#22d3a5':s>=6?'#00F6FF':'#4A4F6A'
 
 export default function Leads() {
+  const { demoMode } = useDemoMode()
+  const b = demoMode ? { filter:'blur(6px)', userSelect:'none', pointerEvents:'none', transition:'filter 0.2s' } : {}
   const [leads, setLeads] = useState([])
   const [loading, setLoading] = useState(true)
   const [finding, setFinding] = useState(false)
@@ -644,18 +647,18 @@ export default function Leads() {
           onMouseLeave={e=>e.currentTarget.style.background='transparent'}>
             {/* Person */}
             <div style={{minWidth:0,paddingRight:12}}>
-              <div style={{fontSize:13,fontWeight:600,color:'#e8ecf0',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{l.full_name}</div>
+              <div style={{fontSize:13,fontWeight:600,color:'#e8ecf0',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',...b}}>{l.full_name}</div>
               <div style={{fontSize:11,color:'#4A4F6A',marginTop:2,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{l.title}</div>
             </div>
             {/* Company */}
             <div style={{minWidth:0,paddingRight:12}}>
-              <div style={{fontSize:13,color:'#c8cad8',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{l.company}</div>
+              <div style={{fontSize:13,color:'#c8cad8',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',...b}}>{l.company}</div>
               <div style={{fontSize:11,color:'#4A4F6A',marginTop:2}}>{l.country}</div>
             </div>
             {/* Email */}
             <div style={{minWidth:0,paddingRight:12}}>
               {l.email ? (
-                <div>
+                <div style={b}>
                   <div style={{fontSize:12,color:'#60a5fa',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{l.email}</div>
                   {l.email_verified&&<div style={{fontSize:11,color:'#22d3a5',marginTop:1}}>✓ verified</div>}
                 </div>
@@ -687,6 +690,8 @@ export default function Leads() {
                   </div>
                 ) : <span style={{fontSize:12,color:'#2a2d4a'}}>—</span>
               })()}
+              {/* overlay blur for email cell when demo mode */}
+              {demoMode && l.email && null /* already blurred above */}
             </div>
             {/* Source badge */}
             <div>

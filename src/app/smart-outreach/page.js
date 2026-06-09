@@ -1,6 +1,7 @@
 'use client'
 import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
+import { useDemoMode } from '@/contexts/DemoModeContext'
 
 const statusStyle = {
   new:           { bg:'rgba(167,139,250,0.1)', color:'#a78bfa' },
@@ -64,8 +65,8 @@ function PendingTracker({ leads, onMarkConnected, onMarkEmail }) {
             }}>
               <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',marginBottom:12}}>
                 <div>
-                  <div style={{fontSize:14,fontWeight:600,color:'#e8ecf0'}}>{lead.full_name}</div>
-                  <div style={{fontSize:12,color:'#4A4F6A',marginTop:3}}>{lead.company} · {lead.country}</div>
+                  <div style={{fontSize:14,fontWeight:600,color:'#e8ecf0',...b}}>{lead.full_name}</div>
+                  <div style={{fontSize:12,color:'#4A4F6A',marginTop:3}}><span style={b}>{lead.company}</span> · {lead.country}</div>
                 </div>
                 <div style={{textAlign:'right',flexShrink:0,marginLeft:16}}>
                   <div style={{fontSize:13,fontWeight:700,color:overdue?'#f87171':'#fb923c'}}>
@@ -131,8 +132,8 @@ function SequencesOverview({ sequences, onSelectLead }) {
         onMouseLeave={e=>e.currentTarget.style.background='rgba(255,255,255,0.02)'}
       >
         <div>
-          <div style={{fontSize:13,fontWeight:600,color:'#e8ecf0'}}>{seq.leads?.full_name||'—'}</div>
-          <div style={{fontSize:11,color:'#4A4F6A',marginTop:2}}>{seq.leads?.company||'—'}</div>
+          <div style={{fontSize:13,fontWeight:600,color:'#e8ecf0',...b}}>{seq.leads?.full_name||'—'}</div>
+          <div style={{fontSize:11,color:'#4A4F6A',marginTop:2,...b}}>{seq.leads?.company||'—'}</div>
         </div>
         <div style={{fontSize:12,color:'#c8cad8'}}>{ANGLE_NAMES[seq.angle_number]||'—'}</div>
         <div style={{fontSize:12,color:'#4A4F6A',textAlign:'center'}}>
@@ -192,6 +193,8 @@ function SequencesOverview({ sequences, onSelectLead }) {
 }
 
 export default function SmartOutreach() {
+  const { demoMode } = useDemoMode()
+  const b = demoMode ? { filter:'blur(6px)', userSelect:'none', pointerEvents:'none', transition:'filter 0.2s' } : {}
   const [leads, setLeads]           = useState([])
   const [sequences, setSequences]   = useState([])
   const [selected, setSelected]     = useState(null)
@@ -511,14 +514,14 @@ export default function SmartOutreach() {
                     transition:'all 0.15s',
                   }}>
                     <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start'}}>
-                      <div style={{fontSize:12,fontWeight:600,color:'#e8ecf0',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',maxWidth:130}}>{lead.full_name}</div>
+                      <div style={{fontSize:12,fontWeight:600,color:'#e8ecf0',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',maxWidth:130,...b}}>{lead.full_name}</div>
                       <div style={{display:'flex',gap:3,alignItems:'center',flexShrink:0}}>
                         {lead.notes?.startsWith('COMPANY:')&&<span style={{fontSize:9,padding:'2px 4px',borderRadius:3,background:'rgba(34,211,165,0.12)',color:'#22d3a5',fontWeight:700}}>R</span>}
                         {liSt!=='none'&&<span style={{width:6,height:6,borderRadius:'50%',background:dot,display:'inline-block'}}/>}
                         {!lead.email&&<span style={{fontSize:9,padding:'2px 4px',borderRadius:3,background:'rgba(10,102,194,0.2)',color:'#4a9eff',fontWeight:700}}>in</span>}
                       </div>
                     </div>
-                    <div style={{fontSize:11,color:'#4A4F6A',marginTop:1,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{lead.company} · {lead.country}</div>
+                    <div style={{fontSize:11,color:'#4A4F6A',marginTop:1,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}><span style={b}>{lead.company}</span> · {lead.country}</div>
                     <div style={{display:'flex',gap:5,marginTop:5,alignItems:'center',flexWrap:'wrap'}}>
                       <span style={{fontSize:10,fontWeight:700,color:lead.score>=8?'#22d3a5':'#00F6FF'}}>{lead.score}/10</span>
                       <span style={{fontSize:10,padding:'1px 5px',borderRadius:99,background:statusStyle[lead.status]?.bg||'rgba(255,255,255,0.05)',color:statusStyle[lead.status]?.color||'#4A4F6A'}}>{lead.status}</span>
@@ -661,8 +664,8 @@ export default function SmartOutreach() {
                 {(selected.first_name||selected.full_name||'?')[0]}
               </div>
               <div style={{flex:1,minWidth:0}}>
-                <div style={{fontSize:14,fontWeight:700,color:'#fff'}}>{selected.full_name}</div>
-                <div style={{fontSize:11,color:'#4A4F6A',marginTop:1}}>{selected.title} · {selected.company} · {selected.country}</div>
+                <div style={{fontSize:14,fontWeight:700,color:'#fff',...b}}>{selected.full_name}</div>
+                <div style={{fontSize:11,color:'#4A4F6A',marginTop:1}}>{selected.title} · <span style={b}>{selected.company}</span> · {selected.country}</div>
               </div>
               <div style={{display:'flex',gap:8,flexShrink:0,alignItems:'center'}}>
                 {selected.email&&<div style={{padding:'4px 10px',borderRadius:6,background:'rgba(34,211,165,0.08)',border:'1px solid rgba(34,211,165,0.15)',fontSize:11,color:'#22d3a5'}}>✓ email</div>}
@@ -893,7 +896,7 @@ export default function SmartOutreach() {
                   {hasEmail&&(
                     <div style={{borderTop:'1px solid rgba(255,255,255,0.06)',paddingTop:20}}>
                       <div style={{fontSize:15,fontWeight:700,color:'#fff',marginBottom:4}}>Email</div>
-                      <div style={{fontSize:12,color:'#4A4F6A',marginBottom:14}}>✓ {selected.email}</div>
+                      <div style={{fontSize:12,color:'#4A4F6A',marginBottom:14}}>✓ <span style={b}>{selected.email}</span></div>
 
                       {/* OPEN TRACKING BANNER */}
                       {seqIsActive&&currentSeq?.opened_at&&!seqIsDue&&(
