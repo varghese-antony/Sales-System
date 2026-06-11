@@ -219,6 +219,9 @@ export async function GET(request) {
   const day = new Date().getDay() // 0=Sun, 6=Sat
   const isWeekend = day === 0 || day === 6
 
+  // Log run start time so QA health check can verify it fired
+  await supabase.from('settings').upsert({ key: 'last_daily_run', value: new Date().toISOString(), updated_at: new Date().toISOString() })
+
   // Step 1: always send overdue follow-ups (7 days a week)
   const followups = await sendFollowups(supabase, appUrl, cronSecret)
 
