@@ -99,7 +99,7 @@ export async function POST(req) {
     // Update sequence
     const now = new Date()
     const isLastStep = nextStep === 3
-    const nextDue = isLastStep ? null : new Date(now.getTime() + 4 * 24 * 60 * 60 * 1000).toISOString()
+    const nextDue = isLastStep ? null : (() => { const d = new Date(now); d.setUTCDate(d.getUTCDate() + 4); d.setUTCHours(5, 0, 0, 0); return d.toISOString() })()
 
     await supabase.from('sequences').update({
       step: nextStep,

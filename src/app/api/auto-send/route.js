@@ -382,7 +382,7 @@ export async function POST(request) {
         angle_number: 2,
         step: 1,
         last_sent_at: now.toISOString(),
-        next_due_at: new Date(now.getTime() + 3 * 24 * 60 * 60 * 1000).toISOString(),
+        next_due_at: (() => { const d = new Date(now); d.setUTCDate(d.getUTCDate() + 3); d.setUTCHours(5, 0, 0, 0); return d.toISOString() })(),
         original_subject: subject,
         original_message_id: messageId,
         replied: false,
