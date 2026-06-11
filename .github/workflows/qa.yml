@@ -1,0 +1,125 @@
+name: QA Health Check
+
+# Runs:
+# 1. Every 6 hours around the clock (00:00, 06:00, 12:00, 18:00 UTC)
+# 2. After every push to main (catches broken deploys immediately)
+# 3. Can be triggered manually from GitHub Actions tab
+
+on:
+  schedule:
+    - cron: '0 0,6,12,18 * * *'
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+
+  # ── Job 1: Data health check ──────────────────────────────────────────────
+  data-health:
+    name: Data Health (QA API)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Run QA health check
+        id: health
+        run: |
+          RESPONSE=$(curl -s -o /tmp/health.json -w "%{http_code}" \
+            "https://sales-system-blendery.vercel.app/api/qa-health")
+          echo "status=$RESPONSE" >> $GITHUB_OUTPUT
+          cat /tmp/health.json
+
+      - name: Parse results
+        id: parse
+        run: |
+          HEALTHY=$(python3 -c "import json; d=json.load(open('/tmp/health.json')); print(d.get('healthy', False))")
+          FAILURES=$(python3 -c "import json; d=json.load(open('/tmp/health.json')); print(d.get('failures', 0))")
+          WARNINGS=$(python3 -c "import json; d=json.load(open('/tmp/health.json')); print(d.get('warnings', 0))")
+          HEALED=$(python3 -c "import json; d=json.load(open('/tmp/health.json')); print(d.get('healed', 0))")
+          echo "healthy=$HEALTHY" >> $GITHUB_OUTPUT
+          echo "failures=$FAILURES" >> $GITHUB_OUTPUT
+          echo "warnings=$WARNINGS" >> $GITHUB_OUTPUT
+          echo "healed=$HEALED" >> $GITHUB_OUTPUT
+
+      - name: Print full report
+        run: |
+          python3 -c "
+          import json
+          d = json.load(open('/tmp/health.json'))
+          print(f'Healthy: {d[\"healthy\"]}  |  Checks: {d[\"checks\"]}  |  Passed: {d[\"passed\"]}  |  Healed: {d[\"healed\"]}  |  Warnings: {d[\"warnings\"]}  |  Failures: {d[\"failures\"]}')
+          print()
+          for r in d.get('results', []):
+              icon = '✅' if r['status']=='ok' else '🔧' if r['status']=='healed' else '🟡' if r['status']=='warn' else '🔴'
+              print(f'  {icon}  {r[\"name\"].replace(\"_\",\" \").title():<26} {r[\"message\"]}')
+          "
+
+      - name: Fail if critical issues found
+        if: steps.health.outputs.status == '500'
+        run: |
+          echo "❌ Critical health check failures detected — see report above"
+          exit 1
+
+  # ── Job 2: Page availability check ───────────────────────────────────────
+  page-health:
+    name: Page Health (UI Check)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check all pages load correctly
+        id: pages
+        run: |
+          RESPONSE=$(curl -s -o /tmp/pages.json -w "%{http_code}" \
+            "https://sales-system-blendery.vercel.app/api/qa-pages")
+          echo "status=$RESPONSE" >> $GITHUB_OUTPUT
+          cat /tmp/pages.json
+
+      - name: Print page report
+        run: |
+          python3 -c "
+          import json
+          d = json.load(open('/tmp/pages.json'))
+          print(f'Pages: {d[\"pages\"]}  |  Passed: {d[\"passed\"]}  |  Warnings: {d[\"warnings\"]}  |  Failures: {d[\"failures\"]}')
+          print()
+          for r in d.get('results', []):
+              icon = '✅' if r['status']=='ok' else '🟡' if r['status']=='warn' else '🔴'
+              print(f'  {icon}  {r.get(\"page\",\"\"):<22} {r.get(\"reason\",\"\")}  ({r.get(\"ms\",0)}ms)')
+          "
+
+      - name: Fail if pages broken
+        if: steps.pages.outputs.status == '500'
+        run: |
+          echo "❌ One or more pages are broken — see report above"
+          exit 1
+
+  # ── Job 3: Post-deploy smoke test (only runs on push to main) ─────────────
+  smoke-test:
+    name: Post-Deploy Smoke Test
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push'
+    needs: [data-health, page-health]
+    steps:
+      - name: Wait for Vercel deploy to finish
+        run: sleep 30
+
+      - name: Verify app is up after deploy
+        run: |
+          for i in 1 2 3; do
+            STATUS=$(curl -s -o /dev/null -w "%{http_code}" "https://sales-system-blendery.vercel.app/dashboard")
+            echo "Attempt $i: HTTP $STATUS"
+            if [ "$STATUS" = "200" ]; then
+              echo "✅ App is up after deploy"
+              exit 0
+            fi
+            sleep 10
+          done
+          echo "❌ App did not come up after 3 attempts"
+          exit 1
+
+      - name: Verify key API routes responding
+        run: |
+          for ROUTE in "/api/qa-health" "/api/sequences"; do
+            STATUS=$(curl -s -o /dev/null -w "%{http_code}" "https://sales-system-blendery.vercel.app$ROUTE")
+            echo "  $ROUTE → HTTP $STATUS"
+            if [ "$STATUS" = "500" ]; then
+              echo "❌ $ROUTE is returning 500"
+              exit 1
+            fi
+          done
+          echo "✅ All API routes responding"

@@ -262,6 +262,159 @@ async function checkEmailPipeline(supabase) {
 }
 
 // ══════════════════════════════════════════════════════════════════════════════
+// CHECK 8 — Enrichment gaps (leads with website but no email for >3 days)
+// ══════════════════════════════════════════════════════════════════════════════
+async function checkEnrichmentGaps(supabase) {
+  const cutoff = new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString()
+  const { count } = await supabase
+    .from('leads')
+    .select('*', { count: 'exact', head: true })
+    .not('website', 'is', null)
+    .is('email', null)
+    .lt('created_at', cutoff)
+
+  if (!count || count === 0) return { name: 'enrichment_gaps', status: 'ok', message: 'All leads enriched' }
+
+  // Self-heal: trigger enrichment if not already running
+  const status = await getSetting(supabase, 'enrich_job_status')
+  let healed = false
+  if (status !== 'running') {
+    try {
+      const res = await fetch(`${APP_URL}/api/enrich-all-background`, { method: 'POST' })
+      const d = await res.json()
+      healed = d.success === true
+    } catch {}
+  }
+
+  return {
+    name: 'enrichment_gaps', status: healed ? 'healed' : 'warn',
+    message: `${count} leads with website but no email (>3 days old)`,
+    healed: healed ? `Auto-triggered enrichment for ${count} unenriched leads` : null,
+    fix: healed ? null : 'Enrichment may be failing to find emails',
+    claudeInstruction: healed ? null : `${count} leads have websites but no email address after 3+ days. Enrichment is not finding emails. Check the /api/enrich-batch route and Google/Hunter API keys.`,
+  }
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// CHECK 9 — Orphaned contacted leads (contacted status but no sequence)
+// ══════════════════════════════════════════════════════════════════════════════
+async function checkOrphanedLeads(supabase) {
+  // Get all contacted lead IDs
+  const { data: contacted } = await supabase
+    .from('leads')
+    .select('id, full_name, email')
+    .eq('status', 'contacted')
+    .not('email', 'is', null)
+
+  if (!contacted?.length) return { name: 'orphaned_leads', status: 'ok', message: 'No orphaned leads' }
+
+  // Get all lead IDs that have a sequence
+  const { data: seqs } = await supabase
+    .from('sequences')
+    .select('lead_id')
+
+  const seqLeadIds = new Set((seqs || []).map(s => s.lead_id))
+  const orphaned = contacted.filter(l => !seqLeadIds.has(l.id))
+
+  if (orphaned.length === 0) return { name: 'orphaned_leads', status: 'ok', message: `All ${contacted.length} contacted leads have sequences` }
+
+  return {
+    name: 'orphaned_leads', status: 'warn',
+    message: `${orphaned.length} leads marked contacted but have no follow-up sequence`,
+    claudeInstruction: `${orphaned.length} leads are marked as "contacted" but have no sequence record — they will never get a follow-up. These are: ${orphaned.slice(0,3).map(l=>l.email).join(', ')}${orphaned.length>3?'...':''}. Check if auto-send failed to create sequence records when sending initial emails.`,
+  }
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// CHECK 10 — Failed email rate (bounces in last 7 days)
+// ══════════════════════════════════════════════════════════════════════════════
+async function checkBounceRate(supabase) {
+  const since = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString()
+  const [{ count: sent }, { count: failed }] = await Promise.all([
+    supabase.from('outreach').select('*', { count: 'exact', head: true }).eq('status', 'sent').gte('created_at', since),
+    supabase.from('outreach').select('*', { count: 'exact', head: true }).eq('status', 'failed').gte('created_at', since),
+  ])
+
+  const total = (sent || 0) + (failed || 0)
+  if (total === 0) return { name: 'bounce_rate', status: 'ok', message: 'No emails logged in last 7 days' }
+
+  const rate = Math.round(((failed || 0) / total) * 100)
+  if (rate === 0) return { name: 'bounce_rate', status: 'ok', message: `0% failure rate (${sent} sent, 0 failed)` }
+  if (rate < 10) return { name: 'bounce_rate', status: 'ok', message: `${rate}% failure rate (${failed}/${total}) — acceptable` }
+  if (rate < 30) return {
+    name: 'bounce_rate', status: 'warn',
+    message: `${rate}% failure rate — ${failed} of ${total} emails failed`,
+    claudeInstruction: `Email failure rate is ${rate}% (${failed} failed out of ${total}). Check the outreach table for error messages and verify SMTP is working correctly.`,
+  }
+
+  return {
+    name: 'bounce_rate', status: 'fail',
+    message: `🚨 ${rate}% failure rate — ${failed} of ${total} emails failing`,
+    claudeInstruction: `Critical: ${rate}% of emails are failing to send (${failed}/${total}). SMTP may be rate-limited or credentials expired. Check Hostinger email sending limits and the SMTP route.`,
+  }
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// CHECK 11 — Sequence progression (are step 2s and 3s actually being sent?)
+// ══════════════════════════════════════════════════════════════════════════════
+async function checkSequenceProgression(supabase) {
+  const { data: allSeqs } = await supabase
+    .from('sequences')
+    .select('step, complete, replied, created_at')
+
+  if (!allSeqs?.length) return { name: 'sequence_progression', status: 'ok', message: 'No sequences yet' }
+
+  const old = allSeqs.filter(s => {
+    const age = (Date.now() - new Date(s.created_at).getTime()) / (1000 * 60 * 60 * 24)
+    return age > 10 && s.step === 1 && !s.complete && !s.replied
+  })
+
+  if (old.length > 5) {
+    return {
+      name: 'sequence_progression', status: 'warn',
+      message: `${old.length} sequences stuck at step 1 for >10 days`,
+      claudeInstruction: `${old.length} email sequences have been at step 1 for over 10 days without progressing. Follow-ups may not be sending. Check that next_due_at is being set correctly and that check-sequences/daily-runner is firing.`,
+    }
+  }
+
+  const step1 = allSeqs.filter(s => s.step === 1 && !s.complete).length
+  const step2 = allSeqs.filter(s => s.step === 2 && !s.complete).length
+  const step3 = allSeqs.filter(s => s.step === 3 && !s.complete).length
+  const done  = allSeqs.filter(s => s.complete || s.replied).length
+
+  return {
+    name: 'sequence_progression', status: 'ok',
+    message: `Step 1: ${step1} · Step 2: ${step2} · Step 3: ${step3} · Done: ${done}`,
+  }
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// CHECK 12 — Page health (are all app pages loading correctly?)
+// ══════════════════════════════════════════════════════════════════════════════
+async function checkPageHealth() {
+  try {
+    const res = await fetch(`${APP_URL}/api/qa-pages`, {
+      headers: { 'User-Agent': 'Blendery-QA/1.0' },
+    })
+    const data = await res.json()
+    const failures = data.failures || 0
+    const pages = data.pages || 0
+    const passed = data.passed || 0
+
+    if (failures === 0) return { name: 'page_health', status: 'ok', message: `All ${pages} pages loading correctly` }
+
+    const brokenNames = (data.results || []).filter(r => r.status === 'fail').map(r => r.page).join(', ')
+    return {
+      name: 'page_health', status: 'fail',
+      message: `${failures} page${failures > 1 ? 's' : ''} broken: ${brokenNames}`,
+      claudeInstruction: `The following pages are broken: ${brokenNames}. Run /api/qa-pages for full details and the exact fix instructions.`,
+    }
+  } catch {
+    return { name: 'page_health', status: 'warn', message: 'Could not run page checks' }
+  }
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
 // Alert email builder
 // ══════════════════════════════════════════════════════════════════════════════
 async function sendAlertEmail(issues, healed, allResults) {
@@ -368,14 +521,28 @@ export async function GET() {
   let results = [supabaseResult, smtpResult]
 
   if (supabaseOk) {
-    const [dailyRunner, sequences, enrichment, leadGrowth, emailPipeline] = await Promise.all([
+    const [
+      dailyRunner, sequences, enrichment, leadGrowth, emailPipeline,
+      enrichmentGaps, orphanedLeads, bounceRate, sequenceProgression, pageHealth,
+    ] = await Promise.all([
       checkDailyRunner(supabase),
       checkSequences(supabase),
       checkEnrichment(supabase),
       checkLeadGrowth(supabase),
       checkEmailPipeline(supabase),
+      checkEnrichmentGaps(supabase),
+      checkOrphanedLeads(supabase),
+      checkBounceRate(supabase),
+      checkSequenceProgression(supabase),
+      checkPageHealth(),
     ])
-    results = [supabaseResult, smtpResult, dailyRunner, sequences, enrichment, leadGrowth, emailPipeline]
+    results = [
+      supabaseResult, smtpResult,
+      dailyRunner, sequences, enrichment,
+      leadGrowth, emailPipeline,
+      enrichmentGaps, orphanedLeads, bounceRate,
+      sequenceProgression, pageHealth,
+    ]
   }
 
   const issues   = results.filter(r => r.status === 'fail' || r.status === 'warn')
