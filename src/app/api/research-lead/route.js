@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { scoreEmail, scorePersonalisation } from '@/lib/email-evaluator'
 import { refineEmail } from '@/lib/email-rewriter'
+import { PAIN_MAP, DEFAULT_PAIN } from '@/lib/pain-map'
 
 // Decode HTML entities so scraped text is clean plain text
 function decodeHtml(str) {
@@ -39,6 +40,10 @@ async function scrapeWebsite(domain) {
       const h2 = [...html.matchAll(/<h2[^>]*>([^<]{5,100})<\/h2>/gi)].map(m=>decodeHtml(m[1])).filter(Boolean).slice(0,6)
       const paras = [...html.matchAll(/<p[^>]*>([^<]{30,300})<\/p>/gi)].map(m=>decodeHtml(m[1].replace(/<[^>]+>/g,''))).filter(Boolean).slice(0,4)
       if (meta || h1.length || paras.length) results.push({ path, meta, h1, h2, paras })
+
+      // Early exit: if we got meta + h1 + h2 + paras from homepage, we have enough.
+      // No point hitting /about, /services etc. for the same domain — saves 4 HTTP calls.
+      if (path === '' && meta && h1.length >= 1 && h2.length >= 2 && paras.length >= 2) break
     } catch {}
   }
   return results
@@ -67,57 +72,7 @@ async function searchCompanySignals(companyName) {
   return [...new Set(signals)].slice(0, 4)
 }
 
-const PAIN_MAP = {
-  'Marketing Agency': {
-    pain: 'manual client reporting, proposal creation, and account managers rebuilding the same decks every month',
-    outcome: 'an agency like yours saving 12–18 hrs/week per account manager — without touching their existing tools',
-    shortPain: 'client reporting and proposal admin',
-    proofStat: '14 hours a week',
-    proofContext: 'an agency founder in the UK who was manually pulling data from 6 platforms for every client report',
-  },
-  'SaaS': {
-    pain: 'manual onboarding sequences, support triage done by hand, and churn signals nobody has time to act on',
-    outcome: 'SaaS teams cutting onboarding time by 60% without adding headcount',
-    shortPain: 'onboarding and support ops',
-    proofStat: '11 hours a week',
-    proofContext: 'a SaaS founder whose team was manually sending every onboarding email and chasing trial users one by one',
-  },
-  'Consulting': {
-    pain: 'proposals taking 3–5 hrs each, project tracking living in spreadsheets, and month-end billing eating a full day',
-    outcome: 'consultancies reclaiming 2 full days a month per consultant',
-    shortPain: 'proposal creation and project admin',
-    proofStat: '2 days a month',
-    proofContext: 'a consulting firm where every SOW was being built from scratch — same structure, different client, every time',
-  },
-  'E-commerce SaaS': {
-    pain: 'customer service volume outpacing the team, return backlogs, and order data living in three different places',
-    outcome: 'e-commerce ops teams handling 3x volume with the same headcount',
-    shortPain: 'customer ops and returns management',
-    proofStat: '3x support volume',
-    proofContext: 'an e-commerce team handling returns and refunds manually across email, Shopify, and a spreadsheet',
-  },
-  'HR Tech': {
-    pain: 'candidate screening done by hand, interview scheduling going back and forth for days, and status updates nobody sends',
-    outcome: 'HR teams cutting time-to-hire by 40%',
-    shortPain: 'screening and scheduling admin',
-    proofStat: '40% faster hiring',
-    proofContext: 'an HR team spending 3 hrs a day on scheduling emails that should have been automated from the start',
-  },
-  'Legal Tech SaaS': {
-    pain: 'document review bottlenecks, client intake still done manually, and billing reconciliation eating the last week of every month',
-    outcome: 'legal teams reclaiming 8+ hrs/week in admin without changing their practice management software',
-    shortPain: 'intake and billing admin',
-    proofStat: '8 hours a week',
-    proofContext: 'a legal tech firm whose client intake process involved 4 manual steps that could all be triggered automatically',
-  },
-  'PropTech SaaS': {
-    pain: 'tenant onboarding done manually, maintenance requests tracked in spreadsheets, and monthly reporting rebuilt from scratch',
-    outcome: 'property teams cutting manual admin by 50%',
-    shortPain: 'tenant ops and reporting',
-    proofStat: '50% less admin',
-    proofContext: 'a property team manually chasing tenants for documents that could have been collected automatically on day one',
-  },
-}
+// PAIN_MAP imported from @/lib/pain-map — single source of truth shared with linkedin-intelligence
 
 function detectCompanyStage(signals, aboutText, tagline) {
   const text = [signals.join(' '), aboutText, tagline].join(' ').toLowerCase()
@@ -257,13 +212,7 @@ export async function POST(req) {
   const tagline = homepage.h1?.[0] || homepage.meta || ''
   const aboutText = aboutPage.paras?.[0] || aboutPage.meta || ''
   const services = [...(homepage.h2||[]), ...(aboutPage.h2||[])].filter(h=>h.length>5).slice(0,4)
-  const industryData = PAIN_MAP[lead.industry] || {
-    pain: 'disconnected tools and manual processes',
-    outcome: 'founders reclaiming 10–15 hrs/week',
-    shortPain: 'manual ops work',
-    proofStat: '10+ hours a week',
-    proofContext: 'a founder whose team was doing manually what their tools could have handled automatically',
-  }
+  const industryData = PAIN_MAP[lead.industry] || DEFAULT_PAIN
   const mirrorPhrase = extractMirrorPhrase(siteData)
   const stage = detectCompanyStage(signals, aboutText, tagline)
   const first = lead.first_name || lead.full_name?.split(' ')[0] || 'there'
@@ -279,10 +228,9 @@ export async function POST(req) {
   const refined = refineEmail(raw.subject, raw.body, leadData, siteData, signals)
   const { subject, body, aiScore, personalisationScore, grade, problems, wordCount } = refined
 
-  // Save performance record
-  const supabaseClient = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY)
+  // Save performance record (reuse the same supabase client created above)
   try {
-    await supabaseClient.from('email_performance').insert({
+    await supabase.from('email_performance').insert({
       lead_id: lead.id,
       sequence_step: 1,
       subject,

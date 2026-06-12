@@ -150,35 +150,36 @@ function applyRewrites(subject, body, problems, leadData) {
 export function refineEmail(subject, body, leadData, siteData, signals, maxIterations = 3) {
   let currentSubject = subject
   let currentBody = body
-  let finalAiScore = 0
-  let finalPersonScore = 0
+  // Track last score result so we don't re-score after a passing iteration
+  let lastResult = null
 
   for (let i = 0; i < maxIterations; i++) {
-    const { score: aiScore, problems, grade } = scoreEmail(currentSubject, currentBody)
+    const scored = scoreEmail(currentSubject, currentBody)
     const personScore = scorePersonalisation(currentBody, leadData, siteData, signals)
+    lastResult = { ...scored, personScore }
 
-    finalAiScore = aiScore
-    finalPersonScore = personScore
-
-    if (aiScore >= 85 && personScore >= 60) break // passes — done
+    if (scored.score >= 85 && personScore >= 60) break // passes — no more rewrites needed
 
     // Apply rewrites based on what's failing
-    const rewritten = applyRewrites(currentSubject, currentBody, problems, leadData)
+    const rewritten = applyRewrites(currentSubject, currentBody, scored.problems, leadData)
     currentSubject = rewritten.subject
     currentBody = rewritten.body
-  }
 
-  // Final score after all rewrites
-  const { score: finalScore, problems: finalProblems, grade: finalGrade, wordCount } = scoreEmail(currentSubject, currentBody)
-  const finalPersonFinal = scorePersonalisation(currentBody, leadData, siteData, signals)
+    // On final iteration, score the rewritten result (we won't loop again)
+    if (i === maxIterations - 1) {
+      const finalScored = scoreEmail(currentSubject, currentBody)
+      const finalPerson = scorePersonalisation(currentBody, leadData, siteData, signals)
+      lastResult = { ...finalScored, personScore: finalPerson }
+    }
+  }
 
   return {
     subject: currentSubject,
     body: currentBody,
-    aiScore: finalScore,
-    personalisationScore: finalPersonFinal,
-    grade: finalGrade,
-    problems: finalProblems,
-    wordCount,
+    aiScore: lastResult.score,
+    personalisationScore: lastResult.personScore,
+    grade: lastResult.grade,
+    problems: lastResult.problems,
+    wordCount: lastResult.wordCount,
   }
 }

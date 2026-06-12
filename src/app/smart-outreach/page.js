@@ -269,7 +269,7 @@ export default function SmartOutreach() {
 
   useEffect(() => {
     Promise.all([
-      supabase.from('leads').select('*').order('score', { ascending: false }),
+      supabase.from('leads').select('id,full_name,first_name,last_name,company,email,website,title,industry,country,score,score_reason,status,notes,linkedin_url,linkedin_status,linkedin_requested_at,linkedin_dm_sent').order('score', { ascending: false }),
       fetch('/api/sequences').then(r=>r.json()),
     ]).then(([{ data }, seqData]) => {
       setLeads(data || [])

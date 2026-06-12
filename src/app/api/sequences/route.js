@@ -11,6 +11,7 @@ export async function GET() {
     .from('sequences')
     .select('*, leads(id, full_name, first_name, company, email, country, linkedin_url)')
     .order('created_at', { ascending: false })
+    .limit(200)
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
   return NextResponse.json({ success: true, sequences: data || [] })

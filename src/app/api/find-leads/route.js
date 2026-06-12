@@ -30,17 +30,6 @@ const TARGET_COMPANIES = [
   { domain: 'gorgias.com', name: 'Gorgias', country: 'United States', industry: 'SaaS', size: '10-50' },
 ]
 
-// Check if lead already exists by email OR by name+company
-async function isDuplicate(supabase, { email, full_name, company }) {
-  if (email) {
-    const { data } = await supabase.from('leads').select('id').eq('email', email).limit(1)
-    if (data?.length) return true
-  }
-  const { data } = await supabase.from('leads').select('id')
-    .ilike('full_name', full_name).ilike('company', company).limit(1)
-  return !!data?.length
-}
-
 export async function POST() {
   const supabase = createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL,
@@ -48,6 +37,21 @@ export async function POST() {
   )
   try {
     let saved = 0
+
+    // Fetch ALL existing leads upfront (1 query) instead of 2 queries per company (40 queries)
+    const { data: existingLeads } = await supabase
+      .from('leads').select('email, full_name, company').limit(2000)
+    const existingEmails = new Set((existingLeads || []).map(l => l.email?.toLowerCase()).filter(Boolean))
+    const existingNames = new Set((existingLeads || []).map(l =>
+      `${l.full_name?.toLowerCase()}||${l.company?.toLowerCase()}`
+    ).filter(Boolean))
+
+    const isDuplicate = ({ email, full_name, company }) => {
+      if (email && existingEmails.has(email.toLowerCase())) return true
+      if (full_name && company &&
+        existingNames.has(`${full_name.toLowerCase()}||${company.toLowerCase()}`)) return true
+      return false
+    }
 
     for (const company of TARGET_COMPANIES) {
       try {
@@ -66,7 +70,7 @@ export async function POST() {
           const full_name = `${senior.first_name || ''} ${senior.last_name || ''}`.trim() || company.name
           const companyName = hunterData.data?.organization || company.name
 
-          if (await isDuplicate(supabase, { email: senior.value, full_name, company: companyName })) continue
+          if (isDuplicate({ email: senior.value, full_name, company: companyName })) continue
 
           const score = scoreLead({ title: senior.position, industry: company.industry, country: company.country })
           const lead = {
@@ -90,7 +94,7 @@ export async function POST() {
           if (!error) saved++
         } else {
           const full_name = `${company.name} – Founder/CEO`
-          if (await isDuplicate(supabase, { full_name, company: company.name })) continue
+          if (isDuplicate({ full_name, company: company.name })) continue
 
           const score = scoreLead({ title: 'CEO', industry: company.industry, country: company.country })
           const lead = {

@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
+import { PAIN_MAP, DEFAULT_PAIN } from '@/lib/pain-map'
 
 // Keywords relevant to Varghese's consulting offer
 const RELEVANT_KEYWORDS = ['automation', 'operations', 'efficiency', 'process', 'scale', 'growth', 'AI', 'workflow', 'tools', 'systems']
@@ -95,16 +96,7 @@ Had a look at ${lead.company} and thought it was worth asking. Is that something
 Varghese`
 }
 
-const PAIN_POINTS = {
-  'Marketing Agency':  'manual reporting and client onboarding overhead',
-  'SaaS':             'manual customer onboarding and churn tracking',
-  'Consulting':        'proposal creation and project tracking',
-  'E-commerce SaaS':  'customer service volume and returns processing',
-  'Ecommerce':        'order management and inventory reconciliation',
-  'HR Tech':          'candidate screening and interview scheduling',
-  'Media/Marketing':  'content calendar management and client reporting',
-}
-const DEFAULT_PAIN = 'disconnected tools and manual processes'
+// PAIN_POINTS replaced by shared PAIN_MAP from @/lib/pain-map
 
 export async function POST(req) {
   const { lead } = await req.json()
@@ -115,14 +107,15 @@ export async function POST(req) {
     process.env.SUPABASE_SERVICE_ROLE_KEY
   )
 
-  const topPain = PAIN_POINTS[lead.industry] || DEFAULT_PAIN
+  const painData = PAIN_MAP[lead.industry] || DEFAULT_PAIN
+  const topPain = painData.shortPain || painData.pain
 
-  // 1. Search for posts (parallel)
-  const companyLinkedIn = lead.linkedin_url?.includes('/company/') ? lead.linkedin_url : null
-  const [linkedinPosts, googlePostLinks] = await Promise.all([
-    scrapeLinkedInPosts(companyLinkedIn),
+  // 1. Search for posts — LinkedIn blocks scraping (always returns []), so skip it.
+  //    Only run the Google search which actually yields results.
+  const [googlePostLinks] = await Promise.all([
     searchGoogleForPosts(lead.company, lead.industry),
   ])
+  const linkedinPosts = []
 
   // 2. Scrape company website for what they do
   let whatTheyDo = `${lead.company} is a ${lead.industry} company in ${lead.country}`

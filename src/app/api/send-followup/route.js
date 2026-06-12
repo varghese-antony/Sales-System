@@ -1,8 +1,8 @@
 import { NextResponse } from 'next/server'
 import nodemailer from 'nodemailer'
-import { ImapFlow } from 'imapflow'
 import { createClient } from '@supabase/supabase-js'
 import { logError } from '@/lib/log-error'
+import { saveToSentFolder } from '@/lib/imap'
 
 // Follow-ups must look hand-typed — plain text style, no logo, no fancy HTML
 function buildFollowupHtml(body) {
@@ -16,19 +16,6 @@ function buildFollowupHtml(body) {
       .join('')}
   </div>
 </body></html>`
-}
-
-async function saveToSentFolder(rawMessage) {
-  const client = new ImapFlow({
-    host: 'imap.hostinger.com', port: 993, secure: true,
-    auth: { user: process.env.SMTP_USER, pass: process.env.SMTP_PASS },
-    logger: false,
-  })
-  try {
-    await client.connect()
-    await client.append('Sent', rawMessage, ['\\Seen'])
-    await client.logout()
-  } catch {}
 }
 
 // Banks of follow-up variations — pick one randomly per send
