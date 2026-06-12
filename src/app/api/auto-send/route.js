@@ -2,20 +2,17 @@ import { NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import nodemailer from 'nodemailer'
 import { ImapFlow } from 'imapflow'
+import { getNextDueAt } from '@/lib/send-window'
 
 // ── WARM-UP SCHEDULE ─────────────────────────────────────────────────────────
-// Gradually increases daily send limit to build domain reputation
+// Gradually increases daily send limit to build domain reputation.
+// Cron fires once per day (13:00 UTC) so the daily limit IS the per-run limit.
 function getDailyLimit(startDateStr) {
   const start = new Date(startDateStr)
   const daysSince = Math.floor((Date.now() - start.getTime()) / (1000 * 60 * 60 * 24))
   if (daysSince < 14) return 20   // Week 1–2: careful warm-up
   if (daysSince < 28) return 40   // Week 3–4: building reputation
   return 60                        // Month 2+: safe cruising speed
-}
-
-// Each cron run fires 4x/day so we send limit/4 per run
-function getPerRunLimit(dailyLimit) {
-  return Math.ceil(dailyLimit / 4)
 }
 
 // ── EMAIL TEMPLATES (Angle 2 — Proof-first) ──────────────────────────────────
@@ -188,11 +185,17 @@ const LOGO = `<img src="https://sales-system-blendery.vercel.app/blendery-logo.p
 
 function buildHtml(bodyText, leadId) {
   const lines = bodyText.split('\n').map(l => l.trim() ? `<p style="margin:0 0 12px 0;color:#1a1a1a;font-size:14px;line-height:1.6;">${l}</p>` : '<br/>').join('')
-  const pixel = `<img src="${process.env.NEXT_PUBLIC_APP_URL}/api/track-open/${leadId}" width="1" height="1" style="display:none;" />`
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://sales-system-blendery.vercel.app'
+  const pixel = `<img src="${appUrl}/api/track-open/${leadId}" width="1" height="1" style="display:none;" />`
+  const unsubscribeUrl = `${appUrl}/api/unsubscribe/${leadId}`
   return `<div style="font-family:Arial,sans-serif;max-width:560px;">
     ${lines}
     <br/>
     ${LOGO}
+    <p style="margin:20px 0 0;font-family:Arial,sans-serif;font-size:11px;color:#aaa;line-height:1.6;">
+      Blendery Tech Solutions &middot; 26th Floor, Amber Gem Tower, UAE<br/>
+      <a href="${unsubscribeUrl}" style="color:#aaa;text-decoration:underline;">Unsubscribe</a> from future emails.
+    </p>
     ${pixel}
   </div>`
 }
@@ -279,19 +282,20 @@ export async function POST(request) {
 
   const startDate = settingsMap['auto_send_start_date'] || new Date().toISOString()
   const dailyLimit = getDailyLimit(startDate)
-  const perRunLimit = getPerRunLimit(dailyLimit)
 
   // ── Count emails sent today ─────────────────────────────────────────
+  // Count initial outreach emails sent since midnight UTC today.
+  // follow-up sequences are excluded (step > 1) — cap only governs new contacts.
   const todayStart = new Date()
-  todayStart.setHours(0, 0, 0, 0)
+  todayStart.setUTCHours(0, 0, 0, 0)
 
   const { count: sentToday } = await supabase
     .from('sequences')
     .select('*', { count: 'exact', head: true })
     .gte('created_at', todayStart.toISOString())
+    .eq('step', 1)
 
-  const remainingToday = dailyLimit - (sentToday || 0)
-  const toSendThisRun = Math.min(perRunLimit, remainingToday)
+  const toSendThisRun = Math.max(0, dailyLimit - (sentToday || 0))
 
   if (toSendThisRun <= 0) {
     return NextResponse.json({ success: true, skipped: true, reason: `Daily limit of ${dailyLimit} already reached`, sentToday })
@@ -382,7 +386,7 @@ export async function POST(request) {
         angle_number: 2,
         step: 1,
         last_sent_at: now.toISOString(),
-        next_due_at: (() => { const d = new Date(now); d.setUTCDate(d.getUTCDate() + 3); d.setUTCHours(5, 0, 0, 0); return d.toISOString() })(),
+        next_due_at: getNextDueAt(lead.country, 3),
         original_subject: subject,
         original_message_id: messageId,
         replied: false,
