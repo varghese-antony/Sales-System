@@ -45,6 +45,25 @@ export async function POST(req) {
   const { leadId, to, subject, body, variation = 2, country } = await req.json()
   if (!to || !subject || !body) return NextResponse.json({ success:false, error:'Missing fields' }, { status:400 })
 
+  // ── Idempotency guard — prevent duplicate sends from double-click ─────────────
+  // Check if an outreach email was already sent for this lead in the last 5 minutes.
+  // If yes, return success without sending again.
+  if (leadId) {
+    const supabaseCheck = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY)
+    const fiveMinAgo = new Date(Date.now() - 5 * 60 * 1000).toISOString()
+    const { data: recentSend } = await supabaseCheck
+      .from('outreach')
+      .select('id')
+      .eq('lead_id', leadId)
+      .eq('type', 'email')
+      .eq('status', 'sent')
+      .gte('created_at', fiveMinAgo)
+      .limit(1)
+    if (recentSend?.length > 0) {
+      return NextResponse.json({ success: true, deduplicated: true })
+    }
+  }
+
   const cleanBody = stripSignOff(body)
   const trackingUrl = `https://sales-system-blendery.vercel.app/api/track-open/${leadId}`
   const unsubscribeUrl = `https://sales-system-blendery.vercel.app/api/unsubscribe/${leadId}`
