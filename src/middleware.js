@@ -36,8 +36,9 @@ export function middleware(request) {
     return NextResponse.next()
   }
 
-  // Check protected routes
-  if (PROTECTED_ROUTES.some(p => pathname.startsWith(p))) {
+  // Check protected routes — use exact match OR trailing slash to avoid
+  // '/api/auto-send' accidentally matching '/api/auto-send-status'
+  if (PROTECTED_ROUTES.some(p => pathname === p || pathname.startsWith(p + '/'))) {
     const auth = request.headers.get('authorization') || ''
     const secret = process.env.CRON_SECRET
 

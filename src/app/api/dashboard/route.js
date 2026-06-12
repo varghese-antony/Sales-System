@@ -12,10 +12,10 @@ export async function GET() {
   )
 
   const [leadsResult, runsResult, sequencesResult, errorsResult] = await Promise.all([
-    supabase.from('leads').select('id, status, score, country, industry, created_at').order('score', { ascending: false }),
-    supabase.from('settings').select('key, value, updated_at').in('key', ['last_daily_run']),
+    supabase.from('leads').select('id, full_name, first_name, company, title, email, status, score, country, industry, created_at').order('score', { ascending: false }),
+    supabase.from('settings').select('key, value').in('key', ['last_daily_run']),
     supabase.from('sequences').select('id, complete, replied, step, created_at').order('created_at', { ascending: false }).limit(200),
-    supabase.from('system_errors').select('id, route, message, created_at').order('created_at', { ascending: false }).limit(20),
+    supabase.from('system_errors').select('id, source, type, message, occurred_at').order('occurred_at', { ascending: false }).limit(20),
   ])
 
   return NextResponse.json({
