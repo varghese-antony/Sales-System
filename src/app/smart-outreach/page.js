@@ -201,6 +201,9 @@ export default function SmartOutreach() {
   const [step, setStep]             = useState('research')
   const [loading, setLoading]       = useState(true)
   const [view, setView]             = useState('all')
+  const [search, setSearch]         = useState('')
+  const [activityData, setActivityData]     = useState(null)
+  const [activityLoading, setActivityLoading] = useState(false)
 
   // Research state
   const [research, setResearch]     = useState('')
@@ -246,6 +249,19 @@ export default function SmartOutreach() {
       if (data.success) { setReplies(data.messages || []); setRepliesLoaded(true) }
     } catch {}
     setRepliesLoading(false)
+  }
+
+  async function loadActivity(lead) {
+    setActivityLoading(true)
+    setActivityData(null)
+    try {
+      const [{ data: outreach }, { data: seqs }] = await Promise.all([
+        supabase.from('outreach').select('*').eq('lead_id', lead.id).order('created_at', { ascending: true }),
+        supabase.from('sequences').select('*').eq('lead_id', lead.id).order('created_at', { ascending: true }),
+      ])
+      setActivityData({ outreach: outreach || [], sequences: seqs || [] })
+    } catch {}
+    setActivityLoading(false)
   }
 
   useEffect(() => {
@@ -459,6 +475,27 @@ export default function SmartOutreach() {
       <div style={{width:270,flexShrink:0,background:'#060610',borderRight:'1px solid rgba(0,246,255,0.06)',display:'flex',flexDirection:'column'}}>
         <div style={{padding:'18px 16px 12px',borderBottom:'1px solid rgba(0,246,255,0.06)'}}>
           <div style={{fontSize:15,fontWeight:700,color:'#fff',marginBottom:10}}>Smart Outreach</div>
+          {/* Search bar */}
+          <div style={{position:'relative',marginBottom:10}}>
+            <span style={{position:'absolute',left:10,top:'50%',transform:'translateY(-50%)',fontSize:13,color:'#2a2d4a',pointerEvents:'none'}}>🔍</span>
+            <input
+              type="text"
+              placeholder="Search name, email or company…"
+              value={search}
+              onChange={e=>setSearch(e.target.value)}
+              style={{
+                width:'100%',padding:'7px 10px 7px 30px',borderRadius:8,
+                background:'rgba(255,255,255,0.03)',border:'1px solid rgba(255,255,255,0.07)',
+                color:'#e8ecf0',fontSize:12,outline:'none',boxSizing:'border-box',
+              }}
+            />
+            {search&&(
+              <button onClick={()=>setSearch('')} style={{
+                position:'absolute',right:8,top:'50%',transform:'translateY(-50%)',
+                background:'none',border:'none',color:'#4A4F6A',cursor:'pointer',fontSize:14,lineHeight:1,padding:0,
+              }}>✕</button>
+            )}
+          </div>
           {/* 4-way toggle */}
           <div style={{display:'flex',background:'rgba(255,255,255,0.03)',borderRadius:8,padding:3,gap:2}}>
             {[
@@ -501,7 +538,16 @@ export default function SmartOutreach() {
             ? <div style={{padding:'12px 8px',fontSize:12,color:'#4A4F6A'}}>
                 {view==='pending'?'Check pending → on the right':view==='replies'?'View replies → on the right':'View sequences → on the right'}
               </div>
-            : leads.filter(l => l.status!=='not_interested').map(lead => {
+            : leads.filter(l => {
+                if (l.status === 'not_interested') return false
+                if (!search) return true
+                const q = search.toLowerCase()
+                return (
+                  l.full_name?.toLowerCase().includes(q) ||
+                  l.email?.toLowerCase().includes(q) ||
+                  l.company?.toLowerCase().includes(q)
+                )
+              }).map(lead => {
                 const active = selected?.id===lead.id
                 const liSt = lead.linkedin_status||'none'
                 const dot = {none:'#2a2d4a',requested:'#fb923c',connected:'#22d3a5',dm_sent:'#00F6FF'}[liSt]||'#2a2d4a'
@@ -679,18 +725,19 @@ export default function SmartOutreach() {
             </div>
 
             {/* Tabs */}
-            <div style={{display:'flex',borderBottom:'1px solid rgba(255,255,255,0.05)',flexShrink:0}}>
+            <div style={{display:'flex',borderBottom:'1px solid rgba(255,255,255,0.05)',flexShrink:0,overflowX:'auto'}}>
               {[
-                {key:'research',label:'① Research'},
-                {key:'posts',   label:'② Posts'},
-                {key:'connect', label:'③ Connect'},
-                {key:'message', label:hasEmail?'④ Email + DM':'④ DM'},
+                {key:'research', label:'① Research'},
+                {key:'posts',    label:'② Posts'},
+                {key:'connect',  label:'③ Connect'},
+                {key:'message',  label:hasEmail?'④ Email + DM':'④ DM'},
+                {key:'activity', label:'⑤ Activity'},
               ].map(t=>(
-                <button key={t.key} onClick={()=>setStep(t.key)} style={{
-                  padding:'11px 22px',border:'none',cursor:'pointer',fontSize:12,fontWeight:step===t.key?600:400,
+                <button key={t.key} onClick={()=>{ setStep(t.key); if(t.key==='activity') loadActivity(selected) }} style={{
+                  padding:'11px 18px',border:'none',cursor:'pointer',fontSize:12,fontWeight:step===t.key?600:400,
                   background:'transparent',color:step===t.key?'#00F6FF':'#4A4F6A',
                   borderBottom:step===t.key?'2px solid #00F6FF':'2px solid transparent',
-                  marginBottom:-1,transition:'all 0.15s',whiteSpace:'nowrap',
+                  marginBottom:-1,transition:'all 0.15s',whiteSpace:'nowrap',flexShrink:0,
                 }}>{t.label}</button>
               ))}
             </div>
@@ -1050,6 +1097,132 @@ export default function SmartOutreach() {
                       )}
                     </div>
                   )}
+                </div>
+              )}
+
+              {/* ⑤ Activity */}
+              {step==='activity'&&(
+                <div>
+                  <div style={{marginBottom:20}}>
+                    <div style={{fontSize:15,fontWeight:700,color:'#fff',marginBottom:4}}>Activity Timeline</div>
+                    <div style={{fontSize:12,color:'#4A4F6A'}}>Every email, follow-up and LinkedIn event for <span style={b}>{selected.full_name}</span></div>
+                  </div>
+
+                  {activityLoading ? (
+                    <div style={{textAlign:'center',padding:'60px 0',color:'#4A4F6A'}}>
+                      <div style={{display:'inline-block',width:24,height:24,border:'3px solid #00F6FF',borderTopColor:'transparent',borderRadius:'50%',animation:'spin 0.7s linear infinite',marginBottom:12}}/>
+                      <div style={{fontSize:13}}>Loading activity…</div>
+                    </div>
+                  ) : !activityData ? null : (() => {
+                    const { outreach, sequences: seqs } = activityData
+                    const seq = seqs[0] || null
+
+                    // Build timeline events
+                    const events = []
+
+                    // LinkedIn events
+                    if (selected.linkedin_requested_at) {
+                      events.push({ date: selected.linkedin_requested_at, type: 'linkedin', icon: '🔗', label: 'LinkedIn connection request sent', color: '#4a9eff', bg: 'rgba(74,158,255,0.06)', border: 'rgba(74,158,255,0.15)' })
+                    }
+                    if (selected.linkedin_status === 'connected') {
+                      events.push({ date: selected.linkedin_requested_at, type: 'linkedin', icon: '✅', label: 'LinkedIn connection accepted', color: '#22d3a5', bg: 'rgba(34,211,165,0.06)', border: 'rgba(34,211,165,0.15)' })
+                    }
+
+                    // Outreach emails
+                    outreach.forEach(o => {
+                      const isFollowup = o.type === 'followup' || (o.subject||'').startsWith('Re:')
+                      events.push({
+                        date: o.created_at,
+                        type: 'email',
+                        icon: isFollowup ? '↩' : '✉',
+                        label: isFollowup ? `Follow-up email sent` : `Initial email sent`,
+                        sub: o.subject ? `Subject: ${o.subject}` : null,
+                        status: o.status,
+                        color: o.status==='sent' ? '#22d3a5' : '#f87171',
+                        bg: o.status==='sent' ? 'rgba(34,211,165,0.06)' : 'rgba(248,113,113,0.06)',
+                        border: o.status==='sent' ? 'rgba(34,211,165,0.15)' : 'rgba(248,113,113,0.15)',
+                      })
+                    })
+
+                    // Sort by date
+                    events.sort((a,b) => new Date(a.date) - new Date(b.date))
+
+                    const fmt = (d) => {
+                      if (!d) return '—'
+                      const dt = new Date(d)
+                      return dt.toLocaleDateString('en-GB', { day:'numeric', month:'short', year:'numeric' }) + ' · ' + dt.toLocaleTimeString('en-GB', { hour:'2-digit', minute:'2-digit' })
+                    }
+
+                    return (
+                      <div>
+                        {/* Sequence status card */}
+                        {seq && (
+                          <div style={{marginBottom:24,padding:'16px 20px',borderRadius:12,background:'rgba(0,246,255,0.04)',border:'1px solid rgba(0,246,255,0.1)'}}>
+                            <div style={{fontSize:11,fontWeight:700,color:'#00F6FF',textTransform:'uppercase',letterSpacing:'0.08em',marginBottom:10}}>Current Sequence Status</div>
+                            <div style={{display:'flex',gap:20,flexWrap:'wrap'}}>
+                              <div>
+                                <div style={{fontSize:11,color:'#4A4F6A',marginBottom:3}}>Step</div>
+                                <div style={{fontSize:15,fontWeight:700,color:'#fff'}}>{seq.step} / 3</div>
+                              </div>
+                              <div>
+                                <div style={{fontSize:11,color:'#4A4F6A',marginBottom:3}}>Status</div>
+                                <div style={{fontSize:13,fontWeight:600,color: seq.replied?'#22d3a5':seq.complete?'#4A4F6A':'#fbbf24'}}>
+                                  {seq.replied ? '💬 Replied' : seq.complete ? '⚫ Complete' : '🟡 Active'}
+                                </div>
+                              </div>
+                              {!seq.complete && !seq.replied && seq.next_due_at && (
+                                <div>
+                                  <div style={{fontSize:11,color:'#4A4F6A',marginBottom:3}}>Next follow-up due</div>
+                                  <div style={{fontSize:13,fontWeight:600,color: new Date(seq.next_due_at)<=new Date()?'#f87171':'#e8ecf0'}}>
+                                    {fmt(seq.next_due_at)}
+                                  </div>
+                                </div>
+                              )}
+                              {seq.last_sent_at && (
+                                <div>
+                                  <div style={{fontSize:11,color:'#4A4F6A',marginBottom:3}}>Last sent</div>
+                                  <div style={{fontSize:13,color:'#c8cad8'}}>{fmt(seq.last_sent_at)}</div>
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Timeline */}
+                        {events.length === 0 ? (
+                          <div style={{textAlign:'center',padding:'60px 0',color:'#4A4F6A'}}>
+                            <div style={{fontSize:36,marginBottom:12}}>📭</div>
+                            <div style={{fontSize:13}}>No activity yet for this lead</div>
+                          </div>
+                        ) : (
+                          <div style={{position:'relative'}}>
+                            {/* vertical line */}
+                            <div style={{position:'absolute',left:19,top:24,bottom:24,width:1,background:'rgba(255,255,255,0.06)'}}/>
+                            <div style={{display:'flex',flexDirection:'column',gap:12}}>
+                              {events.map((ev,i) => (
+                                <div key={i} style={{display:'flex',gap:16,alignItems:'flex-start'}}>
+                                  <div style={{
+                                    width:38,height:38,borderRadius:10,flexShrink:0,
+                                    background:ev.bg,border:`1px solid ${ev.border}`,
+                                    display:'flex',alignItems:'center',justifyContent:'center',
+                                    fontSize:16,position:'relative',zIndex:1,
+                                  }}>{ev.icon}</div>
+                                  <div style={{flex:1,paddingTop:8}}>
+                                    <div style={{fontSize:13,fontWeight:600,color:ev.color,marginBottom:2}}>{ev.label}</div>
+                                    {ev.sub && <div style={{fontSize:11,color:'#c8cad8',marginBottom:2,...b}}>{ev.sub}</div>}
+                                    <div style={{fontSize:11,color:'#4A4F6A'}}>{fmt(ev.date)}</div>
+                                    {ev.status && ev.status!=='sent' && (
+                                      <div style={{fontSize:11,color:'#f87171',marginTop:2}}>⚠ Status: {ev.status}</div>
+                                    )}
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    )
+                  })()}
                 </div>
               )}
 
