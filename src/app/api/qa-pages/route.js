@@ -65,17 +65,37 @@ function transport() {
   })
 }
 
+async function fetchWithRetry(url, options, retries = 2) {
+  for (let i = 0; i < retries; i++) {
+    try {
+      const controller = new AbortController()
+      const timeout = setTimeout(() => controller.abort(), 10000)
+      const res = await fetch(url, { ...options, signal: controller.signal })
+      clearTimeout(timeout)
+      return res
+    } catch (err) {
+      if (i === retries - 1) throw err
+      await new Promise(r => setTimeout(r, 3000)) // wait 3s before retry
+    }
+  }
+}
+
 async function checkPage(page) {
   const start = Date.now()
   try {
-    const controller = new AbortController()
-    const timeout = setTimeout(() => controller.abort(), 10000)
-
-    const res = await fetch(`${APP_URL}${page.path}`, {
-      signal: controller.signal,
-      headers: { 'User-Agent': 'Blendery-QA/1.0' },
-    })
-    clearTimeout(timeout)
+    // Retry once after 3s — filters out Vercel network blips (508, 502 etc)
+    let res
+    try {
+      res = await fetchWithRetry(`${APP_URL}${page.path}`, {
+        headers: { 'User-Agent': 'Blendery-QA/1.0' },
+      })
+    } catch (err) {
+      // First attempt failed — retry
+      await new Promise(r => setTimeout(r, 3000))
+      res = await fetchWithRetry(`${APP_URL}${page.path}`, {
+        headers: { 'User-Agent': 'Blendery-QA/1.0' },
+      })
+    }
 
     const ms = Date.now() - start
     const body = await res.text()
