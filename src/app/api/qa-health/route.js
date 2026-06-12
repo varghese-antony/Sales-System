@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import nodemailer from 'nodemailer'
+import { getNextDueAt } from '@/lib/send-window'
 
 // ─── QA Health Monitor ────────────────────────────────────────────────────────
 // Called every 5 minutes by UptimeRobot (free external monitor)
@@ -324,9 +325,8 @@ async function checkOrphanedLeads(supabase) {
 
   // Self-heal: create sequence records for orphaned leads so they get follow-ups
   const now = new Date()
-  const nextDue = new Date(now)
-  nextDue.setUTCDate(nextDue.getUTCDate() + 3)
-  nextDue.setUTCHours(5, 0, 0, 0)
+  // Use getNextDueAt so timing matches the 13:00 UTC cron standard
+  const nextDue = getNextDueAt(null, 3)
 
   let fixed = 0
   for (const lead of orphaned) {
@@ -336,7 +336,7 @@ async function checkOrphanedLeads(supabase) {
         angle_number: 2,
         step: 1,
         last_sent_at: now.toISOString(),
-        next_due_at: nextDue.toISOString(),
+        next_due_at: nextDue,
         original_subject: 'Follow up',
         original_message_id: null,
         replied: false,
@@ -499,8 +499,8 @@ async function checkReplyConsistency(supabase) {
 
 // ══════════════════════════════════════════════════════════════════════════════
 // CHECK 14 — next_due_at timing correctness
-// All pending sequences must fire at 05:00 UTC. Any other hour means the 06:00
-// cron will miss them. (Bug was send-email using now + 3 days without normalising.)
+// All pending sequences must be set to 12:00 UTC so the 13:00 UTC daily cron catches them.
+// Any other hour risks being missed. (Cron changed from 06:00 → 13:00 UTC; target 05:00 → 12:00.)
 // ══════════════════════════════════════════════════════════════════════════════
 async function checkSequenceTiming(supabase) {
   const { data: seqs } = await supabase
@@ -514,18 +514,18 @@ async function checkSequenceTiming(supabase) {
 
   const wrongTime = seqs.filter(s => {
     const h = new Date(s.next_due_at).getUTCHours()
-    return h !== 5
+    return h !== 12 // must be 12:00 UTC — 1h before the 13:00 UTC cron
   })
 
   if (wrongTime.length === 0) {
-    return { name: 'sequence_timing', status: 'ok', message: `All ${seqs.length} pending sequences correctly set to 05:00 UTC` }
+    return { name: 'sequence_timing', status: 'ok', message: `All ${seqs.length} pending sequences correctly set to 12:00 UTC` }
   }
 
-  // Self-heal: normalise them all to 05:00 UTC on the same date
+  // Self-heal: normalise them all to 12:00 UTC on the same date
   let fixed = 0
   for (const s of wrongTime) {
     const d = new Date(s.next_due_at)
-    d.setUTCHours(5, 0, 0, 0)
+    d.setUTCHours(12, 0, 0, 0)
     const { error } = await supabase.from('sequences').update({ next_due_at: d.toISOString() }).eq('id', s.id)
     if (!error) fixed++
   }
@@ -533,10 +533,10 @@ async function checkSequenceTiming(supabase) {
   return {
     name: 'sequence_timing',
     status: fixed === wrongTime.length ? 'healed' : 'warn',
-    message: `${wrongTime.length} sequences had wrong timing (not 05:00 UTC)`,
-    healed: fixed > 0 ? `Normalised ${fixed} sequence timestamps to 05:00 UTC` : null,
+    message: `${wrongTime.length} sequences had wrong timing (not 12:00 UTC)`,
+    healed: fixed > 0 ? `Normalised ${fixed} sequence timestamps to 12:00 UTC` : null,
     claudeInstruction: fixed < wrongTime.length
-      ? `${wrongTime.length - fixed} sequences could not be normalised. These will be missed by the 06:00 cron. Check sequences table and set next_due_at to 05:00 UTC manually.`
+      ? `${wrongTime.length - fixed} sequences could not be normalised. These will be missed by the 13:00 UTC cron. Check sequences table and set next_due_at to 12:00 UTC manually.`
       : null,
   }
 }
@@ -624,15 +624,13 @@ async function runSmokeTest(supabase) {
     steps.push({ step: 'insert_lead', pass: true })
 
     // Step 3: create a sequence for this lead (simulating what send-email does)
-    const nextDue = new Date()
-    nextDue.setUTCDate(nextDue.getUTCDate() + 3)
-    nextDue.setUTCHours(5, 0, 0, 0)
+    // Use getNextDueAt — same function as the real pipeline — so this verifies the real thing
     const { error: seqErr } = await supabase.from('sequences').insert({
       lead_id: SMOKE_LEAD_ID,
       angle_number: 2,
       step: 1,
       last_sent_at: new Date().toISOString(),
-      next_due_at: nextDue.toISOString(),
+      next_due_at: getNextDueAt(null, 3), // 12:00 UTC 3 days from now
       original_subject: 'Smoke test email',
       replied: false,
       complete: false,
@@ -640,11 +638,11 @@ async function runSmokeTest(supabase) {
     if (seqErr) { steps.push({ step: 'create_sequence', pass: false, error: seqErr.message }); throw new Error('seq insert failed') }
     steps.push({ step: 'create_sequence', pass: true })
 
-    // Step 4: verify timing is correct (05:00 UTC)
+    // Step 4: verify timing is correct (12:00 UTC — 1h before the 13:00 UTC cron)
     const { data: seq } = await supabase.from('sequences').select('next_due_at').eq('lead_id', SMOKE_LEAD_ID).single()
     const hour = seq?.next_due_at ? new Date(seq.next_due_at).getUTCHours() : -1
-    const timingOk = hour === 5
-    steps.push({ step: 'verify_timing_05utc', pass: timingOk, error: timingOk ? null : `next_due_at hour was ${hour}, expected 5` })
+    const timingOk = hour === 12
+    steps.push({ step: 'verify_timing_12utc', pass: timingOk, error: timingOk ? null : `next_due_at hour was ${hour}, expected 12` })
     if (!timingOk) throw new Error('timing wrong')
 
     // Step 5: simulate a reply being detected (what check-replies now does)
@@ -709,6 +707,133 @@ async function maybeRunSmokeTest(supabase) {
     return { name: 'smoke_test', status: 'ok', message: `Weekly smoke test last ran ${Math.round(daysSince * 24)}h ago — next run in ${Math.round((7 - daysSince) * 24)}h` }
   }
   return runSmokeTest(supabase)
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// CHECK 17 — Middleware auth protecting server routes
+// Verifies /api/auto-send returns 401 without a Bearer token.
+// If it returns 200, the middleware is broken and routes are fully exposed.
+// ══════════════════════════════════════════════════════════════════════════════
+async function checkMiddlewareAuth() {
+  try {
+    const res = await fetch(`${APP_URL}/api/auto-send`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      // Deliberately NO Authorization header
+      signal: AbortSignal.timeout(5000),
+    })
+    if (res.status === 401) {
+      return { name: 'middleware_auth', status: 'ok', message: 'Protected routes return 401 without token ✓' }
+    }
+    return {
+      name: 'middleware_auth', status: 'fail',
+      message: `Protected route /api/auto-send returned ${res.status} — middleware not working`,
+      claudeInstruction: `The middleware auth check failed. /api/auto-send returned HTTP ${res.status} without a Bearer token — it should return 401. Check src/middleware.js is deployed correctly and CRON_SECRET env var is set in Vercel.`,
+    }
+  } catch {
+    return { name: 'middleware_auth', status: 'warn', message: 'Could not reach app to verify middleware' }
+  }
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// CHECK 18 — Track-open pixel responds correctly
+// Verifies the 1x1 GIF pixel route returns image/gif with no-cache headers.
+// If broken, every email sent loses open-tracking silently.
+// ══════════════════════════════════════════════════════════════════════════════
+async function checkTrackOpenPixel() {
+  const testId = '00000000-0000-0000-0000-000000000099' // safe non-existent UUID
+  try {
+    const res = await fetch(`${APP_URL}/api/track-open/${testId}`, {
+      signal: AbortSignal.timeout(5000),
+    })
+    const ct = res.headers.get('content-type') || ''
+    const cc = res.headers.get('cache-control') || ''
+    if (res.status === 200 && ct.includes('image/gif') && cc.includes('no-store')) {
+      return { name: 'track_open_pixel', status: 'ok', message: 'Pixel route returns image/gif with no-cache headers ✓' }
+    }
+    return {
+      name: 'track_open_pixel', status: 'fail',
+      message: `Pixel route returned status=${res.status} content-type=${ct}`,
+      claudeInstruction: `The open-tracking pixel at /api/track-open/[leadId] is broken. It should return a 1x1 GIF with Content-Type: image/gif and Cache-Control: no-store. Got status ${res.status} and content-type "${ct}". Check src/app/api/track-open/[leadId]/route.js.`,
+    }
+  } catch (err) {
+    return {
+      name: 'track_open_pixel', status: 'fail',
+      message: `Pixel route unreachable: ${err.message}`,
+      claudeInstruction: `The open-tracking pixel route is unreachable: ${err.message}. This means email opens are not being tracked. Check /api/track-open/[leadId]/route.js for deployment errors.`,
+    }
+  }
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// CHECK 19 — Email performance table receiving data
+// Verifies email_performance has been written to (any record at all).
+// If empty after leads have been contacted, research-lead insert is broken.
+// ══════════════════════════════════════════════════════════════════════════════
+async function checkEmailPerformanceTable(supabase) {
+  try {
+    const { count, error } = await supabase
+      .from('email_performance')
+      .select('*', { count: 'exact', head: true })
+
+    if (error?.code === '42P01') {
+      return {
+        name: 'email_performance', status: 'warn',
+        message: 'email_performance table does not exist — run migration',
+        claudeInstruction: 'Run this SQL in Supabase: CREATE TABLE email_performance (id uuid DEFAULT gen_random_uuid() PRIMARY KEY, lead_id uuid REFERENCES leads(id), sequence_step int, subject text, body text, ai_score int, personalisation_score int, angle_number int, industry text, country text, opened boolean DEFAULT false, replied boolean DEFAULT false, sent_at timestamptz DEFAULT now());',
+      }
+    }
+    if (error) return { name: 'email_performance', status: 'warn', message: 'Could not query email_performance table' }
+
+    // Check if we have any contacted leads but no performance records — that's a data gap
+    const { count: contacted } = await supabase
+      .from('leads').select('*', { count: 'exact', head: true }).eq('status', 'contacted')
+
+    if ((contacted || 0) > 0 && count === 0) {
+      return {
+        name: 'email_performance', status: 'warn',
+        message: `${contacted} leads contacted but email_performance table is empty — performance tracking may be broken`,
+        claudeInstruction: 'email_performance table has 0 records but leads have been contacted. The insert in /api/research-lead or /api/send-email may be silently failing. Check those routes for table insert errors.',
+      }
+    }
+
+    return { name: 'email_performance', status: 'ok', message: `${count || 0} email performance records tracked` }
+  } catch {
+    return { name: 'email_performance', status: 'warn', message: 'Could not check email_performance table' }
+  }
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// CHECK 20 — Scrape cache populating correctly
+// Verifies at least one scrape_cache entry exists in settings, meaning
+// research-lead is successfully caching site data between regenerations.
+// ══════════════════════════════════════════════════════════════════════════════
+async function checkScrapeCache(supabase) {
+  try {
+    const { count } = await supabase
+      .from('settings')
+      .select('*', { count: 'exact', head: true })
+      .like('key', 'scrape_cache:%')
+
+    if (!count || count === 0) {
+      // Not necessarily broken — just no research done yet
+      const { count: contacted } = await supabase
+        .from('leads').select('*', { count: 'exact', head: true }).eq('status', 'contacted')
+
+      if ((contacted || 0) > 5) {
+        return {
+          name: 'scrape_cache', status: 'warn',
+          message: `${contacted} leads researched but no scrape cache entries — cache may not be writing`,
+          claudeInstruction: 'research-lead has run for >5 leads but no scrape_cache entries exist in settings table. The cache write (supabase.from("settings").upsert) in /api/research-lead may be failing silently. Check that the settings table exists and has no RLS blocking inserts.',
+        }
+      }
+      return { name: 'scrape_cache', status: 'ok', message: 'No cache entries yet — will populate on first research run' }
+    }
+
+    return { name: 'scrape_cache', status: 'ok', message: `${count} domain(s) cached in settings table` }
+  } catch {
+    return { name: 'scrape_cache', status: 'warn', message: 'Could not check scrape cache' }
+  }
 }
 
 // ══════════════════════════════════════════════════════════════════════════════
@@ -825,6 +950,8 @@ export async function GET() {
       replyConsistency, sequenceTiming, overdueSequences, systemErrors,
       // Layer 3 — weekly smoke test
       smokeTest,
+      // Layer 4 — new feature coverage
+      middlewareAuth, trackOpenPixel, emailPerformance, scrapeCache,
     ] = await Promise.all([
       checkDailyRunner(supabase),
       checkSequences(supabase),
@@ -843,6 +970,11 @@ export async function GET() {
       checkSystemErrors(supabase),
       // Layer 3
       maybeRunSmokeTest(supabase),
+      // Layer 4 — feature-level health
+      checkMiddlewareAuth(),
+      checkTrackOpenPixel(),
+      checkEmailPerformanceTable(supabase),
+      checkScrapeCache(supabase),
     ])
     results = [
       supabaseResult, smtpResult,
@@ -854,6 +986,8 @@ export async function GET() {
       replyConsistency, sequenceTiming, overdueSequences, systemErrors,
       // Layer 3
       smokeTest,
+      // Layer 4
+      middlewareAuth, trackOpenPixel, emailPerformance, scrapeCache,
     ]
   }
 
