@@ -268,20 +268,8 @@ export async function POST(req) {
   const refined = refineEmail(raw.subject, raw.body, leadData, siteData, signals)
   const { subject, body, aiScore, personalisationScore, grade, problems, wordCount } = refined
 
-  // Save performance record (reuse the same supabase client created above)
-  try {
-    await supabase.from('email_performance').insert({
-      lead_id: lead.id,
-      sequence_step: 1,
-      subject,
-      body,
-      ai_score: aiScore,
-      personalisation_score: personalisationScore,
-      angle_number: variation,
-      industry: lead.industry,
-      country: lead.country,
-    })
-  } catch {} // table may not exist yet — non-blocking
+  // NOTE: email_performance is written by send-email (not here) so only
+  // actually-sent emails are tracked. Research is just the draft stage.
 
   let research = `COMPANY: ${lead.company}\n`
   research += `STAGE: ${stage}\n`

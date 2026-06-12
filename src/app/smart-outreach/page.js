@@ -419,7 +419,7 @@ export default function SmartOutreach() {
     setEmailSending(true)
     const res = await fetch('/api/send-email', {
       method:'POST', headers:{'Content-Type':'application/json'},
-      body: JSON.stringify({ leadId:selected.id, to:selected.email, subject:resSubject, body:resBody, variation, country:selected.country }),
+      body: JSON.stringify({ leadId:selected.id, to:selected.email, subject:resSubject, body:resBody, variation, country:selected.country, aiScore: emailScore?.aiScore, personalisationScore: emailScore?.personalisationScore }),
     })
     const data = await res.json()
     if (data.success) {

@@ -42,7 +42,7 @@ function bodyToHtml(text) {
 }
 
 export async function POST(req) {
-  const { leadId, to, subject, body, variation = 2, country } = await req.json()
+  const { leadId, to, subject, body, variation = 2, country, aiScore, personalisationScore } = await req.json()
   if (!to || !subject || !body) return NextResponse.json({ success:false, error:'Missing fields' }, { status:400 })
 
   // ── Idempotency guard — prevent duplicate sends from double-click ─────────────
@@ -107,6 +107,20 @@ export async function POST(req) {
 
     const { error: outreachErr } = await supabase.from('outreach').insert({ lead_id:leadId, type:'email', subject, message:body, status:'sent' })
     if (outreachErr) await logError('send-email', 'outreach-insert-failed', outreachErr, { leadId })
+
+    // Write email_performance row at send time (not research time) so only
+    // actually-sent emails appear in performance data
+    if (leadId) {
+      supabase.from('email_performance').insert({
+        lead_id: leadId,
+        sequence_step: 1,
+        subject,
+        body,
+        ai_score: aiScore ?? null,
+        personalisation_score: personalisationScore ?? null,
+        angle_number: variation,
+      }).then(() => {}).catch(() => {})
+    }
 
     const { error: leadErr } = await supabase.from('leads').update({ status:'contacted' }).eq('id', leadId)
     if (leadErr) await logError('send-email', 'lead-status-update-failed', leadErr, { leadId })
