@@ -138,7 +138,7 @@ async function checkEnrichment(supabase) {
   const status = await getSetting(supabase, 'enrich_job_status')
   if (status !== 'running') return { name: 'enrichment', status: 'ok', message: `Enrichment status: ${status || 'idle'}` }
 
-  const updatedRaw = await getSetting(supabase, 'enrich_updated_at')
+  const updatedRaw = await getSetting(supabase, 'enrich_job_updated_at')
   if (!updatedRaw) return { name: 'enrichment', status: 'ok', message: 'Enrichment running' }
 
   const minsStale = (Date.now() - new Date(updatedRaw).getTime()) / (1000 * 60)

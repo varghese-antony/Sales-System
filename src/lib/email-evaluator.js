@@ -72,7 +72,8 @@ const AI_PHRASES = [
 export function scoreEmail(subject, body) {
   let score = 100
   const problems = []
-  const bodyLower = (body || '').toLowerCase()
+  const safeBody = body || ''
+  const bodyLower = safeBody.toLowerCase()
   const subjectLower = (subject || '').toLowerCase()
 
   // Check AI phrases
@@ -84,13 +85,13 @@ export function scoreEmail(subject, body) {
   }
 
   // Em dash in body = -20
-  if (body.includes('—')) {
+  if (safeBody.includes('—')) {
     score -= 20
     problems.push({ type: 'em_dash', text: 'Em dash (—) found — use comma or period instead', severity: 'high' })
   }
 
   // More than 2 "I" in one sentence = -10
-  const sentences = body.split(/[.!?]+/).filter(Boolean)
+  const sentences = safeBody.split(/[.!?]+/).filter(Boolean)
   for (const s of sentences) {
     const iCount = (s.match(/\bI\b/g) || []).length
     if (iCount > 2) {
@@ -101,7 +102,7 @@ export function scoreEmail(subject, body) {
   }
 
   // All paragraphs same length = -15 (too structured)
-  const paras = body.split(/\n\n+/).filter(p => p.trim().length > 0)
+  const paras = safeBody.split(/\n\n+/).filter(p => p.trim().length > 0)
   if (paras.length >= 3) {
     const lengths = paras.map(p => p.split(' ').length)
     const avg = lengths.reduce((a, b) => a + b, 0) / lengths.length
@@ -125,14 +126,14 @@ export function scoreEmail(subject, body) {
   }
 
   // Body over 180 words = -10
-  const wordCount = body.split(/\s+/).filter(Boolean).length
+  const wordCount = safeBody.split(/\s+/).filter(Boolean).length
   if (wordCount > 180) {
     score -= 10
     problems.push({ type: 'too_long', text: `Email is ${wordCount} words — aim for under 180`, severity: 'low' })
   }
 
   // Ends with formal sign-off = -15
-  if (/\n(best,?|kind regards,?|warm regards,?|regards,?)\s*\n/i.test(body)) {
+  if (/\n(best,?|kind regards,?|warm regards,?|regards,?)\s*\n/i.test(safeBody)) {
     score -= 15
     problems.push({ type: 'formal_signoff', text: 'Formal sign-off detected — end with just "Varghese"', severity: 'high' })
   }

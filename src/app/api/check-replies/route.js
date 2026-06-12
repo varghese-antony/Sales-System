@@ -130,13 +130,33 @@ export async function GET() {
       }
     }
 
+    // Auto-close sequences for anyone who replied
+    // Do this before returning so the UI sees the updated state immediately
+    const repliedLeadIds = Object.values(leadMap).map(l => l.id)
+    if (repliedLeadIds.length > 0) {
+      // Only close sequences that aren't already closed — avoid redundant writes
+      await supabase
+        .from('sequences')
+        .update({ replied: true, complete: true, reply_at: new Date().toISOString() })
+        .in('lead_id', repliedLeadIds)
+        .eq('replied', false)
+        .eq('complete', false)
+
+      // Also update lead status to 'interested' so it surfaces in the pipeline
+      await supabase
+        .from('leads')
+        .update({ status: 'interested' })
+        .in('id', repliedLeadIds)
+        .eq('status', 'contacted') // only move forward, never overwrite 'client' etc.
+    }
+
     // Attach lead info to messages
     const enriched = messages.map(m => ({
       ...m,
       lead: leadMap[m.from] || null,
     }))
 
-    return NextResponse.json({ success: true, messages: enriched })
+    return NextResponse.json({ success: true, messages: enriched, autoClosedSequences: repliedLeadIds.length })
 
   } catch (err) {
     try { await client.logout() } catch {}

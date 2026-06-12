@@ -97,7 +97,13 @@ export async function POST(req) {
 
     // Create or reset the outreach sequence for this lead
     const now = new Date()
-    const nextDue = new Date(now.getTime() + 3 * 24 * 60 * 60 * 1000).toISOString()
+    // Normalise to 05:00 UTC 3 days from now so the 06:00 UTC cron reliably catches it
+    const nextDue = (() => {
+      const d = new Date(now)
+      d.setUTCDate(d.getUTCDate() + 3)
+      d.setUTCHours(5, 0, 0, 0)
+      return d.toISOString()
+    })()
     // Remove any existing incomplete sequence first
     await supabase.from('sequences').delete()
       .eq('lead_id', leadId).eq('complete', false).eq('replied', false)
