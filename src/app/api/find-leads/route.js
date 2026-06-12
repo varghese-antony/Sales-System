@@ -1,34 +1,127 @@
 import { createClient } from '@supabase/supabase-js'
 import { NextResponse } from 'next/server'
 
-// Target companies - founder-led, 10-50 people, US/UK/Australia
-// These are realistic targets for Varghese's ops automation service
+// Target companies — founder-led, 10-50 people, US/UK/Australia/UAE
+// List is shuffled each run so each daily call tries a different subset.
+// Already-imported companies are skipped via isDuplicate check.
+// When all are imported, new ones should be added here quarterly.
 const TARGET_COMPANIES = [
-  // Marketing & Creative Agencies
-  { domain: 'brafton.com', name: 'Brafton', country: 'United States', industry: 'Marketing Agency', size: '51-100' },
-  { domain: 'ironpaper.com', name: 'Ironpaper', country: 'United States', industry: 'Marketing Agency', size: '10-50' },
-  { domain: 'directom.com', name: 'Directom', country: 'United States', industry: 'Marketing Agency', size: '10-50' },
-  { domain: 'growandconvert.com', name: 'Grow and Convert', country: 'United States', industry: 'Marketing Agency', size: '10-50' },
-  { domain: 'singlegrain.com', name: 'Single Grain', country: 'United States', industry: 'Marketing Agency', size: '10-50' },
-  { domain: 'webprofits.com.au', name: 'Web Profits', country: 'Australia', industry: 'Marketing Agency', size: '10-50' },
-  { domain: 'brightlocal.com', name: 'BrightLocal', country: 'United Kingdom', industry: 'Marketing Agency', size: '10-50' },
-  { domain: 'koozai.com', name: 'Koozai', country: 'United Kingdom', industry: 'Marketing Agency', size: '10-50' },
-  // SaaS & Tech
-  { domain: 'baremetrics.com', name: 'Baremetrics', country: 'United States', industry: 'SaaS', size: '10-50' },
-  { domain: 'close.com', name: 'Close', country: 'United States', industry: 'SaaS/CRM', size: '10-50' },
-  { domain: 'helpscout.com', name: 'Help Scout', country: 'United States', industry: 'SaaS', size: '10-50' },
-  { domain: 'groove.co', name: 'Groove', country: 'United States', industry: 'SaaS', size: '10-50' },
-  { domain: 'lemlist.com', name: 'Lemlist', country: 'United States', industry: 'SaaS', size: '10-50' },
-  { domain: 'hunter.io', name: 'Hunter', country: 'France', industry: 'SaaS', size: '10-50' },
-  // Consulting & Professional Services
-  { domain: 'processunity.com', name: 'ProcessUnity', country: 'United States', industry: 'Consulting', size: '10-50' },
-  { domain: 'smartkarrot.com', name: 'SmartKarrot', country: 'United States', industry: 'SaaS/Consulting', size: '10-50' },
-  { domain: 'operationsagency.com', name: 'Operations Agency', country: 'United Kingdom', industry: 'Consulting', size: '10-50' },
-  { domain: 'scaleops.io', name: 'ScaleOps', country: 'United States', industry: 'Consulting', size: '10-50' },
-  // E-commerce & DTC
-  { domain: 'recartapp.com', name: 'Recart', country: 'United States', industry: 'SaaS/Ecommerce', size: '10-50' },
-  { domain: 'gorgias.com', name: 'Gorgias', country: 'United States', industry: 'SaaS', size: '10-50' },
+  // ── Marketing & Creative Agencies ──
+  { domain: 'brafton.com',           name: 'Brafton',              country: 'United States', industry: 'Marketing Agency', size: '51-100' },
+  { domain: 'ironpaper.com',         name: 'Ironpaper',            country: 'United States', industry: 'Marketing Agency', size: '10-50' },
+  { domain: 'directom.com',          name: 'Directom',             country: 'United States', industry: 'Marketing Agency', size: '10-50' },
+  { domain: 'growandconvert.com',    name: 'Grow and Convert',     country: 'United States', industry: 'Marketing Agency', size: '10-50' },
+  { domain: 'singlegrain.com',       name: 'Single Grain',         country: 'United States', industry: 'Marketing Agency', size: '10-50' },
+  { domain: 'webprofits.com.au',     name: 'Web Profits',          country: 'Australia',     industry: 'Marketing Agency', size: '10-50' },
+  { domain: 'brightlocal.com',       name: 'BrightLocal',          country: 'United Kingdom', industry: 'Marketing Agency', size: '10-50' },
+  { domain: 'koozai.com',            name: 'Koozai',               country: 'United Kingdom', industry: 'Marketing Agency', size: '10-50' },
+  { domain: 'vericogroup.com',       name: 'Verico',               country: 'United Kingdom', industry: 'Marketing Agency', size: '10-50' },
+  { domain: 'articulate.co.uk',      name: 'Articulate Marketing', country: 'United Kingdom', industry: 'Marketing Agency', size: '10-50' },
+  { domain: 'polygon.com.au',        name: 'Polygon',              country: 'Australia',     industry: 'Marketing Agency', size: '10-50' },
+  { domain: 'soap.com.au',           name: 'Soap Creative',        country: 'Australia',     industry: 'Marketing Agency', size: '10-50' },
+  { domain: 'amplifieddigital.com.au', name: 'Amplified Digital',  country: 'Australia',     industry: 'Marketing Agency', size: '10-50' },
+  { domain: 'digitas.com',           name: 'Digitas',              country: 'United States', industry: 'Marketing Agency', size: '51-100' },
+  { domain: 'velocity.com',          name: 'Velocity',             country: 'United Kingdom', industry: 'Marketing Agency', size: '10-50' },
+  { domain: 'contentbridge.io',      name: 'Content Bridge',       country: 'United States', industry: 'Marketing Agency', size: '10-50' },
+  { domain: 'ahrefs.com',            name: 'Ahrefs',               country: 'United States', industry: 'SaaS',            size: '51-100' },
+  // ── SaaS & Tech ──
+  { domain: 'baremetrics.com',       name: 'Baremetrics',          country: 'United States', industry: 'SaaS',            size: '10-50' },
+  { domain: 'close.com',             name: 'Close CRM',            country: 'United States', industry: 'SaaS',            size: '10-50' },
+  { domain: 'helpscout.com',         name: 'Help Scout',           country: 'United States', industry: 'SaaS',            size: '10-50' },
+  { domain: 'groove.co',             name: 'Groove',               country: 'United States', industry: 'SaaS',            size: '10-50' },
+  { domain: 'lemlist.com',           name: 'Lemlist',              country: 'United States', industry: 'SaaS',            size: '10-50' },
+  { domain: 'hunter.io',             name: 'Hunter',               country: 'France',        industry: 'SaaS',            size: '10-50' },
+  { domain: 'reply.io',              name: 'Reply.io',             country: 'United States', industry: 'SaaS',            size: '10-50' },
+  { domain: 'instantly.ai',          name: 'Instantly',            country: 'United States', industry: 'SaaS',            size: '10-50' },
+  { domain: 'apollo.io',             name: 'Apollo',               country: 'United States', industry: 'SaaS',            size: '51-100' },
+  { domain: 'woodpecker.co',         name: 'Woodpecker',           country: 'United States', industry: 'SaaS',            size: '10-50' },
+  { domain: 'chargebee.com',         name: 'Chargebee',            country: 'United States', industry: 'SaaS',            size: '51-100' },
+  { domain: 'churnzero.com',         name: 'ChurnZero',            country: 'United States', industry: 'SaaS',            size: '51-100' },
+  { domain: 'gainsight.com',         name: 'Gainsight',            country: 'United States', industry: 'SaaS',            size: '51-100' },
+  { domain: 'proposify.com',         name: 'Proposify',            country: 'United States', industry: 'SaaS',            size: '10-50' },
+  { domain: 'pandadoc.com',          name: 'PandaDoc',             country: 'United States', industry: 'SaaS',            size: '51-100' },
+  { domain: 'getaccept.com',         name: 'GetAccept',            country: 'United States', industry: 'SaaS',            size: '10-50' },
+  { domain: 'juro.com',              name: 'Juro',                 country: 'United Kingdom', industry: 'Legal Tech SaaS', size: '10-50' },
+  { domain: 'legl.com',              name: 'Legl',                 country: 'United Kingdom', industry: 'Legal Tech SaaS', size: '10-50' },
+  { domain: 'clio.com',              name: 'Clio',                 country: 'United States', industry: 'Legal Tech SaaS', size: '51-100' },
+  { domain: 'hubdoc.com',            name: 'Hubdoc',               country: 'Canada',        industry: 'FinTech',         size: '10-50' },
+  { domain: 'fathom.finance',        name: 'Fathom',               country: 'Australia',     industry: 'FinTech',         size: '10-50' },
+  { domain: 'float.com',             name: 'Float',                country: 'United Kingdom', industry: 'FinTech',        size: '10-50' },
+  { domain: 'pleo.io',               name: 'Pleo',                 country: 'United Kingdom', industry: 'FinTech',        size: '51-100' },
+  { domain: 'spendesk.com',          name: 'Spendesk',             country: 'France',        industry: 'FinTech',         size: '51-100' },
+  { domain: 'unleashed.com',         name: 'Unleashed Software',   country: 'Australia',     industry: 'SaaS',            size: '10-50' },
+  { domain: 'tanda.co',              name: 'Tanda',                country: 'Australia',     industry: 'HR Tech',         size: '10-50' },
+  { domain: 'deputy.com',            name: 'Deputy',               country: 'Australia',     industry: 'HR Tech',         size: '51-100' },
+  { domain: 'workforce.com',         name: 'Workforce.com',        country: 'Australia',     industry: 'HR Tech',         size: '10-50' },
+  { domain: 'zelt.app',              name: 'Zelt',                 country: 'United Kingdom', industry: 'HR Tech',        size: '10-50' },
+  { domain: 'charlie.hr',            name: 'Charlie HR',           country: 'United Kingdom', industry: 'HR Tech',        size: '10-50' },
+  { domain: 'humi.ca',               name: 'Humi',                 country: 'Canada',        industry: 'HR Tech',         size: '10-50' },
+  { domain: 'planday.com',           name: 'Planday',              country: 'United Kingdom', industry: 'HR Tech',        size: '10-50' },
+  { domain: 'homerun.co',            name: 'Homerun',              country: 'Netherlands',   industry: 'HR Tech',         size: '10-50' },
+  // ── Consulting & Professional Services ──
+  { domain: 'processunity.com',      name: 'ProcessUnity',         country: 'United States', industry: 'Consulting',      size: '10-50' },
+  { domain: 'smartkarrot.com',       name: 'SmartKarrot',          country: 'United States', industry: 'Consulting',      size: '10-50' },
+  { domain: 'operationsagency.com',  name: 'Operations Agency',    country: 'United Kingdom', industry: 'Consulting',     size: '10-50' },
+  { domain: 'scaleops.io',           name: 'ScaleOps',             country: 'United States', industry: 'Consulting',      size: '10-50' },
+  { domain: 'cobloom.com',           name: 'Cobloom',              country: 'United Kingdom', industry: 'Consulting',     size: '10-50' },
+  { domain: 'brighthr.com',          name: 'BrightHR',             country: 'United Kingdom', industry: 'Consulting',     size: '51-100' },
+  { domain: 'systemsltd.com',        name: 'Systems Ltd',          country: 'UAE',           industry: 'Consulting',      size: '51-100' },
+  { domain: 'innovaccer.com',        name: 'Innovaccer',           country: 'United States', industry: 'Consulting',      size: '51-100' },
+  { domain: 'sixpivot.com.au',       name: 'Six Pivot',            country: 'Australia',     industry: 'Consulting',      size: '10-50' },
+  { domain: 'readify.net',           name: 'Readify',              country: 'Australia',     industry: 'Consulting',      size: '51-100' },
+  { domain: 'smsltd.co.uk',          name: 'SMS Ltd',              country: 'United Kingdom', industry: 'Consulting',     size: '10-50' },
+  { domain: 'digitalbridge.com',     name: 'Digital Bridge',       country: 'United Kingdom', industry: 'Consulting',     size: '10-50' },
+  // ── E-commerce & Retail Tech ──
+  { domain: 'recartapp.com',         name: 'Recart',               country: 'United States', industry: 'E-commerce',      size: '10-50' },
+  { domain: 'gorgias.com',           name: 'Gorgias',              country: 'United States', industry: 'E-commerce',      size: '10-50' },
+  { domain: 'klaviyo.com',           name: 'Klaviyo',              country: 'United States', industry: 'E-commerce',      size: '51-100' },
+  { domain: 'okendo.io',             name: 'Okendo',               country: 'Australia',     industry: 'E-commerce',      size: '10-50' },
+  { domain: 'brightpearl.com',       name: 'Brightpearl',          country: 'United Kingdom', industry: 'E-commerce',     size: '10-50' },
+  { domain: 'linnworks.com',         name: 'Linnworks',            country: 'United Kingdom', industry: 'E-commerce',     size: '10-50' },
+  { domain: 'veeqo.com',             name: 'Veeqo',                country: 'United Kingdom', industry: 'E-commerce',     size: '10-50' },
+  { domain: 'mintsoft.com',          name: 'Mintsoft',             country: 'United Kingdom', industry: 'E-commerce',     size: '10-50' },
+  { domain: 'skubana.com',           name: 'Skubana',              country: 'United States', industry: 'E-commerce',      size: '10-50' },
+  { domain: 'tradegecko.com',        name: 'TradeGecko',           country: 'Australia',     industry: 'E-commerce',      size: '10-50' },
+  // ── Recruitment & Staffing ──
+  { domain: 'vincere.io',            name: 'Vincere',              country: 'United Kingdom', industry: 'Recruitment',    size: '10-50' },
+  { domain: 'workable.com',          name: 'Workable',             country: 'United States', industry: 'Recruitment',     size: '51-100' },
+  { domain: 'teamtailor.com',        name: 'Teamtailor',           country: 'United Kingdom', industry: 'Recruitment',    size: '10-50' },
+  { domain: 'broadbean.com',         name: 'Broadbean',            country: 'United Kingdom', industry: 'Recruitment',    size: '10-50' },
+  { domain: 'jobadder.com',          name: 'JobAdder',             country: 'Australia',     industry: 'Recruitment',     size: '10-50' },
+  { domain: 'fasttrack.tech',        name: 'FastTrack',            country: 'Australia',     industry: 'Recruitment',     size: '10-50' },
+  { domain: 'talent.com',            name: 'Talent.com',           country: 'Canada',        industry: 'Recruitment',     size: '51-100' },
+  { domain: 'hirequest.com',         name: 'HireQuest',            country: 'United States', industry: 'Recruitment',     size: '51-100' },
+  // ── PropTech ──
+  { domain: 'landinsight.io',        name: 'LandInsight',          country: 'United Kingdom', industry: 'PropTech SaaS',  size: '10-50' },
+  { domain: 'residently.com',        name: 'Residently',           country: 'United Kingdom', industry: 'PropTech SaaS',  size: '10-50' },
+  { domain: 'reapit.com',            name: 'Reapit',               country: 'United Kingdom', industry: 'PropTech SaaS',  size: '51-100' },
+  { domain: 'inspection.express',    name: 'Inspection Express',   country: 'Australia',     industry: 'PropTech SaaS',   size: '10-50' },
+  { domain: 'agentbox.com.au',       name: 'Agentbox',             country: 'Australia',     industry: 'PropTech SaaS',   size: '10-50' },
+  { domain: 'domustech.ae',          name: 'Domus Tech',           country: 'UAE',           industry: 'PropTech SaaS',   size: '10-50' },
+  // ── UAE / GCC ──
+  { domain: 'bayt.com',              name: 'Bayt.com',             country: 'UAE',           industry: 'Recruitment',     size: '51-100' },
+  { domain: 'dubizzle.com',          name: 'Dubizzle',             country: 'UAE',           industry: 'E-commerce',      size: '51-100' },
+  { domain: 'fetchr.us',             name: 'Fetchr',               country: 'UAE',           industry: 'SaaS',            size: '51-100' },
+  { domain: 'mamo.ae',               name: 'Mamo Pay',             country: 'UAE',           industry: 'FinTech',         size: '10-50' },
+  { domain: 'lean.finance',          name: 'Lean Technologies',    country: 'UAE',           industry: 'FinTech',         size: '10-50' },
+  { domain: 'ziina.com',             name: 'Ziina',                country: 'UAE',           industry: 'FinTech',         size: '10-50' },
+  { domain: 'nowpay.cash',           name: 'NowPay',               country: 'UAE',           industry: 'FinTech',         size: '10-50' },
+  { domain: 'wio.io',                name: 'Wio Bank',             country: 'UAE',           industry: 'FinTech',         size: '10-50' },
+  { domain: 'tarabut.com',           name: 'Tarabut Gateway',      country: 'UAE',           industry: 'FinTech',         size: '10-50' },
+  { domain: 'meydan.ae',             name: 'Meydan Technology',    country: 'UAE',           industry: 'Consulting',      size: '10-50' },
 ]
+
+// Shuffle array in place (Fisher-Yates)
+function shuffle(arr) {
+  for (let i = arr.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [arr[i], arr[j]] = [arr[j], arr[i]]
+  }
+  return arr
+}
+
+// Max companies to process per run — keeps execution within Vercel time limits
+const MAX_PER_RUN = 25
 
 export async function POST() {
   const supabase = createClient(
@@ -53,7 +146,11 @@ export async function POST() {
       return false
     }
 
-    for (const company of TARGET_COMPANIES) {
+    // Shuffle so each daily run tries a different subset of the list.
+    // Companies already in DB get skipped by isDuplicate — over many runs all are covered.
+    const shuffled = shuffle([...TARGET_COMPANIES]).slice(0, MAX_PER_RUN)
+
+    for (const company of shuffled) {
       try {
         const hunterRes = await fetch(
           `https://api.hunter.io/v2/domain-search?domain=${company.domain}&api_key=${process.env.HUNTER_API_KEY}&limit=3&type=personal`,
