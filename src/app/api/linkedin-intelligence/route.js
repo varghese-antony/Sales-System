@@ -156,13 +156,27 @@ export async function POST(req) {
 
 export async function PATCH(req) {
   // Update linkedin status
-  const { leadId, status } = await req.json()
+  // Valid statuses: 'pending' | 'requested' | 'connected' | 'dm_sent' | 'replied' | 'not_found'
+  const { leadId, status, note } = await req.json()
+  const VALID = ['pending', 'requested', 'connected', 'dm_sent', 'replied', 'not_found']
+  if (!leadId || !VALID.includes(status)) {
+    return NextResponse.json({ success: false, error: 'Invalid leadId or status' }, { status: 400 })
+  }
+
   const supabase = createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL,
     process.env.SUPABASE_SERVICE_ROLE_KEY
   )
+
   const updateData = { linkedin_status: status }
-  if (status === 'requested') updateData.linkedin_requested_at = new Date().toISOString()
+  const now = new Date().toISOString()
+
+  if (status === 'requested') updateData.linkedin_requested_at = now
+  if (status === 'dm_sent') updateData.linkedin_dm_sent_at = now
+  if (status === 'replied') updateData.linkedin_replied_at = now
+  // Optionally store a short note (e.g. what DM was sent)
+  if (note) updateData.linkedin_note = note
+
   const { error } = await supabase.from('leads').update(updateData).eq('id', leadId)
   return NextResponse.json({ success: !error, error: error?.message })
 }

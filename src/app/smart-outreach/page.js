@@ -372,9 +372,19 @@ export default function SmartOutreach() {
 
   async function saveDM() {
     if (!selected || !dmMsg) return
-    await supabase.from('outreach').insert({ lead_id:selected.id, type:'linkedin_dm', subject:'LinkedIn DM', message:dmMsg, status:'draft' })
-    await supabase.from('leads').update({ linkedin_dm_sent:true, status:'contacted' }).eq('id', selected.id)
-    const updated = {...selected, linkedin_dm_sent:true, status:'contacted'}
+    // Record in outreach table (for history)
+    await supabase.from('outreach').insert({ lead_id:selected.id, type:'linkedin_dm', subject:'LinkedIn DM', message:dmMsg, status:'sent' })
+    // Mark linkedin_status = 'dm_sent' via API (tracks dm_sent_at timestamp)
+    await fetch('/api/linkedin-intelligence', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ leadId: selected.id, status: 'dm_sent', note: dmMsg.slice(0, 200) }),
+    })
+    // Also update lead status to contacted if not already further along
+    if (!['interested', 'proposal', 'client'].includes(selected.status)) {
+      await supabase.from('leads').update({ status: 'contacted' }).eq('id', selected.id)
+    }
+    const updated = {...selected, linkedin_status:'dm_sent', linkedin_dm_sent_at: new Date().toISOString(), status: selected.status === 'new' ? 'contacted' : selected.status}
     setSelected(updated); setLeads(leads.map(l => l.id===selected.id ? updated : l))
     setDmSaved(true); setTimeout(()=>setDmSaved(false), 3000)
   }
