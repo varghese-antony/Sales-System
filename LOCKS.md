@@ -10,7 +10,8 @@ Both the Tech Head session and Marketing Head session must follow these rules.
 
 | File | Session | Started |
 |------|---------|---------|
-| *(none)* | | |
+| src/app/api/auto-send/route.js | Tech Head | 2026-06-12 |
+| src/app/api/send-followup/route.js | Tech Head | 2026-06-12 |
 
 ---
 

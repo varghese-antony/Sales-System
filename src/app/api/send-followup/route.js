@@ -71,6 +71,26 @@ export async function POST(req) {
   const nextStep = seq.step + 1
   if (nextStep > 3) return NextResponse.json({ success: false, error: 'No more follow-ups in sequence' }, { status: 400 })
 
+  // ── Idempotency guard ──────────────────────────────────────────────────────
+  // If the sequence was already updated to this step within the last 6 hours,
+  // it means the email was sent but the step-update succeeded. Do not resend.
+  // This also covers: SMTP sent OK → sequence update failed → cron retries next day.
+  // We check the outreach table for a recent send for this lead to catch that case.
+  const sixHoursAgo = new Date(Date.now() - 6 * 60 * 60 * 1000).toISOString()
+  if (seq.last_sent_at && seq.last_sent_at >= sixHoursAgo) {
+    return NextResponse.json({ success: false, error: `Step ${seq.step} was already sent within the last 6 hours` }, { status: 409 })
+  }
+  // Also check outreach table in case step update failed but outreach row was written
+  const { data: recentOutreach } = await supabase
+    .from('outreach')
+    .select('id')
+    .eq('lead_id', leadId)
+    .gte('created_at', sixHoursAgo)
+    .limit(1)
+  if (recentOutreach && recentOutreach.length > 0) {
+    return NextResponse.json({ success: false, error: 'A follow-up to this lead was already sent within the last 6 hours' }, { status: 409 })
+  }
+
   const templateFn = FOLLOWUP_TEMPLATES[nextStep]
   if (!templateFn) return NextResponse.json({ success: false, error: 'Invalid step' }, { status: 400 })
 

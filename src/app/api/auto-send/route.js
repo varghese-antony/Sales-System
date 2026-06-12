@@ -358,7 +358,27 @@ export async function POST(request) {
   let failed = 0
   const results = []
 
+  // Pre-load recent outreach sends to guard against race condition:
+  // if manual trigger + cron fire at the same time, both could pick the same
+  // leads before either has written to the sequences table. Checking outreach
+  // here gives a second layer of protection — if an email was sent in the
+  // last 24h for this lead, we skip it.
+  const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString()
+  const { data: recentOutreach } = await supabase
+    .from('outreach')
+    .select('lead_id')
+    .gte('created_at', twentyFourHoursAgo)
+    .eq('status', 'sent')
+
+  const recentlySentIds = new Set((recentOutreach || []).map(o => o.lead_id))
+
   for (const lead of batch) {
+    // Skip if we already sent to this lead in the last 24h (race condition guard)
+    if (recentlySentIds.has(lead.id)) {
+      results.push({ company: lead.company, email: lead.email, status: 'skipped', reason: 'already sent in last 24h' })
+      continue
+    }
+
     try {
       const first = lead.first_name || lead.full_name?.split(' ')[0] || 'there'
       const co = lead.company || 'your company'
