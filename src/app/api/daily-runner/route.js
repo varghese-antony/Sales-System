@@ -105,13 +105,27 @@ async function sendFollowups(supabase, appUrl, cronSecret) {
 }
 
 // ── Step 2: send new outreach emails ─────────────────────────────────────────
-async function sendNewEmails(appUrl) {
-  const res = await fetch(`${appUrl}/api/auto-send`, { method: 'POST' })
-  const data = await res.json()
-  return {
-    sent: data.sent || 0,
-    failed: data.failed || 0,
-    results: data.results || [],
+// NOTE: /api/auto-send is a PROTECTED route (middleware requires Bearer CRON_SECRET).
+// Must pass cronSecret in the Authorization header — without it the call gets 401
+// and new outreach emails silently never send.
+async function sendNewEmails(appUrl, cronSecret) {
+  try {
+    const res = await fetch(`${appUrl}/api/auto-send`, {
+      method: 'POST',
+      headers: { 'Authorization': `Bearer ${cronSecret}` },
+      signal: AbortSignal.timeout(55000), // auto-send can take up to 50s (enrichment + sends)
+    })
+    const data = await res.json()
+    return {
+      sent: data.sent || 0,
+      failed: data.failed || 0,
+      results: data.results || [],
+      skipped: data.skipped || false,
+      reason: data.reason || null,
+    }
+  } catch (err) {
+    console.error('sendNewEmails failed:', err.message)
+    return { sent: 0, failed: 0, results: [], skipped: false, reason: err.message }
   }
 }
 
@@ -151,18 +165,35 @@ async function purgeScrapeCache(supabase) {
 // ── Step 3c: run QA health check as backup monitor ────────────────────────────
 // Acts as a second monitoring layer — if UptimeRobot goes down, this daily
 // email still tells Varghese about any system failures.
+//
+// qa-health response shape:
+//   { healthy, checks (number), passed, healed, warnings, failures, results (array), timestamp }
+//   results[i] = { name, status ('ok'|'warn'|'fail'|'healed'), message }
+//   NOTE: no 'score' field, no 'checks' array — 'checks' is a count, 'results' is the array.
 async function runQACheck(appUrl, cronSecret) {
   try {
     const res = await fetch(`${appUrl}/api/qa-health`, {
       headers: { 'Authorization': `Bearer ${cronSecret}` },
-      signal: AbortSignal.timeout(20000),
+      signal: AbortSignal.timeout(30000),
     })
     const data = await res.json()
-    const checks = data.checks || []
-    const failed = checks.filter(c => c.status === 'fail')
-    const passed = checks.filter(c => c.status === 'pass')
-    return { total: checks.length, passed: passed.length, failed, score: data.score || 0 }
-  } catch { return { total: 0, passed: 0, failed: [], score: 0 } }
+    const results = data.results || []                              // array of check objects
+    const failed  = results.filter(c => c.status === 'fail')       // critical failures
+    const warned  = results.filter(c => c.status === 'warn')       // warnings
+    const passed  = results.filter(c => c.status === 'ok' || c.status === 'healed')
+    const total   = results.length
+    const score   = total > 0 ? Math.round((passed.length / total) * 100) : 0
+    return {
+      total,
+      passed: passed.length,
+      failed: [...failed, ...warned],  // show both fails and warns in the daily email
+      score,
+      healthy: data.healthy ?? (failed.length === 0),
+    }
+  } catch (err) {
+    console.error('runQACheck failed:', err.message)
+    return { total: 0, passed: 0, failed: [], score: 0, healthy: null }
+  }
 }
 
 // ── Step 4: send summary notification to Varghese ────────────────────────────
@@ -318,7 +349,7 @@ export async function GET(request) {
   // Step 2: new outreach only Mon–Fri
   let newEmails = { sent: 0, failed: 0, results: [] }
   if (!isWeekend) {
-    newEmails = await sendNewEmails(appUrl)
+    newEmails = await sendNewEmails(appUrl, cronSecret)
   }
 
   // Step 3: sync sent folder replies

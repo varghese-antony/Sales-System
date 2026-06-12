@@ -785,15 +785,18 @@ async function checkEmailPerformanceTable(supabase) {
     }
     if (error) return { name: 'email_performance', status: 'warn', message: 'Could not query email_performance table' }
 
-    // Check if we have any contacted leads but no performance records — that's a data gap
-    const { count: contacted } = await supabase
-      .from('leads').select('*', { count: 'exact', head: true }).eq('status', 'contacted')
+    // Check outreach table for sent emails — both auto-send and manual sends write here.
+    // email_performance should have a row for each sent email.
+    // We compare against outreach.status='sent' count, not leads.status='contacted',
+    // because a lead can be re-contacted (multiple outreach rows per lead).
+    const { count: outreachSent } = await supabase
+      .from('outreach').select('*', { count: 'exact', head: true }).eq('status', 'sent').eq('type', 'email')
 
-    if ((contacted || 0) > 0 && count === 0) {
+    if ((outreachSent || 0) > 5 && (count || 0) === 0) {
       return {
         name: 'email_performance', status: 'warn',
-        message: `${contacted} leads contacted but email_performance table is empty — performance tracking may be broken`,
-        claudeInstruction: 'email_performance table has 0 records but leads have been contacted. The insert in /api/research-lead or /api/send-email may be silently failing. Check those routes for table insert errors.',
+        message: `${outreachSent} emails sent but email_performance table is empty — performance tracking broken`,
+        claudeInstruction: `email_performance table has 0 records but ${outreachSent} emails have been sent. Both /api/auto-send and /api/send-email write to this table. The inserts may be failing silently — check that the email_performance table has these columns: id, lead_id, sequence_step, subject, body, ai_score, personalisation_score, angle_number, industry, country, opened, replied, sent_at. Run the migration if any are missing.`,
       }
     }
 
@@ -816,23 +819,149 @@ async function checkScrapeCache(supabase) {
       .like('key', 'scrape_cache:%')
 
     if (!count || count === 0) {
-      // Not necessarily broken — just no research done yet
-      const { count: contacted } = await supabase
-        .from('leads').select('*', { count: 'exact', head: true }).eq('status', 'contacted')
+      // scrape_cache is ONLY written by research-lead (smart-outreach manual flow).
+      // auto-send bypasses research-lead entirely — it uses industry templates, not AI research.
+      // So: count "contacted" leads that came via the manual smart-outreach path.
+      // Best proxy: outreach records where the message contains personalised signals
+      // (i.e. came from send-email, not auto-send). Simpler proxy: check if any
+      // email_performance rows have a non-null ai_score (only smart-outreach sets these).
+      const { count: manualSends } = await supabase
+        .from('email_performance')
+        .select('*', { count: 'exact', head: true })
+        .not('ai_score', 'is', null)
 
-      if ((contacted || 0) > 5) {
+      if ((manualSends || 0) > 5) {
         return {
           name: 'scrape_cache', status: 'warn',
-          message: `${contacted} leads researched but no scrape cache entries — cache may not be writing`,
-          claudeInstruction: 'research-lead has run for >5 leads but no scrape_cache entries exist in settings table. The cache write (supabase.from("settings").upsert) in /api/research-lead may be failing silently. Check that the settings table exists and has no RLS blocking inserts.',
+          message: `${manualSends} smart-outreach sends but no scrape cache entries — cache may not be writing`,
+          claudeInstruction: 'research-lead has run for >5 leads (via smart-outreach) but no scrape_cache entries exist in settings table. The cache write (supabase.from("settings").upsert) in /api/research-lead may be failing silently. Check that the settings table key column has a UNIQUE constraint so upsert works correctly.',
         }
       }
-      return { name: 'scrape_cache', status: 'ok', message: 'No cache entries yet — will populate on first research run' }
+
+      // No manual smart-outreach sends yet — scrape cache being empty is expected
+      return { name: 'scrape_cache', status: 'ok', message: 'No smart-outreach sends yet — scrape cache will populate when you use the AI email generator' }
     }
 
     return { name: 'scrape_cache', status: 'ok', message: `${count} domain(s) cached in settings table` }
   } catch {
     return { name: 'scrape_cache', status: 'warn', message: 'Could not check scrape cache' }
+  }
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// CHECK 21 — Auto-send enabled and configured
+// Gap 2: if auto_send_enabled is toggled off silently, new outreach stops.
+// This check surfaces that so Varghese sees it in QA rather than noticing
+// 0 new contacts days later.
+// ══════════════════════════════════════════════════════════════════════════════
+async function checkAutoSendEnabled(supabase) {
+  const enabled = await getSetting(supabase, 'auto_send_enabled')
+  const startDate = await getSetting(supabase, 'auto_send_start_date')
+
+  if (enabled === null) {
+    return {
+      name: 'auto_send_enabled', status: 'warn',
+      message: 'auto_send_enabled setting not found — auto-send may never have been configured',
+      claudeInstruction: "The auto_send_enabled setting is missing from the settings table. Run: INSERT INTO settings (key, value) VALUES ('auto_send_enabled', 'true'), ('auto_send_start_date', NOW()::text) ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value;",
+    }
+  }
+
+  if (enabled !== 'true') {
+    return {
+      name: 'auto_send_enabled', status: 'warn',
+      message: `Auto-send is DISABLED (auto_send_enabled = '${enabled}') — no new outreach emails will fire`,
+      claudeInstruction: `Auto-send is currently disabled. If this is intentional (e.g. holiday) ignore this warning. Otherwise run: UPDATE settings SET value = 'true' WHERE key = 'auto_send_enabled';`,
+    }
+  }
+
+  const daysRunning = startDate
+    ? Math.floor((Date.now() - new Date(startDate).getTime()) / (1000 * 60 * 60 * 24))
+    : 0
+
+  return {
+    name: 'auto_send_enabled', status: 'ok',
+    message: `Auto-send enabled · running for ${daysRunning} day${daysRunning !== 1 ? 's' : ''} since ${startDate ? new Date(startDate).toDateString() : 'unknown'}`,
+  }
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// CHECK 22 — Enrich-batch cron ran in last 32 hours
+// Gap 3: the 3:00 UTC cron might silently fail. We don't have a check that it
+// actually ran — only that it's not stuck. This checks the last run timestamp.
+// ══════════════════════════════════════════════════════════════════════════════
+async function checkEnrichBatchRan(supabase) {
+  const lastRun = await getSetting(supabase, 'last_enrich_batch_run')
+
+  if (!lastRun) {
+    // Never ran — may be fine if system is new, or a problem if leads exist
+    const { count: leadsWithWebsite } = await supabase
+      .from('leads')
+      .select('*', { count: 'exact', head: true })
+      .not('website', 'is', null)
+      .is('email', null)
+
+    if ((leadsWithWebsite || 0) > 10) {
+      return {
+        name: 'enrich_batch_ran', status: 'warn',
+        message: `Enrich-batch has never logged a run — ${leadsWithWebsite} leads have websites but no email`,
+        claudeInstruction: 'The enrich-batch cron has never written a last_enrich_batch_run setting. Either the cron has never run or the route is not writing the timestamp. Check /api/enrich-batch route for a last_enrich_batch_run upsert and verify the Vercel cron at 3:00 UTC is configured.',
+      }
+    }
+    return { name: 'enrich_batch_ran', status: 'ok', message: 'Enrich-batch not yet run — no urgent enrichment queue' }
+  }
+
+  const hoursAgo = (Date.now() - new Date(lastRun).getTime()) / (1000 * 60 * 60)
+
+  // Allow 32h gap (covers weekends: 3:00 UTC Fri → checked Mon morning)
+  if (hoursAgo > 32) {
+    return {
+      name: 'enrich_batch_ran', status: 'warn',
+      message: `Enrich-batch last ran ${Math.round(hoursAgo)}h ago — 3:00 UTC cron may have failed`,
+      claudeInstruction: `The enrich-batch cron has not run in ${Math.round(hoursAgo)} hours (expected every 24h at 3:00 UTC). Check Vercel cron logs for /api/enrich-batch. You can trigger it manually at ${APP_URL}/api/enrich-batch (POST with Bearer CRON_SECRET).`,
+    }
+  }
+
+  return {
+    name: 'enrich_batch_ran', status: 'ok',
+    message: `Enrich-batch last ran ${Math.round(hoursAgo)}h ago`,
+  }
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// CHECK 23 — IMAP reachable (reply detection depends on it)
+// Gap 4: check-replies uses IMAP to read inbox. If IMAP is down, reply
+// detection silently stops — OOO delays won't fire, unsubscribes won't close.
+// SMTP and IMAP can fail independently (different ports, different limits).
+// ══════════════════════════════════════════════════════════════════════════════
+async function checkIMAP() {
+  try {
+    const { ImapFlow } = await import('imapflow')
+
+    const client = new ImapFlow({
+      host: 'imap.hostinger.com',
+      port: 993,
+      secure: true,
+      auth: { user: process.env.SMTP_USER, pass: process.env.SMTP_PASS },
+      logger: false,
+    })
+
+    await Promise.race([
+      (async () => {
+        await client.connect()
+        await client.list() // just verify connection — no inbox open, no message download
+        await client.logout()
+      })(),
+      new Promise((_, reject) => setTimeout(() => reject(new Error('IMAP connect timed out after 8s')), 8000)),
+    ])
+
+    return { name: 'imap_reachable', status: 'ok', message: 'IMAP connected to Hostinger — reply detection operational ✓' }
+  } catch (err) {
+    return {
+      name: 'imap_reachable', status: 'fail',
+      message: `IMAP unreachable: ${err.message}`,
+      fix: 'Reply detection is broken — OOO, unsubscribes, interested replies will not be detected',
+      claudeInstruction: `IMAP is down — the reply-detection system cannot read the inbox. Error: "${err.message}". Check SMTP_USER and SMTP_PASS in Vercel env vars. Also check Hostinger control panel: IMAP may be blocked or rate-limited. Port 993 must be open.`,
+    }
   }
 }
 
@@ -952,6 +1081,8 @@ export async function GET() {
       smokeTest,
       // Layer 4 — new feature coverage
       middlewareAuth, trackOpenPixel, emailPerformance, scrapeCache,
+      // Layer 5 — gap fixes (checks 21–23)
+      autoSendEnabled, enrichBatchRan, imapReachable,
     ] = await Promise.all([
       checkDailyRunner(supabase),
       checkSequences(supabase),
@@ -975,6 +1106,10 @@ export async function GET() {
       checkTrackOpenPixel(),
       checkEmailPerformanceTable(supabase),
       checkScrapeCache(supabase),
+      // Layer 5 — gap fixes (checks 21–23)
+      checkAutoSendEnabled(supabase),
+      checkEnrichBatchRan(supabase),
+      checkIMAP(),
     ])
     results = [
       supabaseResult, smtpResult,
@@ -988,6 +1123,8 @@ export async function GET() {
       smokeTest,
       // Layer 4
       middlewareAuth, trackOpenPixel, emailPerformance, scrapeCache,
+      // Layer 5
+      autoSendEnabled, enrichBatchRan, imapReachable,
     ]
   }
 

@@ -396,6 +396,31 @@ export async function POST(request) {
       // Update lead status
       await supabase.from('leads').update({ status: 'contacted' }).eq('id', lead.id)
 
+      // Write to outreach table so QA Check 7 (email_pipeline) can monitor auto-send
+      // Previously only manual smart-outreach sends wrote here — this was a monitoring gap.
+      supabase.from('outreach').insert({
+        lead_id: lead.id,
+        type: 'email',
+        subject,
+        message: bodyText,
+        status: 'sent',
+      }).then(() => {}).catch(() => {})
+
+      // Write to email_performance so QA Check 19 shows real data.
+      // auto-send uses industry templates (no AI scoring) so ai_score/personalisation_score are null.
+      // angle_number=2 = proof-first template (the default used by auto-send).
+      supabase.from('email_performance').insert({
+        lead_id: lead.id,
+        sequence_step: 1,
+        subject,
+        body: bodyText,
+        ai_score: null,
+        personalisation_score: null,
+        angle_number: 2,
+        industry: lead.industry || null,
+        country: lead.country || null,
+      }).then(() => {}).catch(() => {})
+
       // Save to Sent folder (best effort)
       try {
         const raw = Buffer.from(
