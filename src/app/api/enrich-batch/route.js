@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import {
   sleep, extractDomain, stripTags, fetchPage,
-  extractEmails, extractFounderName,
+  extractEmails, extractFounderName, lookupCompaniesHouse,
 } from '@/lib/enrich-utils'
 
 // Processes a batch of leads from the enrichment queue.
@@ -38,31 +38,10 @@ async function enrichOneLead(lead) {
     await sleep(250)
   }
 
-  // Companies House (UK leads)
-  if (!foundEmail && lead.country?.toLowerCase().includes('united kingdom') && process.env.COMPANIES_HOUSE_API_KEY) {
-    try {
-      const q = encodeURIComponent(lead.company || '')
-      const r = await fetch(`https://api.company-information.service.gov.uk/search/companies?q=${q}&items_per_page=1`, {
-        headers: { Authorization: 'Basic ' + Buffer.from(process.env.COMPANIES_HOUSE_API_KEY + ':').toString('base64') },
-      })
-      const d = await r.json()
-      const co = d.items?.[0]
-      if (co?.company_number) {
-        const r2 = await fetch(`https://api.company-information.service.gov.uk/company/${co.company_number}/officers?items_per_page=5`, {
-          headers: { Authorization: 'Basic ' + Buffer.from(process.env.COMPANIES_HOUSE_API_KEY + ':').toString('base64') },
-        })
-        const d2 = await r2.json()
-        const officer = (d2.items || []).find(o =>
-          ['director', 'ceo', 'founder'].some(t => (o.officer_role || '').toLowerCase().includes(t))
-        )
-        if (officer?.name) {
-          const parts = officer.name.split(',')
-          const surname = parts[0]?.trim() || ''
-          const firstname = parts[1]?.trim()?.split(' ')[0] || ''
-          if (firstname && surname) foundName = `${firstname} ${surname}`
-        }
-      }
-    } catch {}
+  // Companies House (UK leads) — shared util from @/lib/enrich-utils
+  if (!foundName && lead.country?.toLowerCase().includes('united kingdom')) {
+    const chName = await lookupCompaniesHouse(lead.company)
+    if (chName) foundName = chName
   }
 
   return { email: foundEmail, name: foundName }

@@ -3,69 +3,11 @@ import { createClient } from '@supabase/supabase-js'
 import {
   FETCH_HEADERS, sleep, extractDomain, stripTags, fetchPage,
   extractEmails, pickBestEmail, extractFounderName, guessEmailPatterns,
+  lookupCompaniesHouse,
 } from '@/lib/enrich-utils'
 
 // ── COMPANIES HOUSE (UK) ──────────────────────────────────────────────────────
-// extractEmails, pickBestEmail, extractFounderName, guessEmailPatterns, fetchPage
-// are imported from @/lib/enrich-utils — shared with enrich-batch.
-
-async function lookupCompaniesHouse(companyName) {
-  try {
-    const encoded = encodeURIComponent(companyName)
-    // Companies House has a free search API — requires API key but key is free
-    // Fallback: use their public search page which returns JSON
-    const searchUrl = `https://api.companieshouse.gov.uk/search/companies?q=${encoded}&items_per_page=1`
-
-    // Note: Companies House API requires a free API key (COMPANIES_HOUSE_API_KEY)
-    const apiKey = process.env.COMPANIES_HOUSE_API_KEY
-    if (!apiKey) return null
-
-    const res = await fetch(searchUrl, {
-      headers: {
-        'Authorization': 'Basic ' + Buffer.from(apiKey + ':').toString('base64'),
-        'Accept': 'application/json',
-      },
-      signal: AbortSignal.timeout(6000),
-    })
-    if (!res.ok) return null
-    const data = await res.json()
-    const company = data.items?.[0]
-    if (!company) return null
-
-    // Get company officers (directors)
-    const officersUrl = `https://api.companieshouse.gov.uk/company/${company.company_number}/officers?items_per_page=10`
-    const officersRes = await fetch(officersUrl, {
-      headers: {
-        'Authorization': 'Basic ' + Buffer.from(apiKey + ':').toString('base64'),
-        'Accept': 'application/json',
-      },
-      signal: AbortSignal.timeout(6000),
-    })
-    if (!officersRes.ok) return null
-    const officersData = await officersRes.json()
-
-    // Find active director/CEO/founder
-    const officers = officersData.items || []
-    const active = officers.filter(o =>
-      !o.resigned_on &&
-      (o.officer_role === 'director' || o.officer_role === 'chief-executive-officer')
-    )
-
-    if (active.length === 0) return null
-
-    // Format: Companies House returns "SURNAME, Firstname"
-    const officer = active[0]
-    const raw = officer.name || ''
-    const parts = raw.split(',').map(s => s.trim())
-    if (parts.length >= 2) {
-      const firstName = parts[1].split(' ')[0]
-      const lastName = parts[0]
-      return `${firstName} ${lastName}` // "John Smith"
-    }
-    return raw
-
-  } catch { return null }
-}
+// lookupCompaniesHouse is imported from @/lib/enrich-utils — shared with enrich-batch.
 
 // ── GOOGLE SEARCH FALLBACK ───────────────────────────────────────────────────
 

@@ -120,6 +120,53 @@ export function extractFounderName(text) {
 }
 
 /**
+ * Companies House (UK) director lookup.
+ * Requires COMPANIES_HOUSE_API_KEY env var (free, register at developer.company-information.service.gov.uk).
+ * Returns "Firstname Lastname" of the first active director/CEO, or null.
+ * Used by both enrich-lead and enrich-batch.
+ */
+export async function lookupCompaniesHouse(companyName) {
+  const apiKey = process.env.COMPANIES_HOUSE_API_KEY
+  if (!apiKey) return null
+  try {
+    const auth = 'Basic ' + Buffer.from(apiKey + ':').toString('base64')
+    const base = 'https://api.company-information.service.gov.uk'
+
+    const searchRes = await fetch(
+      `${base}/search/companies?q=${encodeURIComponent(companyName)}&items_per_page=1`,
+      { headers: { Authorization: auth, Accept: 'application/json' }, signal: AbortSignal.timeout(6000) }
+    )
+    if (!searchRes.ok) return null
+    const searchData = await searchRes.json()
+    const co = searchData.items?.[0]
+    if (!co?.company_number) return null
+
+    const officersRes = await fetch(
+      `${base}/company/${co.company_number}/officers?items_per_page=10`,
+      { headers: { Authorization: auth, Accept: 'application/json' }, signal: AbortSignal.timeout(6000) }
+    )
+    if (!officersRes.ok) return null
+    const officersData = await officersRes.json()
+
+    const active = (officersData.items || []).filter(o =>
+      !o.resigned_on &&
+      (o.officer_role === 'director' || o.officer_role === 'chief-executive-officer')
+    )
+    if (!active.length) return null
+
+    // Companies House returns names as "SURNAME, Firstname Middle"
+    const raw = active[0].name || ''
+    const parts = raw.split(',').map(s => s.trim())
+    if (parts.length >= 2) {
+      const firstName = parts[1].split(' ')[0]
+      const lastName = parts[0]
+      return `${firstName} ${lastName}` // "John Smith"
+    }
+    return raw || null
+  } catch { return null }
+}
+
+/**
  * Generates plausible email patterns for a founder name + domain.
  * Returns an array of guesses, personal first then generic fallbacks.
  */
