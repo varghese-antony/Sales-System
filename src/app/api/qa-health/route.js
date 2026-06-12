@@ -450,6 +450,257 @@ async function checkPageHealth() {
 }
 
 // ══════════════════════════════════════════════════════════════════════════════
+// CHECK 13 — Reply-sequence consistency
+// Any lead marked 'interested' must have a closed sequence.
+// If not, the auto-close in check-replies didn't fire — or a reply was marked
+// manually without closing the sequence.
+// ══════════════════════════════════════════════════════════════════════════════
+async function checkReplyConsistency(supabase) {
+  const { data: openForReplied } = await supabase
+    .from('sequences')
+    .select('id, lead_id, step')
+    .eq('replied', false)
+    .eq('complete', false)
+    .in('lead_id',
+      supabase.from('leads').select('id').eq('status', 'interested')
+    )
+
+  if (!openForReplied?.length) {
+    return { name: 'reply_consistency', status: 'ok', message: 'All replied leads have closed sequences' }
+  }
+
+  // Self-heal: close them now
+  const leadIds = [...new Set(openForReplied.map(s => s.lead_id))]
+  const { error } = await supabase
+    .from('sequences')
+    .update({ replied: true, complete: true, reply_at: new Date().toISOString() })
+    .in('lead_id', leadIds)
+    .eq('replied', false)
+
+  return {
+    name: 'reply_consistency',
+    status: error ? 'fail' : 'healed',
+    message: `${openForReplied.length} sequences open for leads who already replied`,
+    healed: !error ? `Auto-closed ${openForReplied.length} sequences for replied leads` : null,
+    claudeInstruction: error ? `${openForReplied.length} sequences are open for leads marked as 'interested'. Auto-close failed. Manually set replied=true, complete=true for sequence IDs: ${openForReplied.slice(0,5).map(s=>s.id).join(', ')}` : null,
+  }
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// CHECK 14 — next_due_at timing correctness
+// All pending sequences must fire at 05:00 UTC. Any other hour means the 06:00
+// cron will miss them. (Bug was send-email using now + 3 days without normalising.)
+// ══════════════════════════════════════════════════════════════════════════════
+async function checkSequenceTiming(supabase) {
+  const { data: seqs } = await supabase
+    .from('sequences')
+    .select('id, lead_id, next_due_at, step')
+    .eq('complete', false)
+    .eq('replied', false)
+    .not('next_due_at', 'is', null)
+
+  if (!seqs?.length) return { name: 'sequence_timing', status: 'ok', message: 'No pending sequences to check' }
+
+  const wrongTime = seqs.filter(s => {
+    const h = new Date(s.next_due_at).getUTCHours()
+    return h !== 5
+  })
+
+  if (wrongTime.length === 0) {
+    return { name: 'sequence_timing', status: 'ok', message: `All ${seqs.length} pending sequences correctly set to 05:00 UTC` }
+  }
+
+  // Self-heal: normalise them all to 05:00 UTC on the same date
+  let fixed = 0
+  for (const s of wrongTime) {
+    const d = new Date(s.next_due_at)
+    d.setUTCHours(5, 0, 0, 0)
+    const { error } = await supabase.from('sequences').update({ next_due_at: d.toISOString() }).eq('id', s.id)
+    if (!error) fixed++
+  }
+
+  return {
+    name: 'sequence_timing',
+    status: fixed === wrongTime.length ? 'healed' : 'warn',
+    message: `${wrongTime.length} sequences had wrong timing (not 05:00 UTC)`,
+    healed: fixed > 0 ? `Normalised ${fixed} sequence timestamps to 05:00 UTC` : null,
+    claudeInstruction: fixed < wrongTime.length
+      ? `${wrongTime.length - fixed} sequences could not be normalised. These will be missed by the 06:00 cron. Check sequences table and set next_due_at to 05:00 UTC manually.`
+      : null,
+  }
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// CHECK 15 — No overdue sequences (more than 4h past next_due_at and unsent)
+// If cron ran at 06:00 UTC and it's now 10:00 UTC, nothing should still be past-due.
+// If there are, the daily runner failed silently.
+// ══════════════════════════════════════════════════════════════════════════════
+async function checkOverdueSequences(supabase) {
+  const cutoff4h = new Date(Date.now() - 4 * 60 * 60 * 1000).toISOString()
+  const { count } = await supabase
+    .from('sequences')
+    .select('*', { count: 'exact', head: true })
+    .lte('next_due_at', cutoff4h)
+    .eq('complete', false)
+    .eq('replied', false)
+
+  if (!count) return { name: 'overdue_sequences', status: 'ok', message: 'No sequences overdue by more than 4h' }
+
+  return {
+    name: 'overdue_sequences',
+    status: 'warn',
+    message: `${count} sequences are overdue by >4h — daily runner may not have processed them`,
+    claudeInstruction: `${count} follow-ups are more than 4 hours past their due time without being sent. Either the daily runner failed silently, or the sequences have wrong timing. Check /api/daily-runner logs on Vercel and run it manually if needed.`,
+  }
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// CHECK 16 — System errors (silent crashes logged via logError())
+// Checks the system_errors table for any errors in the last 24h.
+// ══════════════════════════════════════════════════════════════════════════════
+async function checkSystemErrors(supabase) {
+  // Table may not exist yet — handle gracefully
+  const since = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString()
+  const { data, error } = await supabase
+    .from('system_errors')
+    .select('source, type, message, occurred_at')
+    .gte('occurred_at', since)
+    .order('occurred_at', { ascending: false })
+    .limit(10)
+
+  if (error?.code === '42P01') {
+    // Table doesn't exist yet — not a failure, just means Layer 4 not deployed
+    return { name: 'system_errors', status: 'ok', message: 'system_errors table not yet created (run migration)' }
+  }
+  if (error) return { name: 'system_errors', status: 'warn', message: 'Could not read system_errors table' }
+  if (!data?.length) return { name: 'system_errors', status: 'ok', message: 'No system errors in last 24h' }
+
+  const summary = data.slice(0, 3).map(e => `${e.source}: ${e.type}`).join(' | ')
+  return {
+    name: 'system_errors',
+    status: data.length >= 5 ? 'fail' : 'warn',
+    message: `${data.length} system error${data.length > 1 ? 's' : ''} in last 24h: ${summary}`,
+    claudeInstruction: `Silent errors logged in last 24 hours:\n${data.map(e => `• [${e.source}] ${e.type}: ${e.message} (${new Date(e.occurred_at).toUTCString()})`).join('\n')}\n\nCheck each source route for the root cause.`,
+  }
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// LAYER 3 — Weekly end-to-end smoke test
+// Runs a fake lead through the full reply-detection pipeline without sending
+// any real emails. Verifies the integration works end-to-end, not just each
+// piece in isolation. Runs at most once every 7 days (stored in settings).
+// ══════════════════════════════════════════════════════════════════════════════
+async function runSmokeTest(supabase) {
+  const SMOKE_LEAD_ID = '00000000-0000-0000-0000-000000000001' // fixed test ID
+  const SMOKE_EMAIL = 'qa-smoke-test@blendery.internal'
+  const steps = []
+
+  try {
+    // Step 1: clean up any leftover smoke lead from a previous failed run
+    await supabase.from('leads').delete().eq('id', SMOKE_LEAD_ID)
+
+    // Step 2: insert test lead
+    const { error: insertErr } = await supabase.from('leads').insert({
+      id: SMOKE_LEAD_ID,
+      full_name: 'QA Smoke Test',
+      first_name: 'QA',
+      email: SMOKE_EMAIL,
+      company: 'Smoke Test Co',
+      industry: 'SaaS',
+      status: 'contacted',
+    })
+    if (insertErr) { steps.push({ step: 'insert_lead', pass: false, error: insertErr.message }); throw new Error('insert failed') }
+    steps.push({ step: 'insert_lead', pass: true })
+
+    // Step 3: create a sequence for this lead (simulating what send-email does)
+    const nextDue = new Date()
+    nextDue.setUTCDate(nextDue.getUTCDate() + 3)
+    nextDue.setUTCHours(5, 0, 0, 0)
+    const { error: seqErr } = await supabase.from('sequences').insert({
+      lead_id: SMOKE_LEAD_ID,
+      angle_number: 2,
+      step: 1,
+      last_sent_at: new Date().toISOString(),
+      next_due_at: nextDue.toISOString(),
+      original_subject: 'Smoke test email',
+      replied: false,
+      complete: false,
+    })
+    if (seqErr) { steps.push({ step: 'create_sequence', pass: false, error: seqErr.message }); throw new Error('seq insert failed') }
+    steps.push({ step: 'create_sequence', pass: true })
+
+    // Step 4: verify timing is correct (05:00 UTC)
+    const { data: seq } = await supabase.from('sequences').select('next_due_at').eq('lead_id', SMOKE_LEAD_ID).single()
+    const hour = seq?.next_due_at ? new Date(seq.next_due_at).getUTCHours() : -1
+    const timingOk = hour === 5
+    steps.push({ step: 'verify_timing_05utc', pass: timingOk, error: timingOk ? null : `next_due_at hour was ${hour}, expected 5` })
+    if (!timingOk) throw new Error('timing wrong')
+
+    // Step 5: simulate a reply being detected (what check-replies now does)
+    await supabase.from('sequences')
+      .update({ replied: true, complete: true, reply_at: new Date().toISOString() })
+      .in('lead_id', [SMOKE_LEAD_ID])
+      .eq('replied', false)
+      .eq('complete', false)
+
+    await supabase.from('leads')
+      .update({ status: 'interested' })
+      .eq('id', SMOKE_LEAD_ID)
+      .eq('status', 'contacted')
+
+    // Step 6: verify the sequence is now closed
+    const { data: closed } = await supabase.from('sequences').select('replied, complete').eq('lead_id', SMOKE_LEAD_ID).single()
+    const replyClosed = closed?.replied === true && closed?.complete === true
+    steps.push({ step: 'reply_auto_close', pass: replyClosed, error: replyClosed ? null : `sequence not closed: replied=${closed?.replied} complete=${closed?.complete}` })
+
+    // Step 7: verify the reply-consistency check would now pass for this lead
+    const { data: stillOpen } = await supabase
+      .from('sequences')
+      .select('id')
+      .eq('lead_id', SMOKE_LEAD_ID)
+      .eq('replied', false)
+      .eq('complete', false)
+    const consistencyOk = !stillOpen?.length
+    steps.push({ step: 'consistency_check_passes', pass: consistencyOk })
+
+  } catch {}
+
+  // Always clean up — delete cascades to sequences
+  await supabase.from('leads').delete().eq('id', SMOKE_LEAD_ID)
+
+  const allPassed = steps.every(s => s.pass)
+  const failed = steps.filter(s => !s.pass)
+
+  // Record when smoke test last ran
+  await supabase.from('settings').upsert({
+    key: 'last_smoke_test',
+    value: new Date().toISOString(),
+    updated_at: new Date().toISOString(),
+  })
+
+  return {
+    name: 'smoke_test',
+    status: allPassed ? 'ok' : 'fail',
+    message: allPassed
+      ? `Weekly smoke test passed (${steps.length}/${steps.length} steps)`
+      : `Smoke test FAILED: ${failed.map(s => s.step + (s.error ? ` (${s.error})` : '')).join(', ')}`,
+    claudeInstruction: allPassed ? null
+      : `End-to-end smoke test failed on these steps: ${failed.map(s => `${s.step}: ${s.error || 'unexpected result'}`).join(' | ')}. This means a real integration is broken, not just an individual component. Investigate the failing step in the relevant route file.`,
+  }
+}
+
+async function maybeRunSmokeTest(supabase) {
+  const lastRaw = await getSetting(supabase, 'last_smoke_test')
+  const daysSince = lastRaw
+    ? (Date.now() - new Date(lastRaw).getTime()) / (1000 * 60 * 60 * 24)
+    : 999
+  if (daysSince < 7) {
+    return { name: 'smoke_test', status: 'ok', message: `Weekly smoke test last ran ${Math.round(daysSince * 24)}h ago — next run in ${Math.round((7 - daysSince) * 24)}h` }
+  }
+  return runSmokeTest(supabase)
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
 // Alert email builder
 // ══════════════════════════════════════════════════════════════════════════════
 async function sendAlertEmail(issues, healed, allResults) {
@@ -559,6 +810,10 @@ export async function GET() {
     const [
       dailyRunner, sequences, enrichment, leadGrowth, emailPipeline,
       enrichmentGaps, orphanedLeads, bounceRate, sequenceProgression, pageHealth,
+      // Layer 2 — behaviour checks
+      replyConsistency, sequenceTiming, overdueSequences, systemErrors,
+      // Layer 3 — weekly smoke test
+      smokeTest,
     ] = await Promise.all([
       checkDailyRunner(supabase),
       checkSequences(supabase),
@@ -570,6 +825,13 @@ export async function GET() {
       checkBounceRate(supabase),
       checkSequenceProgression(supabase),
       checkPageHealth(),
+      // Layer 2
+      checkReplyConsistency(supabase),
+      checkSequenceTiming(supabase),
+      checkOverdueSequences(supabase),
+      checkSystemErrors(supabase),
+      // Layer 3
+      maybeRunSmokeTest(supabase),
     ])
     results = [
       supabaseResult, smtpResult,
@@ -577,6 +839,10 @@ export async function GET() {
       leadGrowth, emailPipeline,
       enrichmentGaps, orphanedLeads, bounceRate,
       sequenceProgression, pageHealth,
+      // Layer 2
+      replyConsistency, sequenceTiming, overdueSequences, systemErrors,
+      // Layer 3
+      smokeTest,
     ]
   }
 

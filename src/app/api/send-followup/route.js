@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import nodemailer from 'nodemailer'
 import { ImapFlow } from 'imapflow'
 import { createClient } from '@supabase/supabase-js'
+import { logError } from '@/lib/log-error'
 
 // Follow-ups must look hand-typed — plain text style, no logo, no fancy HTML
 function buildFollowupHtml(body) {
@@ -113,17 +114,19 @@ export async function POST(req) {
     const isLastStep = nextStep === 3
     const nextDue = isLastStep ? null : (() => { const d = new Date(now); d.setUTCDate(d.getUTCDate() + 4); d.setUTCHours(5, 0, 0, 0); return d.toISOString() })()
 
-    await supabase.from('sequences').update({
+    const { error: seqUpdateErr } = await supabase.from('sequences').update({
       step: nextStep,
       last_sent_at: now.toISOString(),
       next_due_at: nextDue,
       complete: isLastStep,
     }).eq('id', sequenceId)
+    // This is the most critical write — if it fails the cron will resend the same follow-up
+    if (seqUpdateErr) await logError('send-followup', 'sequence-step-update-failed', seqUpdateErr, { sequenceId, leadId, nextStep })
 
-    // Log to outreach table
-    await supabase.from('outreach').insert({
+    const { error: outreachErr } = await supabase.from('outreach').insert({
       lead_id: leadId, type: 'email', subject, message: body, status: 'sent',
     })
+    if (outreachErr) await logError('send-followup', 'outreach-insert-failed', outreachErr, { sequenceId, leadId })
 
     return NextResponse.json({ success: true, step: nextStep })
   } catch (err) {

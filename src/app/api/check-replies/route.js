@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { ImapFlow } from 'imapflow'
 import { createClient } from '@supabase/supabase-js'
+import { logError } from '@/lib/log-error'
 
 function decodeWords(str) {
   if (!str) return ''
@@ -135,19 +136,21 @@ export async function GET() {
     const repliedLeadIds = Object.values(leadMap).map(l => l.id)
     if (repliedLeadIds.length > 0) {
       // Only close sequences that aren't already closed — avoid redundant writes
-      await supabase
+      const { error: seqCloseErr } = await supabase
         .from('sequences')
         .update({ replied: true, complete: true, reply_at: new Date().toISOString() })
         .in('lead_id', repliedLeadIds)
         .eq('replied', false)
         .eq('complete', false)
+      if (seqCloseErr) await logError('check-replies', 'sequence-auto-close-failed', seqCloseErr, { repliedLeadIds })
 
       // Also update lead status to 'interested' so it surfaces in the pipeline
-      await supabase
+      const { error: leadStatusErr } = await supabase
         .from('leads')
         .update({ status: 'interested' })
         .in('id', repliedLeadIds)
         .eq('status', 'contacted') // only move forward, never overwrite 'client' etc.
+      if (leadStatusErr) await logError('check-replies', 'lead-status-update-failed', leadStatusErr, { repliedLeadIds })
     }
 
     // Attach lead info to messages
