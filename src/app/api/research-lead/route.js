@@ -1,5 +1,7 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
+import { scoreEmail, scorePersonalisation } from '@/lib/email-evaluator'
+import { refineEmail } from '@/lib/email-rewriter'
 
 // Decode HTML entities so scraped text is clean plain text
 function decodeHtml(str) {
@@ -266,11 +268,32 @@ export async function POST(req) {
   const stage = detectCompanyStage(signals, aboutText, tagline)
   const first = lead.first_name || lead.full_name?.split(' ')[0] || 'there'
 
-  const { subject, body } = buildEmail(variation, {
+  const raw = buildEmail(variation, {
     first, company: lead.company, industry: lead.industry,
     country: lead.country, tagline, services, signals, mirrorPhrase, stage,
     ...industryData,
   })
+
+  // Run through the refinement agent — score, flag AI tells, rewrite if needed
+  const leadData = { first, company: lead.company, industry: lead.industry, country: lead.country }
+  const refined = refineEmail(raw.subject, raw.body, leadData, siteData, signals)
+  const { subject, body, aiScore, personalisationScore, grade, problems, wordCount } = refined
+
+  // Save performance record
+  const supabaseClient = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY)
+  try {
+    await supabaseClient.from('email_performance').insert({
+      lead_id: lead.id,
+      sequence_step: 1,
+      subject,
+      body,
+      ai_score: aiScore,
+      personalisation_score: personalisationScore,
+      angle_number: variation,
+      industry: lead.industry,
+      country: lead.country,
+    })
+  } catch {} // table may not exist yet — non-blocking
 
   let research = `COMPANY: ${lead.company}\n`
   research += `STAGE: ${stage}\n`
@@ -284,5 +307,9 @@ export async function POST(req) {
 
   await supabase.from('leads').update({ notes: research }).eq('id', lead.id)
 
-  return NextResponse.json({ success: true, research, subject, body, siteData, signals })
+  return NextResponse.json({
+    success: true, research, subject, body, siteData, signals,
+    // Score data for UI badge
+    aiScore, personalisationScore, grade, problems, wordCount,
+  })
 }

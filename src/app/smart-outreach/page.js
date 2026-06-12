@@ -224,6 +224,9 @@ export default function SmartOutreach() {
   // Start at variation 2 (Proof-first) as per Marketing Head spec
   const [variation, setVariation]   = useState(2)
   const [copied, setCopied]         = useState('')
+  // Email score state (from Email Refinement Agent)
+  const [emailScore, setEmailScore] = useState(null) // { aiScore, personalisationScore, grade, problems, wordCount }
+  const [refining, setRefining]     = useState(false)
 
   // Sequence state
   const [followupSending, setFollowupSending] = useState(false)
@@ -282,7 +285,7 @@ export default function SmartOutreach() {
     setResSubject(''); setResBody('')
     setLiData(null); setDmMsg(''); setConnNote('')
     setDmSaved(false); setEmailSaved(false); setEmailSent(false)
-    setFollowupSent(false); setCopied('')
+    setFollowupSent(false); setCopied(''); setEmailScore(null)
     setView('all')
     // If lead has no sequence, always start at Proof-first (variation 2)
     const existingSeq = seq || sequences.find(s => s.lead_id === lead.id)
@@ -300,8 +303,28 @@ export default function SmartOutreach() {
     if (data.success) {
       setResearch(data.research); setResSubject(data.subject); setResBody(data.body)
       setLeads(leads.map(l => l.id===selected.id ? {...l, notes:data.research} : l))
+      if (data.aiScore !== undefined) {
+        setEmailScore({ aiScore: data.aiScore, personalisationScore: data.personalisationScore, grade: data.grade, problems: data.problems || [], wordCount: data.wordCount })
+      }
     }
     setResWorking(false)
+  }
+
+  async function refineEmailNow() {
+    if (!selected || !resSubject || !resBody) return
+    setRefining(true)
+    try {
+      const res = await fetch('/api/refine-email', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ subject: resSubject, body: resBody, lead: selected }),
+      })
+      const data = await res.json()
+      if (data.success) {
+        setResSubject(data.subject); setResBody(data.body)
+        setEmailScore({ aiScore: data.aiScore, personalisationScore: data.personalisationScore, grade: data.grade, problems: data.problems || [], wordCount: data.wordCount })
+      }
+    } catch {}
+    setRefining(false)
   }
 
   async function runLinkedIn() {
@@ -1066,6 +1089,50 @@ export default function SmartOutreach() {
                                 <textarea value={resBody} onChange={e=>setResBody(e.target.value)} rows={12}
                                   style={{width:'100%',padding:'14px 16px',background:'transparent',border:'none',color:'#c8cad8',fontSize:13,lineHeight:1.8,outline:'none',resize:'none',fontFamily:'inherit',...b}}/>
                               </div>
+                              {/* ─── Email Score Badge ─── */}
+                              {emailScore && (
+                                <div style={{marginBottom:12,padding:'12px 16px',borderRadius:10,border:`1px solid ${emailScore.grade==='pass'?'rgba(34,211,165,0.25)':emailScore.grade==='warn'?'rgba(251,191,36,0.25)':'rgba(239,68,68,0.25)'}`,background:emailScore.grade==='pass'?'rgba(34,211,165,0.05)':emailScore.grade==='warn'?'rgba(251,191,36,0.05)':'rgba(239,68,68,0.05)'}}>
+                                  <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom: emailScore.problems.length>0?10:0}}>
+                                    <div style={{display:'flex',gap:12,alignItems:'center'}}>
+                                      <span style={{fontSize:12,fontWeight:700,color:emailScore.grade==='pass'?'#22d3a5':emailScore.grade==='warn'?'#fbbf24':'#ef4444'}}>
+                                        {emailScore.grade==='pass'?'✓':'⚠'} Human score: {emailScore.aiScore}/100
+                                      </span>
+                                      <span style={{fontSize:11,color:'#4A4F6A'}}>
+                                        Personalisation: {emailScore.personalisationScore}/100
+                                      </span>
+                                      <span style={{fontSize:11,color:'#4A4F6A'}}>
+                                        {emailScore.wordCount}w
+                                      </span>
+                                    </div>
+                                    {emailScore.grade !== 'pass' && (
+                                      <button onClick={refineEmailNow} disabled={refining} style={{
+                                        fontSize:11,padding:'4px 12px',borderRadius:6,border:'1px solid rgba(167,139,250,0.4)',
+                                        background:refining?'transparent':'rgba(167,139,250,0.1)',color:refining?'#4A4F6A':'#a78bfa',
+                                        cursor:refining?'not-allowed':'pointer',display:'flex',alignItems:'center',gap:5,
+                                      }}>
+                                        {refining
+                                          ? <><span style={{display:'inline-block',width:8,height:8,border:'1.5px solid #a78bfa',borderTopColor:'transparent',borderRadius:'50%',animation:'spin 0.7s linear infinite'}}/>Refining...</>
+                                          : '✦ Refine'}
+                                      </button>
+                                    )}
+                                  </div>
+                                  {emailScore.problems.length > 0 && (
+                                    <div style={{display:'flex',flexWrap:'wrap',gap:6}}>
+                                      {emailScore.problems.map((p, i) => (
+                                        <span key={i} style={{
+                                          fontSize:10,padding:'2px 8px',borderRadius:4,
+                                          background:p.severity==='high'?'rgba(239,68,68,0.12)':p.severity==='medium'?'rgba(251,191,36,0.10)':'rgba(148,163,184,0.08)',
+                                          color:p.severity==='high'?'#ef4444':p.severity==='medium'?'#fbbf24':'#64748b',
+                                          border:`1px solid ${p.severity==='high'?'rgba(239,68,68,0.2)':p.severity==='medium'?'rgba(251,191,36,0.15)':'rgba(148,163,184,0.1)'}`,
+                                        }}>
+                                          {p.type==='ai_phrase'?`"${p.text}"`:p.text}
+                                        </span>
+                                      ))}
+                                    </div>
+                                  )}
+                                </div>
+                              )}
+
                               <div style={{display:'flex',gap:10,flexWrap:'wrap',alignItems:'center'}}>
                                 <button onClick={sendEmail} disabled={emailSending||emailSent} style={{
                                   display:'flex',alignItems:'center',gap:7,padding:'11px 22px',borderRadius:9,fontSize:13,fontWeight:700,

@@ -30,18 +30,30 @@ async function saveToSentFolder(rawMessage) {
   } catch {}
 }
 
+// Banks of follow-up variations — pick one randomly per send
+// so no two people get the exact same message. Same tone, slightly different words.
+const FOLLOWUP_2_BANK = [
+  (f) => `Hi ${f},\n\nJust bringing this back up in case it got lost.\n\nVarghese`,
+  (f) => `Hi ${f},\n\nFlagging this again in case the timing is better now.\n\nVarghese`,
+  (f) => `Hi ${f},\n\nDropping this back to the top, thought it was worth a second look.\n\nVarghese`,
+  (f) => `Hi ${f},\n\nJust checking this didn't get buried.\n\nVarghese`,
+  (f) => `Hi ${f},\n\nBringing this back up. Happy to answer any questions if you had a look.\n\nVarghese`,
+]
+
+const FOLLOWUP_3_BANK = [
+  (f) => `Hi ${f},\n\nI'll leave it here. If the timing ever makes sense, you know where to find me.\n\nVarghese`,
+  (f) => `Hi ${f},\n\nLast one from me. If it's ever relevant, I'm easy to find.\n\nVarghese`,
+  (f) => `Hi ${f},\n\nStopping here. If things change, feel free to come back to this.\n\nVarghese`,
+  (f) => `Hi ${f},\n\nI'll get out of your inbox after this. If it ever becomes relevant, you've got my details.\n\nVarghese`,
+]
+
+function pickRandom(arr) {
+  return arr[Math.floor(Math.random() * arr.length)]
+}
+
 const FOLLOWUP_TEMPLATES = {
-  2: (first) => `Hi ${first},
-
-Just bringing this back up in case it got lost.
-
-Varghese`,
-
-  3: (first) => `Hi ${first},
-
-I'll leave it here. If the timing ever makes sense, you know where to find me.
-
-Varghese`,
+  2: (first) => pickRandom(FOLLOWUP_2_BANK)(first),
+  3: (first) => pickRandom(FOLLOWUP_3_BANK)(first),
 }
 
 export async function POST(req) {
