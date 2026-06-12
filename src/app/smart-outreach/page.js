@@ -1,6 +1,5 @@
 'use client'
 import { useEffect, useState } from 'react'
-import { supabase } from '@/lib/supabase'
 import { useDemoMode } from '@/contexts/DemoModeContext'
 
 const statusStyle = {
@@ -258,10 +257,8 @@ export default function SmartOutreach() {
     setActivityLoading(true)
     setActivityData(null)
     try {
-      const [{ data: outreach }, { data: seqs }] = await Promise.all([
-        supabase.from('outreach').select('*').eq('lead_id', lead.id).order('created_at', { ascending: true }),
-        supabase.from('sequences').select('*').eq('lead_id', lead.id).order('created_at', { ascending: true }),
-      ])
+      const res = await fetch(`/api/leads?id=${lead.id}`)
+      const { outreach, sequences: seqs } = await res.json()
       setActivityData({ outreach: outreach || [], sequences: seqs || [] })
     } catch {}
     setActivityLoading(false)
@@ -269,10 +266,10 @@ export default function SmartOutreach() {
 
   useEffect(() => {
     Promise.all([
-      supabase.from('leads').select('id,full_name,first_name,last_name,company,email,website,title,industry,country,score,score_reason,status,notes,linkedin_url,linkedin_status,linkedin_requested_at,linkedin_dm_sent').order('score', { ascending: false }),
-      fetch('/api/sequences').then(r=>r.json()),
-    ]).then(([{ data }, seqData]) => {
-      setLeads(data || [])
+      fetch('/api/leads').then(r => r.json()),
+      fetch('/api/sequences').then(r => r.json()),
+    ]).then(([leadsData, seqData]) => {
+      setLeads(leadsData.leads || [])
       setSequences(seqData.sequences || [])
       setLoading(false)
     })
@@ -373,7 +370,7 @@ export default function SmartOutreach() {
   async function saveDM() {
     if (!selected || !dmMsg) return
     // Record in outreach table (for history)
-    await supabase.from('outreach').insert({ lead_id:selected.id, type:'linkedin_dm', subject:'LinkedIn DM', message:dmMsg, status:'sent' })
+    await fetch('/api/leads', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({ leadId:selected.id, type:'linkedin_dm', subject:'LinkedIn DM', message:dmMsg, status:'sent' }) })
     // Mark linkedin_status = 'dm_sent' via API (tracks dm_sent_at timestamp)
     await fetch('/api/linkedin-intelligence', {
       method: 'PATCH',
@@ -382,7 +379,7 @@ export default function SmartOutreach() {
     })
     // Also update lead status to contacted if not already further along
     if (!['interested', 'proposal', 'client'].includes(selected.status)) {
-      await supabase.from('leads').update({ status: 'contacted' }).eq('id', selected.id)
+      await fetch('/api/leads', { method:'PATCH', headers:{'Content-Type':'application/json'}, body:JSON.stringify({ leadId: selected.id, status: 'contacted' }) })
     }
     const updated = {...selected, linkedin_status:'dm_sent', linkedin_dm_sent_at: new Date().toISOString(), status: selected.status === 'new' ? 'contacted' : selected.status}
     setSelected(updated); setLeads(leads.map(l => l.id===selected.id ? updated : l))
@@ -391,8 +388,8 @@ export default function SmartOutreach() {
 
   async function saveEmail() {
     if (!selected || !resBody) return
-    await supabase.from('outreach').insert({ lead_id:selected.id, type:'email', subject:resSubject, message:resBody, status:'draft' })
-    await supabase.from('leads').update({ status:'contacted' }).eq('id', selected.id)
+    await fetch('/api/leads', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({ leadId:selected.id, type:'email', subject:resSubject, message:resBody, status:'draft' }) })
+    await fetch('/api/leads', { method:'PATCH', headers:{'Content-Type':'application/json'}, body:JSON.stringify({ leadId:selected.id, status:'contacted' }) })
     const updated = {...selected, status:'contacted'}
     setSelected(updated); setLeads(leads.map(l => l.id===selected.id ? updated : l))
     setEmailSaved(true); setTimeout(()=>setEmailSaved(false), 3000)
@@ -400,7 +397,7 @@ export default function SmartOutreach() {
 
   async function discardLead() {
     if (!selected) return
-    await supabase.from('leads').update({ status:'not_interested' }).eq('id', selected.id)
+    await fetch('/api/leads', { method:'PATCH', headers:{'Content-Type':'application/json'}, body:JSON.stringify({ leadId:selected.id, status:'not_interested' }) })
     const updated = {...selected, status:'not_interested'}
     setLeads(leads.map(l => l.id===selected.id ? updated : l))
     const currentIndex = leads.findIndex(l => l.id===selected.id)

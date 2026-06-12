@@ -1,6 +1,5 @@
 'use client'
 import { useEffect, useState, Suspense } from 'react'
-import { supabase } from '@/lib/supabase'
 import { useSearchParams } from 'next/navigation'
 
 const inp = { background:'rgba(255,255,255,0.03)', border:'1px solid rgba(255,255,255,0.06)', borderRadius:10, color:'#e8ecf0', fontSize:13, outline:'none', width:'100%' }
@@ -16,7 +15,7 @@ function OutreachContent() {
   const [saved, setSaved] = useState(false)
 
   useEffect(() => {
-    supabase.from('leads').select('*').order('score', { ascending: false }).then(({ data }) => {
+    fetch('/api/leads').then(r => r.json()).then(({ leads: data }) => {
       setLeads(data || [])
       if (leadId && data) setSelected(data.find(l => l.id === leadId) || null)
     })
@@ -34,8 +33,8 @@ function OutreachContent() {
 
   async function saveDraft() {
     if (!selected || !body) return
-    await supabase.from('outreach').insert({ lead_id:selected.id, type:'email', subject, message:body, status:'draft' })
-    await supabase.from('leads').update({ status:'contacted' }).eq('id', selected.id)
+    await fetch('/api/leads', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({ leadId:selected.id, type:'email', subject, message:body, status:'draft' }) })
+    await fetch('/api/leads', { method:'PATCH', headers:{'Content-Type':'application/json'}, body:JSON.stringify({ leadId:selected.id, status:'contacted' }) })
     setSaved(true)
     setTimeout(() => setSaved(false), 3000)
   }

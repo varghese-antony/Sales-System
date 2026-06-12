@@ -1,6 +1,5 @@
 'use client'
 import { useEffect, useState } from 'react'
-import { supabase } from '@/lib/supabase'
 import Link from 'next/link'
 import { useDemoMode } from '@/contexts/DemoModeContext'
 
@@ -25,10 +24,8 @@ export default function Dashboard() {
     async function load() {
       const today = new Date().toISOString().split('T')[0]
 
-      const [{ data: allLeads }, { data: runData }] = await Promise.all([
-        supabase.from('leads').select('*').order('score', { ascending: false }),
-        supabase.from('daily_runs').select('*').order('run_date', { ascending: false }).limit(7),
-      ])
+      const res = await fetch('/api/dashboard')
+      const { leads: allLeads } = await res.json()
 
       if (allLeads) {
         const todayLeads = allLeads.filter(l => l.created_at?.startsWith(today))
@@ -43,7 +40,7 @@ export default function Dashboard() {
         })
         setLeads(allLeads.slice(0, 7))
       }
-      setRuns(runData || [])
+      setRuns([])
       setLoading(false)
     }
     load()

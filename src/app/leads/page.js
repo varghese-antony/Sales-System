@@ -1,6 +1,5 @@
 'use client'
 import { useEffect, useState } from 'react'
-import { supabase } from '@/lib/supabase'
 import Link from 'next/link'
 import { useDemoMode } from '@/contexts/DemoModeContext'
 
@@ -101,8 +100,10 @@ export default function Leads() {
   }, [enrichJob?.status])
 
   async function loadSequencedIds() {
-    const { data } = await supabase.from('sequences').select('lead_id')
-    setSequencedIds(new Set((data || []).map(s => s.lead_id)))
+    const res = await fetch('/api/leads')
+    const { leads: data } = await res.json()
+    // Extract IDs of leads that have a sequence
+    setSequencedIds(new Set((data || []).filter(l => l.sequence).map(l => l.id)))
   }
 
   async function markEmailed(lead, subject) {
@@ -212,8 +213,9 @@ export default function Leads() {
 
   async function load() {
     setLoading(true)
-    const {data} = await supabase.from('leads').select('*').order('score',{ascending:false})
-    setLeads(data||[])
+    const res = await fetch('/api/leads')
+    const { leads: data } = await res.json()
+    setLeads(data || [])
     setLoading(false)
   }
 
@@ -361,9 +363,13 @@ export default function Leads() {
     }
   }
 
-  async function setStatus(id,status) {
-    await supabase.from('leads').update({status}).eq('id',id)
-    setLeads(leads.map(l=>l.id===id?{...l,status}:l))
+  async function setStatus(id, status) {
+    await fetch('/api/leads', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ leadId: id, status }),
+    })
+    setLeads(leads.map(l => l.id === id ? { ...l, status } : l))
   }
 
   const filtered = leads.filter(l=>{
@@ -672,7 +678,7 @@ export default function Leads() {
                     <div style={{display:'flex',flexDirection:'column',gap:2}}>
                       {patterns.slice(0,3).map(p=>(
                         <button key={p} onClick={async()=>{
-                          await supabase.from('leads').update({email:p}).eq('id',l.id)
+                          await fetch('/api/leads', { method:'PATCH', headers:{'Content-Type':'application/json'}, body:JSON.stringify({leadId:l.id, email:p}) })
                           setLeads(prev=>prev.map(x=>x.id===l.id?{...x,email:p}:x))
                           setToast({type:'ok',msg:`Email set to ${p}`})
                           setTimeout(()=>setToast(null),4000)
