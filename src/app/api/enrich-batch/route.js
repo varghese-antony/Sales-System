@@ -1,5 +1,9 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
+import {
+  sleep, extractDomain, stripTags, fetchPage,
+  extractEmails, extractFounderName,
+} from '@/lib/enrich-utils'
 
 // Processes a batch of leads from the enrichment queue.
 // Called by cron every 5 minutes AND triggered immediately when queue starts.
@@ -8,85 +12,11 @@ import { createClient } from '@supabase/supabase-js'
 
 const BATCH_SIZE = 15
 
-const FETCH_HEADERS = {
-  'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-  'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
-  'Accept-Language': 'en-GB,en;q=0.9',
-}
-
-function sleep(ms) { return new Promise(r => setTimeout(r, ms)) }
-
-function extractDomain(url) {
-  if (!url) return null
-  try {
-    const u = new URL(url.startsWith('http') ? url : 'https://' + url)
-    return u.hostname.replace(/^www\./, '').toLowerCase()
-  } catch { return null }
-}
-
-function stripTags(html) {
-  return html
-    .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, ' ')
-    .replace(/<script[^>]*>[\s\S]*?<\/script>/gi, ' ')
-    .replace(/<[^>]+>/g, ' ')
-    .replace(/\s+/g, ' ')
-    .trim()
-}
-
-const EMAIL_RE = /[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}/g
-
 const SLUGS = [
   '', '/about', '/about-us', '/team', '/our-team', '/contact', '/contact-us',
   '/founder', '/ceo', '/management', '/leadership', '/crew', '/partners',
   '/people', '/staff', '/meet-the-team', '/who-we-are', '/company',
 ]
-
-async function fetchPage(url, timeout = 7000) {
-  const controller = new AbortController()
-  const timer = setTimeout(() => controller.abort(), timeout)
-  try {
-    const r = await fetch(url, { headers: FETCH_HEADERS, signal: controller.signal })
-    if (!r.ok) return null
-    return await r.text()
-  } catch { return null } finally { clearTimeout(timer) }
-}
-
-function extractEmails(html, ownDomain) {
-  const emails = []
-  const mailtoRe = /href=["']mailto:([^"'?]+)/gi
-  let m
-  while ((m = mailtoRe.exec(html)) !== null) {
-    const e = m[1].trim().toLowerCase()
-    if (e && !e.includes('noreply') && !e.includes('no-reply') && !e.includes('example')) {
-      emails.push(e)
-    }
-  }
-  const plain = html.match(EMAIL_RE) || []
-  for (const e of plain) {
-    const el = e.toLowerCase()
-    if (el.includes('noreply') || el.includes('no-reply') || el.includes('example') ||
-        el.endsWith('.png') || el.endsWith('.jpg') || el.endsWith('.svg')) continue
-    if (ownDomain && el.includes(ownDomain)) emails.unshift(el)
-    else emails.push(el)
-  }
-  return [...new Set(emails)]
-}
-
-function extractFounderName(text) {
-  const patterns = [
-    /(?:CEO|Founder|Co-Founder|Director|MD|Managing Director|Owner)[,\s]+([A-Z][a-z]+ [A-Z][a-z]+)/,
-    /([A-Z][a-z]+ [A-Z][a-z]+)[,\s]+(?:CEO|Founder|Co-Founder|Director)/,
-    /Founded by ([A-Z][a-z]+ [A-Z][a-z]+)/i,
-    /I[''']m ([A-Z][a-z]+ [A-Z][a-z]+)[,\s]+(?:founder|CEO)/i,
-    /My name is ([A-Z][a-z]+ [A-Z][a-z]+)/i,
-    /([A-Z][a-z]+ [A-Z][a-z]+),?\s+(?:started|created|built|launched) /i,
-  ]
-  for (const p of patterns) {
-    const m = text.match(p)
-    if (m?.[1]) return m[1].trim()
-  }
-  return null
-}
 
 async function enrichOneLead(lead) {
   const domain = extractDomain(lead.website)
@@ -100,8 +30,8 @@ async function enrichOneLead(lead) {
     if (!html) continue
     const text = stripTags(html)
     if (!foundEmail) {
-      const emails = extractEmails(html, domain)
-      if (emails.length) foundEmail = emails[0]
+      const { ownDomain, other } = extractEmails(html, domain)
+      foundEmail = ownDomain[0] || other[0] || null
     }
     if (!foundName) foundName = extractFounderName(text)
     if (foundEmail && foundName) break

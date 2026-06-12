@@ -202,10 +202,31 @@ export async function POST(req) {
   const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY)
   const domain = lead.website?.replace(/^https?:\/\//, '') || `${lead.company.toLowerCase().replace(/\s+/g,'')}.com`
 
-  const [siteData, signals] = await Promise.all([
-    scrapeWebsite(domain),
-    searchCompanySignals(lead.company),
-  ])
+  // ── Scrape cache — avoid re-scraping the same domain within 24h ──────────────
+  const cacheKey = `scrape_cache:${domain}`
+  let siteData = null
+  try {
+    const { data: cached } = await supabase
+      .from('settings').select('value, updated_at').eq('key', cacheKey).single()
+    if (cached?.updated_at) {
+      const ageMs = Date.now() - new Date(cached.updated_at).getTime()
+      if (ageMs < 24 * 60 * 60 * 1000) {
+        siteData = JSON.parse(cached.value)
+      }
+    }
+  } catch {}
+
+  if (!siteData) {
+    siteData = await scrapeWebsite(domain)
+    // Store in cache (fire-and-forget — don't block on it)
+    supabase.from('settings').upsert({
+      key: cacheKey,
+      value: JSON.stringify(siteData),
+      updated_at: new Date().toISOString(),
+    }).then(() => {}).catch(() => {})
+  }
+
+  const signals = await searchCompanySignals(lead.company)
 
   const homepage = siteData[0] || {}
   const aboutPage = siteData.find(p => p.path.includes('about')) || {}

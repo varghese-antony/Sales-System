@@ -3,6 +3,7 @@ import nodemailer from 'nodemailer'
 import { createClient } from '@supabase/supabase-js'
 import { logError } from '@/lib/log-error'
 import { saveToSentFolder } from '@/lib/imap'
+import { getNextDueAt } from '@/lib/send-window'
 
 // Follow-ups must look hand-typed — plain text style, no logo, no fancy HTML
 function buildFollowupHtml(body) {
@@ -57,7 +58,7 @@ export async function POST(req) {
 
   // Get current sequence state
   const { data: seq, error: seqErr } = await supabase
-    .from('sequences').select('*').eq('id', sequenceId).single()
+    .from('sequences').select('*, leads(country)').eq('id', sequenceId).single()
 
   if (seqErr || !seq) return NextResponse.json({ success: false, error: 'Sequence not found' }, { status: 404 })
   if (seq.complete || seq.replied) return NextResponse.json({ success: false, error: 'Sequence already complete' }, { status: 400 })
@@ -99,7 +100,8 @@ export async function POST(req) {
     // Update sequence
     const now = new Date()
     const isLastStep = nextStep === 3
-    const nextDue = isLastStep ? null : (() => { const d = new Date(now); d.setUTCDate(d.getUTCDate() + 4); d.setUTCHours(5, 0, 0, 0); return d.toISOString() })()
+    // Timezone-aware: 12:00 UTC 4 days from now → caught by 13:00 UTC cron
+    const nextDue = isLastStep ? null : getNextDueAt(seq.leads?.country, 4)
 
     const { error: seqUpdateErr } = await supabase.from('sequences').update({
       step: nextStep,

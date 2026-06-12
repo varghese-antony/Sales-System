@@ -22,6 +22,19 @@ function transport() {
   })
 }
 
+// ── Step 0: check for new replies and auto-close sequences ────────────────────
+// Must run BEFORE follow-ups so we don't send a follow-up to someone who just replied.
+async function checkReplies(appUrl, cronSecret) {
+  try {
+    const res = await fetch(`${appUrl}/api/check-replies`, {
+      headers: { 'Authorization': `Bearer ${cronSecret}` },
+      signal: AbortSignal.timeout(30000),
+    })
+    const data = await res.json()
+    return { autoClosedSequences: data.autoClosedSequences || 0, repliesFound: data.messages?.length || 0 }
+  } catch { return { autoClosedSequences: 0, repliesFound: 0 } }
+}
+
 // ── Step 1: send all overdue follow-ups ──────────────────────────────────────
 async function sendFollowups(supabase, appUrl, cronSecret) {
   const now = new Date().toISOString()
@@ -92,7 +105,7 @@ async function syncSent(appUrl) {
 }
 
 // ── Step 4: send summary notification to Varghese ────────────────────────────
-async function sendSummaryEmail({ followups, newEmails, synced, isWeekend }) {
+async function sendSummaryEmail({ replies, followups, newEmails, synced, isWeekend }) {
   const mailer = transport()
   const to = process.env.SMTP_USER // send to himself
 
@@ -154,6 +167,10 @@ async function sendSummaryEmail({ followups, newEmails, synced, isWeekend }) {
       <div style="flex:1;background:#f9fafb;border-radius:8px;padding:16px;text-align:center;">
         <div style="font-size:28px;font-weight:700;color:#374151">${synced}</div>
         <div style="font-size:11px;color:#666;margin-top:4px">Replies synced</div>
+      </div>
+      <div style="flex:1;background:${replies.autoClosedSequences>0?'#f0fdf4':'#f9fafb'};border-radius:8px;padding:16px;text-align:center;">
+        <div style="font-size:28px;font-weight:700;color:${replies.autoClosedSequences>0?'#16a34a':'#9ca3af'}">${replies.autoClosedSequences}</div>
+        <div style="font-size:11px;color:#666;margin-top:4px">Sequences closed</div>
       </div>
     </div>
 
@@ -222,6 +239,9 @@ export async function GET(request) {
   // Log run start time so QA health check can verify it fired
   await supabase.from('settings').upsert({ key: 'last_daily_run', value: new Date().toISOString(), updated_at: new Date().toISOString() })
 
+  // Step 0: check for replies first — close sequences before sending follow-ups
+  const replies = await checkReplies(appUrl, cronSecret)
+
   // Step 1: always send overdue follow-ups (7 days a week)
   const followups = await sendFollowups(supabase, appUrl, cronSecret)
 
@@ -236,13 +256,15 @@ export async function GET(request) {
 
   // Step 4: always send summary email to Varghese
   try {
-    await sendSummaryEmail({ followups, newEmails, synced, isWeekend })
+    await sendSummaryEmail({ replies, followups, newEmails, synced, isWeekend })
   } catch (err) {
     console.error('Summary email failed:', err.message)
   }
 
   return NextResponse.json({
     success: true,
+    repliesFound: replies.repliesFound,
+    autoClosedSequences: replies.autoClosedSequences,
     followupsSent: followups.sent,
     followupsFailed: followups.failed,
     newEmailsSent: newEmails.sent,

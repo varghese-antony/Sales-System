@@ -1,122 +1,13 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
+import {
+  FETCH_HEADERS, sleep, extractDomain, stripTags, fetchPage,
+  extractEmails, pickBestEmail, extractFounderName, guessEmailPatterns,
+} from '@/lib/enrich-utils'
 
-const FETCH_HEADERS = {
-  'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-  'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
-  'Accept-Language': 'en-GB,en;q=0.9',
-}
-
-function sleep(ms) { return new Promise(r => setTimeout(r, ms)) }
-
-function extractDomain(url) {
-  if (!url) return null
-  try {
-    const u = new URL(url.startsWith('http') ? url : 'https://' + url)
-    return u.hostname.replace(/^www\./, '').toLowerCase()
-  } catch { return null }
-}
-
-function stripTags(html) {
-  return html
-    .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, ' ')
-    .replace(/<script[^>]*>[\s\S]*?<\/script>/gi, ' ')
-    .replace(/<[^>]+>/g, ' ')
-    .replace(/\s+/g, ' ')
-    .trim()
-}
-
-// ── EMAIL EXTRACTION ─────────────────────────────────────────────────────────
-
-function extractEmails(html, domain) {
-  const found = new Set()
-
-  // 1. mailto: links — most reliable source
-  const mailtoPattern = /mailto:([a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,})/gi
-  let m
-  while ((m = mailtoPattern.exec(html)) !== null) {
-    found.add(m[1].toLowerCase())
-  }
-
-  // 2. Meta tags — some sites use <meta name="author" content="email@...">
-  const metaPattern = /<meta[^>]+content=["']([a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,})["']/gi
-  while ((m = metaPattern.exec(html)) !== null) {
-    found.add(m[1].toLowerCase())
-  }
-
-  // 3. Plain text emails in the page
-  const text = stripTags(html)
-  const plainPattern = /[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}/g
-  while ((m = plainPattern.exec(text)) !== null) {
-    const email = m[0].toLowerCase()
-    // Filter out false positives
-    if (email.includes('.png') || email.includes('.jpg') || email.includes('.svg')) continue
-    if (email.includes('@2x') || email.includes('@3x')) continue
-    if (email.endsWith('.js') || email.endsWith('.css') || email.endsWith('.min')) continue
-    if (email.includes('sentry') || email.includes('example.com') || email.includes('test.com')) continue
-    found.add(email)
-  }
-
-  // Filter to own domain emails first, keep others as fallback
-  const all = [...found]
-  const ownDomain = domain ? all.filter(e => e.endsWith(`@${domain}`)) : []
-  const other = all.filter(e => domain ? !e.endsWith(`@${domain}`) : true)
-
-  return { ownDomain, other, all }
-}
-
-// Pick best email — personal over generic
-function pickBestEmail(emails) {
-  const generic = ['info', 'hello', 'contact', 'enquiries', 'enquiry', 'sales',
-    'support', 'admin', 'mail', 'office', 'team', 'hey', 'hi', 'help',
-    'press', 'media', 'privacy', 'legal', 'billing', 'no-reply', 'noreply']
-
-  const personal = emails.filter(e => {
-    const prefix = e.split('@')[0]
-    return !generic.includes(prefix) && !prefix.includes('+')
-  })
-  const genericMatches = emails.filter(e => {
-    const prefix = e.split('@')[0]
-    return generic.includes(prefix)
-  })
-
-  return personal[0] || genericMatches[0] || null
-}
-
-// ── FOUNDER NAME EXTRACTION ──────────────────────────────────────────────────
-
-function extractFounderName(text) {
-  const patterns = [
-    // "I'm Sarah Johnson, founder" or "I'm Sarah, founder"
-    /I(?:'m|'m| am)\s+([A-Z][a-z]+(?:\s[A-Z][a-z]+)?),?\s+(?:the\s+)?(?:CEO|Founder|Co-?Founder|Owner|Director|Managing)/,
-    // "Sarah Johnson — CEO" or "Sarah Johnson | Founder"
-    /([A-Z][a-z]+\s[A-Z][a-z]+(?:\s[A-Z][a-z]+)?)\s*[—\-–|•,]\s*(?:CEO|Founder|Co-?Founder|Managing Director|Owner|President|Principal|Director|Partner)/,
-    // "CEO: Sarah Johnson" or "Founder — Sarah Johnson"
-    /(?:CEO|Founder|Co-?Founder|Managing Director|Owner|President|Director|Partner)\s*[:\-–|•]?\s*([A-Z][a-z]+\s[A-Z][a-z]+(?:\s[A-Z][a-z]+)?)/,
-    // "Meet Sarah Johnson, our founder"
-    /[Mm]eet\s+([A-Z][a-z]+\s[A-Z][a-z]+),?\s+(?:our\s+)?(?:CEO|Founder|Co-?Founder|Owner|Director)/,
-    // "Founded by Sarah Johnson"
-    /[Ff]ounded\s+by\s+([A-Z][a-z]+\s[A-Z][a-z]+(?:\s[A-Z][a-z]+)?)/,
-    // "Sarah Johnson started/built/created"
-    /([A-Z][a-z]+\s[A-Z][a-z]+)\s+(?:started|built|created|launched|founded)\s+(?:this|the|our)/,
-    // "says Sarah Johnson, CEO"
-    /says\s+([A-Z][a-z]+\s[A-Z][a-z]+),\s*(?:CEO|Founder|Owner|Director)/,
-  ]
-
-  for (const pattern of patterns) {
-    const m = text.match(pattern)
-    if (m) {
-      const name = m[1].trim()
-      // Sanity check: proper name, not a common word
-      if (name.length > 4 && name.length < 50 && /^[A-Z]/.test(name)) {
-        return name
-      }
-    }
-  }
-  return null
-}
-
-// ── COMPANIES HOUSE (UK) — free, no API key needed ───────────────────────────
+// ── COMPANIES HOUSE (UK) ──────────────────────────────────────────────────────
+// extractEmails, pickBestEmail, extractFounderName, guessEmailPatterns, fetchPage
+// are imported from @/lib/enrich-utils — shared with enrich-batch.
 
 async function lookupCompaniesHouse(companyName) {
   try {
@@ -197,42 +88,6 @@ async function googleSearchFounder(companyName, website) {
     }
   } catch {}
   return null
-}
-
-// ── EMAIL PATTERN GENERATOR ──────────────────────────────────────────────────
-
-function guessEmailPatterns(fullName, domain) {
-  if (!fullName || !domain) return []
-  const parts = fullName.trim().toLowerCase().split(/\s+/)
-  const f = parts[0]
-  const l = parts[1] || null
-  const patterns = [`${f}@${domain}`]
-  if (l) {
-    patterns.push(
-      `${f}.${l}@${domain}`,
-      `${f[0]}${l}@${domain}`,
-      `${f[0]}.${l}@${domain}`,
-      `${l}@${domain}`,
-      `${f}${l[0]}@${domain}`,
-    )
-  }
-  // Add generic fallbacks so Varghese has something to try
-  patterns.push(`hello@${domain}`, `info@${domain}`, `contact@${domain}`)
-  return [...new Set(patterns)] // deduplicate
-}
-
-// ── FETCH HELPER ─────────────────────────────────────────────────────────────
-
-async function fetchPage(url) {
-  try {
-    const res = await fetch(url, {
-      headers: FETCH_HEADERS,
-      signal: AbortSignal.timeout(7000),
-      redirect: 'follow',
-    })
-    if (!res.ok) return null
-    return await res.text()
-  } catch { return null }
 }
 
 // ── MAIN HANDLER ─────────────────────────────────────────────────────────────

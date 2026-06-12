@@ -2,7 +2,7 @@
   "crons": [
     {
       "path": "/api/daily-runner",
-      "schedule": "0 6 * * *"
+      "schedule": "0 13 * * *"
     },
     {
       "path": "/api/enrich-batch",
