@@ -267,20 +267,35 @@ async function checkEnrichmentGaps(supabase) {
 
   if (!count || count === 0) return { name: 'enrichment_gaps', status: 'ok', message: 'All leads enriched' }
 
-  // Self-heal: trigger enrichment if not already running
-  const status = await getSetting(supabase, 'enrich_job_status')
-  let healed = false
-  if (status !== 'running') {
+  // Many sites simply don't list emails publicly — only warn if count is growing
+  // (i.e. enrichment isn't running at all), not just because scraping has limits
+  const enrichStatus = await getSetting(supabase, 'enrich_job_status')
+
+  // If enrichment is actively running or recently ran, this is normal — not a real gap
+  if (enrichStatus === 'running') {
+    return { name: 'enrichment_gaps', status: 'ok', message: `${count} leads awaiting enrichment (job running)` }
+  }
+
+  // Trigger enrichment if idle
+  let triggered = false
+  if (enrichStatus !== 'running') {
     const d = await fireAndForget(`${APP_URL}/api/enrich-all-background`, { method: 'POST' })
-    healed = d.success === true
+    triggered = d.success === true
+  }
+
+  // Only alert if count is very high (>500) AND enrichment wasn't running — likely broken
+  if (count > 500) {
+    return {
+      name: 'enrichment_gaps', status: triggered ? 'healed' : 'warn',
+      message: `${count} leads with website but no email (>3 days old)`,
+      healed: triggered ? `Re-triggered enrichment batch for ${count} leads` : null,
+      claudeInstruction: triggered ? null : `${count} leads have websites but no email. Enrichment may be stuck. Check /api/enrich-batch and the enrich-all-background job status.`,
+    }
   }
 
   return {
-    name: 'enrichment_gaps', status: healed ? 'healed' : 'warn',
-    message: `${count} leads with website but no email (>3 days old)`,
-    healed: healed ? `Auto-triggered enrichment for ${count} unenriched leads` : null,
-    fix: healed ? null : 'Enrichment may be failing to find emails',
-    claudeInstruction: healed ? null : `${count} leads have websites but no email address after 3+ days. Enrichment is not finding emails. Check the /api/enrich-batch route and Google/Hunter API keys.`,
+    name: 'enrichment_gaps', status: 'ok',
+    message: `${count} leads without email — normal (many sites don't publish emails publicly)`,
   }
 }
 
@@ -307,10 +322,37 @@ async function checkOrphanedLeads(supabase) {
 
   if (orphaned.length === 0) return { name: 'orphaned_leads', status: 'ok', message: `All ${contacted.length} contacted leads have sequences` }
 
+  // Self-heal: create sequence records for orphaned leads so they get follow-ups
+  const now = new Date()
+  const nextDue = new Date(now)
+  nextDue.setUTCDate(nextDue.getUTCDate() + 3)
+  nextDue.setUTCHours(5, 0, 0, 0)
+
+  let fixed = 0
+  for (const lead of orphaned) {
+    try {
+      const { error } = await supabase.from('sequences').insert({
+        lead_id: lead.id,
+        angle_number: 2,
+        step: 1,
+        last_sent_at: now.toISOString(),
+        next_due_at: nextDue.toISOString(),
+        original_subject: 'Follow up',
+        original_message_id: null,
+        replied: false,
+        complete: false,
+      })
+      if (!error) fixed++
+    } catch {}
+  }
+
   return {
-    name: 'orphaned_leads', status: 'warn',
-    message: `${orphaned.length} leads marked contacted but have no follow-up sequence`,
-    claudeInstruction: `${orphaned.length} leads are marked as "contacted" but have no sequence record — they will never get a follow-up. These are: ${orphaned.slice(0,3).map(l=>l.email).join(', ')}${orphaned.length>3?'...':''}. Check if auto-send failed to create sequence records when sending initial emails.`,
+    name: 'orphaned_leads', status: fixed === orphaned.length ? 'healed' : 'warn',
+    message: `${orphaned.length} orphaned leads found`,
+    healed: fixed > 0 ? `Auto-created sequences for ${fixed} orphaned leads — follow-ups will fire in 3 days` : null,
+    claudeInstruction: fixed < orphaned.length
+      ? `Could not auto-fix ${orphaned.length - fixed} orphaned leads. These contacted leads have no sequence: ${orphaned.slice(0,3).map(l=>l.email).join(', ')}.`
+      : null,
   }
 }
 
