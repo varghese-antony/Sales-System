@@ -104,21 +104,26 @@ async function syncSent(appUrl) {
   } catch { return 0 }
 }
 
-// ── Step 3b: purge stale scrape_cache entries from settings table ─────────────
-// Scrape cache has a 24h TTL for reads. We purge entries older than 48h here
-// (once per day) so the settings table doesn't grow indefinitely.
+// ── Step 3b: purge stale cache entries from settings table ────────────────────
+// Both scrape_cache and signal_cache have a 24h read TTL.
+// We purge entries older than 48h (once per day) so the table stays bounded.
 async function purgeScrapeCache(supabase) {
   try {
     const cutoff = new Date(Date.now() - 48 * 60 * 60 * 1000).toISOString()
-    const { error, count } = await supabase
-      .from('settings')
-      .delete({ count: 'exact' })
-      .like('key', 'scrape_cache:%')
-      .lt('updated_at', cutoff)
-    if (error) console.error('Scrape cache purge error:', error.message)
-    return count || 0
+    let totalPurged = 0
+
+    for (const prefix of ['scrape_cache:%', 'signal_cache:%']) {
+      const { count } = await supabase
+        .from('settings')
+        .delete({ count: 'exact' })
+        .like('key', prefix)
+        .lt('updated_at', cutoff)
+      totalPurged += (count || 0)
+    }
+
+    return totalPurged
   } catch (err) {
-    console.error('Scrape cache purge failed:', err.message)
+    console.error('Cache purge failed:', err.message)
     return 0
   }
 }

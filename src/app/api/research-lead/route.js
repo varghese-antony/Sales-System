@@ -226,7 +226,26 @@ export async function POST(req) {
     }).then(() => {}).catch(() => {})
   }
 
-  const signals = await searchCompanySignals(lead.company)
+  // ── Signal search cache — avoid 2 Google queries on every regeneration ────────
+  const signalKey = `signal_cache:${lead.company.toLowerCase().replace(/\s+/g, '_')}`
+  let signals = null
+  try {
+    const { data: cachedSignal } = await supabase
+      .from('settings').select('value, updated_at').eq('key', signalKey).single()
+    if (cachedSignal?.updated_at) {
+      const ageMs = Date.now() - new Date(cachedSignal.updated_at).getTime()
+      if (ageMs < 24 * 60 * 60 * 1000) signals = JSON.parse(cachedSignal.value)
+    }
+  } catch {}
+
+  if (!signals) {
+    signals = await searchCompanySignals(lead.company)
+    supabase.from('settings').upsert({
+      key: signalKey,
+      value: JSON.stringify(signals),
+      updated_at: new Date().toISOString(),
+    }).then(() => {}).catch(() => {})
+  }
 
   const homepage = siteData[0] || {}
   const aboutPage = siteData.find(p => p.path.includes('about')) || {}
