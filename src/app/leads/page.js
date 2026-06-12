@@ -735,8 +735,8 @@ export default function Leads() {
                     : <>✦ Enrich</>}
                 </button>
               )}
-              {/* Mark as Emailed — show if new status and not yet in a sequence */}
-              {l.status === 'new' && !sequencedIds.has(l.id) && (
+              {/* Mark as Emailed — show if not yet in a sequence (any status) */}
+              {!sequencedIds.has(l.id) && l.status !== 'not_interested' && (
                 <button
                   onClick={()=>setShowMarkModal(l)}
                   disabled={markingId===l.id}
