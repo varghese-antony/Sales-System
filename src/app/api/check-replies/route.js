@@ -29,6 +29,39 @@ function stripHtml(html) {
     .trim()
 }
 
+// ─── Reply Categorisation ────────────────────────────────────────────────────
+// Returns one of: 'ooo' | 'unsubscribe' | 'wrong_person' | 'bounce' | 'interested'
+// 'interested' is the safe default — treated as a genuine positive reply.
+function categoriseReply(subject = '', bodySnippet = '', fromAddr = '') {
+  const text = (subject + ' ' + bodySnippet).toLowerCase()
+  const sub = subject.toLowerCase()
+
+  // Bounce / NDR — mailer-daemon or postmaster
+  if (fromAddr.includes('mailer-daemon') || fromAddr.includes('postmaster')) return 'bounce'
+  if (sub.includes('delivery status notification') || sub.includes('undeliverable') || sub.includes('mail delivery failed')) return 'bounce'
+  if (text.includes('550 ') || text.includes('mailbox full') || text.includes('user unknown')) return 'bounce'
+
+  // Out of Office
+  if (sub.includes('out of office') || sub.includes('out of the office') || sub.includes('automatic reply') || sub.includes('auto-reply')) return 'ooo'
+  if (text.includes('i am out of office') || text.includes('i am currently out') || text.includes('i\'m out of the office')) return 'ooo'
+  if (text.includes('i\'m away') || text.includes('i am away') || text.includes('currently unavailable') || text.includes('on annual leave')) return 'ooo'
+  if (text.includes('will return') || text.includes('back on') || text.includes('back in the office')) return 'ooo'
+  if (text.includes('on vacation') || text.includes('on holiday') || text.includes('maternity leave') || text.includes('paternity leave')) return 'ooo'
+
+  // Remove me / Unsubscribe
+  if (text.includes('remove me') || text.includes('unsubscribe') || text.includes('take me off') || text.includes('stop emailing') || text.includes('do not contact')) return 'unsubscribe'
+  if (text.includes('not interested') && text.includes('stop') ) return 'unsubscribe'
+  if (text.includes('please remove') || text.includes('opt out') || text.includes('opt-out')) return 'unsubscribe'
+
+  // Wrong person / Forwarded
+  if (text.includes('wrong person') || text.includes('wrong email') || text.includes('wrong contact')) return 'wrong_person'
+  if (text.includes('not the right') || text.includes('you should contact') || text.includes('you should speak to')) return 'wrong_person'
+  if (text.includes('i\'m not') && (text.includes('founder') || text.includes('ceo') || text.includes('decision'))) return 'wrong_person'
+  if (text.includes('i don\'t handle') || text.includes('i don\'t deal with')) return 'wrong_person'
+
+  return 'interested'
+}
+
 export async function GET() {
   const client = new ImapFlow({
     host: 'imap.hostinger.com',
@@ -90,6 +123,11 @@ export async function GET() {
           // Skip no-reply type addresses
           if (fromAddr.includes('noreply') || fromAddr.includes('no-reply') || fromAddr.includes('donotreply')) continue
 
+          const category = categoriseReply(subject, bodyText, fromAddr)
+
+          // Skip bounces entirely — we don't want to mark the lead as replied
+          if (category === 'bounce') continue
+
           messages.push({
             uid: msg.uid,
             from: fromAddr,
@@ -98,6 +136,7 @@ export async function GET() {
             date: date instanceof Date ? date.toISOString() : new Date(date).toISOString(),
             seen,
             snippet: bodyText.slice(0, 300),
+            category,
           })
         } catch {}
       }
@@ -131,35 +170,81 @@ export async function GET() {
       }
     }
 
-    // Auto-close sequences for anyone who replied
-    // Do this before returning so the UI sees the updated state immediately
-    const repliedLeadIds = Object.values(leadMap).map(l => l.id)
-    if (repliedLeadIds.length > 0) {
-      // Only close sequences that aren't already closed — avoid redundant writes
-      const { error: seqCloseErr } = await supabase
-        .from('sequences')
-        .update({ replied: true, complete: true, reply_at: new Date().toISOString() })
-        .in('lead_id', repliedLeadIds)
-        .eq('replied', false)
-        .eq('complete', false)
-      if (seqCloseErr) await logError('check-replies', 'sequence-auto-close-failed', seqCloseErr, { repliedLeadIds })
-
-      // Also update lead status to 'interested' so it surfaces in the pipeline
-      const { error: leadStatusErr } = await supabase
-        .from('leads')
-        .update({ status: 'interested' })
-        .in('id', repliedLeadIds)
-        .eq('status', 'contacted') // only move forward, never overwrite 'client' etc.
-      if (leadStatusErr) await logError('check-replies', 'lead-status-update-failed', leadStatusErr, { repliedLeadIds })
+    // ── Category-aware sequence and lead handling ─────────────────────────────
+    // Group messages by lead + category (take the first/most-recent category per lead)
+    const leadCategoryMap = {} // leadId → category
+    for (const msg of messages) {
+      const lead = leadMap[msg.from]
+      if (!lead) continue
+      if (!leadCategoryMap[lead.id]) leadCategoryMap[lead.id] = msg.category
     }
 
-    // Attach lead info to messages
+    let autoClosedSequences = 0
+
+    for (const [leadId, category] of Object.entries(leadCategoryMap)) {
+      if (category === 'ooo') {
+        // OOO: delay the next follow-up by 7 days (don't mark replied or complete)
+        const oooDelay = new Date()
+        oooDelay.setUTCDate(oooDelay.getUTCDate() + 7)
+        oooDelay.setUTCHours(12, 0, 0, 0)
+        const { error } = await supabase
+          .from('sequences')
+          .update({ next_due_at: oooDelay.toISOString() })
+          .eq('lead_id', leadId)
+          .eq('complete', false)
+          .eq('replied', false)
+        if (error) await logError('check-replies', 'ooo-delay-failed', error, { leadId })
+        // Don't count OOO as "closed" — sequence is still alive
+        continue
+      }
+
+      if (category === 'unsubscribe') {
+        // Unsubscribe: close sequence + set lead to unsubscribed
+        await supabase.from('sequences')
+          .update({ replied: true, complete: true })
+          .eq('lead_id', leadId).eq('complete', false)
+        await supabase.from('leads')
+          .update({ status: 'unsubscribed' })
+          .eq('id', leadId)
+        autoClosedSequences++
+        continue
+      }
+
+      if (category === 'wrong_person') {
+        // Wrong person: close sequence but keep lead as 'contacted' (not interested)
+        await supabase.from('sequences')
+          .update({ replied: true, complete: true })
+          .eq('lead_id', leadId).eq('complete', false)
+        // Don't change lead status — leave as 'contacted'
+        autoClosedSequences++
+        continue
+      }
+
+      // 'interested' (default): original behaviour — close sequence, mark interested
+      const { error: seqErr } = await supabase
+        .from('sequences')
+        .update({ replied: true, complete: true, reply_at: new Date().toISOString() })
+        .eq('lead_id', leadId)
+        .eq('replied', false)
+        .eq('complete', false)
+      if (seqErr) await logError('check-replies', 'sequence-auto-close-failed', seqErr, { leadId })
+
+      const { error: leadErr } = await supabase
+        .from('leads')
+        .update({ status: 'interested' })
+        .eq('id', leadId)
+        .eq('status', 'contacted')
+      if (leadErr) await logError('check-replies', 'lead-status-update-failed', leadErr, { leadId })
+      autoClosedSequences++
+    }
+
+    // Attach lead info + category to messages
     const enriched = messages.map(m => ({
       ...m,
       lead: leadMap[m.from] || null,
     }))
 
-    return NextResponse.json({ success: true, messages: enriched, autoClosedSequences: repliedLeadIds.length })
+    return NextResponse.json({ success: true, messages: enriched, autoClosedSequences })
 
   } catch (err) {
     try { await client.logout() } catch {}
