@@ -25,6 +25,7 @@ const PROTECTED_ROUTES = [
 
 const ALWAYS_OPEN = [
   '/api/track-open',
+  '/api/unsubscribe',
 ]
 
 export function middleware(request) {

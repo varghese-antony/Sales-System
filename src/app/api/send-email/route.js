@@ -47,6 +47,7 @@ export async function POST(req) {
 
   const cleanBody = stripSignOff(body)
   const trackingUrl = `https://sales-system-blendery.vercel.app/api/track-open/${leadId}`
+  const unsubscribeUrl = `https://sales-system-blendery.vercel.app/api/unsubscribe/${leadId}`
   const htmlEmail = `<!DOCTYPE html>
 <html lang="en"><head><meta charset="UTF-8"/></head>
 <body style="margin:0;padding:32px 24px;background:#fff;font-family:Arial,sans-serif;">
@@ -54,6 +55,10 @@ export async function POST(req) {
     ${bodyToHtml(cleanBody)}
     <p style="margin:0 0 0;font-family:Arial,sans-serif;font-size:14px;color:#222;">Best,</p>
     ${SIGNATURE_HTML}
+    <p style="margin:24px 0 0;font-family:Arial,sans-serif;font-size:11px;color:#aaa;line-height:1.6;">
+      Blendery Tech Solutions &middot; 26th Floor, Amber Gem Tower, UAE<br/>
+      <a href="${unsubscribeUrl}" style="color:#aaa;text-decoration:underline;">Unsubscribe</a> from future emails.
+    </p>
   </div>
   <img src="${trackingUrl}" width="1" height="1" style="display:none;border:0;width:1px;height:1px;" alt="" />
 </body></html>`

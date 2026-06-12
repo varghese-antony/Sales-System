@@ -6,7 +6,8 @@ import { saveToSentFolder } from '@/lib/imap'
 import { getNextDueAt } from '@/lib/send-window'
 
 // Follow-ups must look hand-typed — plain text style, no logo, no fancy HTML
-function buildFollowupHtml(body) {
+function buildFollowupHtml(body, leadId) {
+  const unsubscribeUrl = `https://sales-system-blendery.vercel.app/api/unsubscribe/${leadId}`
   return `<!DOCTYPE html>
 <html><head><meta charset="UTF-8"/></head>
 <body style="margin:0;padding:32px 24px;background:#fff;font-family:Arial,sans-serif;font-size:14px;line-height:1.8;color:#222;">
@@ -15,6 +16,10 @@ function buildFollowupHtml(body) {
       .split(/\n\n+/)
       .map(p => `<p style="margin:0 0 16px;">${p.replace(/\n/g, '<br/>')}</p>`)
       .join('')}
+    <p style="margin:24px 0 0;font-family:Arial,sans-serif;font-size:11px;color:#aaa;line-height:1.6;">
+      Blendery Tech Solutions &middot; 26th Floor, Amber Gem Tower, UAE<br/>
+      <a href="${unsubscribeUrl}" style="color:#aaa;text-decoration:underline;">Unsubscribe</a> from future emails.
+    </p>
   </div>
 </body></html>`
 }
@@ -82,7 +87,7 @@ export async function POST(req) {
     const msgId = originalMessageId || seq.original_message_id
     const mailOptions = {
       from: `"Varghese Antony | Blendery" <${process.env.SMTP_USER}>`,
-      to, subject, html: buildFollowupHtml(body),
+      to, subject, html: buildFollowupHtml(body, leadId),
       ...(msgId ? { headers: { 'In-Reply-To': msgId, 'References': msgId } } : {}),
     }
 
@@ -93,7 +98,7 @@ export async function POST(req) {
       `From: "Varghese Antony | Blendery" <${process.env.SMTP_USER}>\r\n` +
       `To: ${to}\r\nSubject: ${subject}\r\nDate: ${new Date().toUTCString()}\r\n` +
       `MIME-Version: 1.0\r\nContent-Type: text/html; charset=utf-8\r\n\r\n` +
-      buildFollowupHtml(body)
+      buildFollowupHtml(body, leadId)
     )
     await saveToSentFolder(rawMsg)
 
