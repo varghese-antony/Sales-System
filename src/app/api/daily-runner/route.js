@@ -35,7 +35,14 @@ async function checkReplies(appUrl, cronSecret) {
   } catch { return { autoClosedSequences: 0, repliesFound: 0 } }
 }
 
-// ── Step 1: send all overdue follow-ups ──────────────────────────────────────
+// ── Step 1: send all overdue follow-ups (batched parallel) ───────────────────
+// Sends BATCH_SIZE follow-ups simultaneously, then waits BATCH_DELAY before
+// the next batch. 5 parallel × 1.5s gap = ~6s per batch of 5.
+// 30 overdue leads = 3 batches × 6s ≈ 18s (vs 30 × 800ms = 24s sequential).
+// Vercel Hobby functions have a 60s timeout — this approach handles up to ~45 leads safely.
+const FOLLOWUP_BATCH_SIZE = 5
+const FOLLOWUP_BATCH_DELAY = 1500 // ms between batches
+
 async function sendFollowups(supabase, appUrl, cronSecret) {
   const now = new Date().toISOString()
   const { data: dueSeqs } = await supabase
@@ -44,15 +51,18 @@ async function sendFollowups(supabase, appUrl, cronSecret) {
     .lte('next_due_at', now)
     .eq('complete', false)
     .eq('replied', false)
+    .limit(50) // Hard cap: never process >50 in one cron run
 
   if (!dueSeqs?.length) return { sent: 0, failed: 0, details: [] }
+
+  // Filter out sequences without a lead email before batching
+  const valid = dueSeqs.filter(s => s.leads?.email)
 
   let sent = 0, failed = 0
   const details = []
 
-  for (const seq of dueSeqs) {
+  async function sendOne(seq) {
     const lead = seq.leads
-    if (!lead?.email) continue
     try {
       const res = await fetch(`${appUrl}/api/send-followup`, {
         method: 'POST',
@@ -65,6 +75,7 @@ async function sendFollowups(supabase, appUrl, cronSecret) {
           originalSubject: seq.original_subject,
           originalMessageId: seq.original_message_id,
         }),
+        signal: AbortSignal.timeout(15000),
       })
       const result = await res.json()
       if (result.success) {
@@ -78,7 +89,16 @@ async function sendFollowups(supabase, appUrl, cronSecret) {
       failed++
       details.push({ name: lead.full_name, email: lead.email, step: seq.step + 1, status: 'failed', error: err.message })
     }
-    await new Promise(r => setTimeout(r, 800))
+  }
+
+  // Process in batches of FOLLOWUP_BATCH_SIZE
+  for (let i = 0; i < valid.length; i += FOLLOWUP_BATCH_SIZE) {
+    const batch = valid.slice(i, i + FOLLOWUP_BATCH_SIZE)
+    await Promise.all(batch.map(sendOne))
+    // Brief pause between batches to avoid SMTP rate limiting
+    if (i + FOLLOWUP_BATCH_SIZE < valid.length) {
+      await new Promise(r => setTimeout(r, FOLLOWUP_BATCH_DELAY))
+    }
   }
 
   return { sent, failed, details }
