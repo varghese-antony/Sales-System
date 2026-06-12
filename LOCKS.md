@@ -10,7 +10,7 @@ Both the Tech Head session and Marketing Head session must follow these rules.
 
 | File | Session | Started |
 |------|---------|---------|
-| *(none)* | — | — |
+| *(none)* | | |
 
 ---
 
