@@ -456,14 +456,25 @@ async function checkPageHealth() {
 // manually without closing the sequence.
 // ══════════════════════════════════════════════════════════════════════════════
 async function checkReplyConsistency(supabase) {
+  // Step 1: get all leads marked as interested (they have replied)
+  const { data: interestedLeads } = await supabase
+    .from('leads')
+    .select('id')
+    .eq('status', 'interested')
+
+  if (!interestedLeads?.length) {
+    return { name: 'reply_consistency', status: 'ok', message: 'No replied leads yet' }
+  }
+
+  const interestedIds = interestedLeads.map(l => l.id)
+
+  // Step 2: find any open sequences for those leads — they should all be closed
   const { data: openForReplied } = await supabase
     .from('sequences')
     .select('id, lead_id, step')
     .eq('replied', false)
     .eq('complete', false)
-    .in('lead_id',
-      supabase.from('leads').select('id').eq('status', 'interested')
-    )
+    .in('lead_id', interestedIds)
 
   if (!openForReplied?.length) {
     return { name: 'reply_consistency', status: 'ok', message: 'All replied leads have closed sequences' }
