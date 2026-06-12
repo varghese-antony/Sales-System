@@ -148,8 +148,25 @@ async function purgeScrapeCache(supabase) {
   }
 }
 
+// ── Step 3c: run QA health check as backup monitor ────────────────────────────
+// Acts as a second monitoring layer — if UptimeRobot goes down, this daily
+// email still tells Varghese about any system failures.
+async function runQACheck(appUrl, cronSecret) {
+  try {
+    const res = await fetch(`${appUrl}/api/qa-health`, {
+      headers: { 'Authorization': `Bearer ${cronSecret}` },
+      signal: AbortSignal.timeout(20000),
+    })
+    const data = await res.json()
+    const checks = data.checks || []
+    const failed = checks.filter(c => c.status === 'fail')
+    const passed = checks.filter(c => c.status === 'pass')
+    return { total: checks.length, passed: passed.length, failed, score: data.score || 0 }
+  } catch { return { total: 0, passed: 0, failed: [], score: 0 } }
+}
+
 // ── Step 4: send summary notification to Varghese ────────────────────────────
-async function sendSummaryEmail({ replies, followups, newEmails, synced, isWeekend }) {
+async function sendSummaryEmail({ replies, followups, newEmails, synced, isWeekend, qa }) {
   const mailer = transport()
   const to = process.env.SMTP_USER // send to himself
 
@@ -252,6 +269,15 @@ async function sendSummaryEmail({ replies, followups, newEmails, synced, isWeeke
       <div style="font-size:12px;color:#78350f;margin-top:4px">Check the system — no new emails and no follow-ups were sent.</div>
     </div>` : ''}
 
+    ${qa?.failed?.length > 0 ? `
+    <div style="padding:16px 28px;background:#fef2f2;border-bottom:1px solid #f0f0f0;">
+      <div style="font-size:13px;font-weight:700;color:#dc2626;margin-bottom:8px">🔴 QA Health: ${qa.failed.length} check${qa.failed.length>1?'s':''} failing (${qa.passed}/${qa.total} passed)</div>
+      ${qa.failed.map(f => `<div style="font-size:12px;color:#7f1d1d;margin-bottom:4px;">• <b>${f.name}</b>: ${f.message || f.error || 'failed'}</div>`).join('')}
+    </div>` : qa?.total > 0 ? `
+    <div style="padding:12px 28px;background:#f0fdf4;border-bottom:1px solid #f0f0f0;">
+      <div style="font-size:12px;color:#15803d;">✅ QA Health: all ${qa.total} checks passing (score: ${qa.score})</div>
+    </div>` : ''}
+
     <div style="padding:16px 28px;">
       <a href="https://sales-system-blendery.vercel.app/smart-outreach"
          style="display:inline-block;padding:10px 20px;background:#0f172a;color:#fff;border-radius:8px;text-decoration:none;font-size:13px;font-weight:600">
@@ -301,9 +327,12 @@ export async function GET(request) {
   // Step 3b: purge stale scrape cache (fire and forget — doesn't block summary)
   const cachesPurged = await purgeScrapeCache(supabase)
 
+  // Step 3c: run QA health check (backup monitor — results go into summary email)
+  const qa = await runQACheck(appUrl, cronSecret)
+
   // Step 4: always send summary email to Varghese
   try {
-    await sendSummaryEmail({ replies, followups, newEmails, synced, isWeekend })
+    await sendSummaryEmail({ replies, followups, newEmails, synced, isWeekend, qa })
   } catch (err) {
     console.error('Summary email failed:', err.message)
   }
@@ -318,5 +347,7 @@ export async function GET(request) {
     synced,
     cachesPurged,
     isWeekend,
+    qaScore: qa.score,
+    qaFailed: qa.failed.length,
   })
 }
