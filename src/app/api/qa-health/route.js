@@ -29,6 +29,16 @@ function transport() {
   })
 }
 
+// ── helper: fire-and-forget internal API call (3s timeout, don't block qa-health) ─
+async function fireAndForget(url, options = {}) {
+  try {
+    const controller = new AbortController()
+    setTimeout(() => controller.abort(), 3000)
+    const res = await fetch(url, { ...options, signal: controller.signal })
+    try { const d = await res.json(); return d } catch { return { success: true } }
+  } catch { return { success: false } }
+}
+
 // ── helper: get setting value ─────────────────────────────────────────────────
 async function getSetting(supabase, key) {
   const { data } = await supabase.from('settings').select('value').eq('key', key).single()
@@ -71,15 +81,11 @@ async function checkDailyRunner(supabase) {
   const threshold = isWeekend ? 50 : 26
 
   if (hoursAgo > threshold) {
-    // Try to self-heal: trigger daily-runner now
-    let healed = false
-    try {
-      const res = await fetch(`${APP_URL}/api/daily-runner`, {
-        headers: { 'Authorization': `Bearer ${process.env.CRON_SECRET}` },
-      })
-      const d = await res.json()
-      healed = d.success === true
-    } catch {}
+    // Try to self-heal: trigger daily-runner (fire-and-forget — it's slow)
+    const d = await fireAndForget(`${APP_URL}/api/daily-runner`, {
+      headers: { 'Authorization': `Bearer ${process.env.CRON_SECRET}` },
+    })
+    const healed = d.success === true
 
     return {
       name: 'daily_runner', status: healed ? 'healed' : 'fail',
@@ -107,26 +113,12 @@ async function checkSequences(supabase) {
 
   if (!stuck?.length) return { name: 'sequences', status: 'ok', message: 'No stuck sequences' }
 
-  // Self-heal: send them now
-  let sent = 0, failed = 0
-  for (const seq of stuck) {
-    const lead = seq.leads
-    if (!lead?.email) continue
-    try {
-      const res = await fetch(`${APP_URL}/api/send-followup`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${process.env.CRON_SECRET}` },
-        body: JSON.stringify({
-          sequenceId: seq.id, leadId: lead.id || seq.lead_id,
-          to: lead.email,
-          firstName: lead.first_name || lead.full_name?.split(' ')[0] || 'there',
-        }),
-      })
-      const r = await res.json()
-      r.success ? sent++ : failed++
-    } catch { failed++ }
-    await new Promise(r => setTimeout(r, 600))
-  }
+  // Self-heal: kick off daily-runner to send them (fire-and-forget — don't block qa-health)
+  const healRes = await fireAndForget(`${APP_URL}/api/daily-runner`, {
+    headers: { 'Authorization': `Bearer ${process.env.CRON_SECRET}` },
+  })
+  const sent = healRes.followupsSent || 0
+  const failed = 0
 
   return {
     name: 'sequences', status: failed > 0 ? 'fail' : 'healed',
@@ -152,13 +144,9 @@ async function checkEnrichment(supabase) {
   const minsStale = (Date.now() - new Date(updatedRaw).getTime()) / (1000 * 60)
   if (minsStale < 15) return { name: 'enrichment', status: 'ok', message: `Enrichment running (updated ${Math.round(minsStale)}m ago)` }
 
-  // Self-heal: reset stuck job
-  let healed = false
-  try {
-    const res = await fetch(`${APP_URL}/api/enrich-all-background`, { method: 'DELETE' })
-    const d = await res.json()
-    healed = d.success === true
-  } catch {}
+  // Self-heal: reset stuck job (fire-and-forget)
+  const resetRes = await fireAndForget(`${APP_URL}/api/enrich-all-background`, { method: 'DELETE' })
+  const healed = resetRes.success === true
 
   return {
     name: 'enrichment', status: healed ? 'healed' : 'fail',
@@ -175,7 +163,11 @@ async function checkEnrichment(supabase) {
 async function checkSMTP() {
   try {
     const t = transport()
-    await t.verify()
+    // 5s timeout — SMTP verify can hang if Hostinger is slow
+    await Promise.race([
+      t.verify(),
+      new Promise((_, reject) => setTimeout(() => reject(new Error('SMTP verify timed out after 5s')), 5000)),
+    ])
     return { name: 'smtp', status: 'ok', message: 'SMTP connected' }
   } catch (err) {
     return {
@@ -279,11 +271,8 @@ async function checkEnrichmentGaps(supabase) {
   const status = await getSetting(supabase, 'enrich_job_status')
   let healed = false
   if (status !== 'running') {
-    try {
-      const res = await fetch(`${APP_URL}/api/enrich-all-background`, { method: 'POST' })
-      const d = await res.json()
-      healed = d.success === true
-    } catch {}
+    const d = await fireAndForget(`${APP_URL}/api/enrich-all-background`, { method: 'POST' })
+    healed = d.success === true
   }
 
   return {
