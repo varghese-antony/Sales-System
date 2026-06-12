@@ -393,9 +393,13 @@ async function checkSequenceProgression(supabase) {
 // ══════════════════════════════════════════════════════════════════════════════
 async function checkPageHealth() {
   try {
+    const controller = new AbortController()
+    const timeout = setTimeout(() => controller.abort(), 8000) // never block qa-health for more than 8s
     const res = await fetch(`${APP_URL}/api/qa-pages`, {
+      signal: controller.signal,
       headers: { 'User-Agent': 'Blendery-QA/1.0' },
     })
+    clearTimeout(timeout)
     const data = await res.json()
     const failures = data.failures || 0
     const pages = data.pages || 0

@@ -48,13 +48,8 @@ const PAGES = [
     mustContain: ['Pipeline'],
     mustNotContain: ['Application error', 'unhandled'],
   },
-  {
-    path: '/api/qa-health',
-    name: 'QA Health API',
-    mustContain: ['"healthy"', '"checks"', '"results"'],
-    mustNotContain: ['Internal Server Error'],
-    isJson: true,
-  },
+  // NOTE: do NOT add /api/qa-health here — qa-health calls qa-pages,
+  // so adding it would create a circular loop and cause both to time out.
 ]
 
 function transport() {
