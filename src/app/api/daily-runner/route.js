@@ -104,6 +104,25 @@ async function syncSent(appUrl) {
   } catch { return 0 }
 }
 
+// ── Step 3b: purge stale scrape_cache entries from settings table ─────────────
+// Scrape cache has a 24h TTL for reads. We purge entries older than 48h here
+// (once per day) so the settings table doesn't grow indefinitely.
+async function purgeScrapeCache(supabase) {
+  try {
+    const cutoff = new Date(Date.now() - 48 * 60 * 60 * 1000).toISOString()
+    const { error, count } = await supabase
+      .from('settings')
+      .delete({ count: 'exact' })
+      .like('key', 'scrape_cache:%')
+      .lt('updated_at', cutoff)
+    if (error) console.error('Scrape cache purge error:', error.message)
+    return count || 0
+  } catch (err) {
+    console.error('Scrape cache purge failed:', err.message)
+    return 0
+  }
+}
+
 // ── Step 4: send summary notification to Varghese ────────────────────────────
 async function sendSummaryEmail({ replies, followups, newEmails, synced, isWeekend }) {
   const mailer = transport()
@@ -254,6 +273,9 @@ export async function GET(request) {
   // Step 3: sync sent folder replies
   const synced = await syncSent(appUrl)
 
+  // Step 3b: purge stale scrape cache (fire and forget — doesn't block summary)
+  const cachesPurged = await purgeScrapeCache(supabase)
+
   // Step 4: always send summary email to Varghese
   try {
     await sendSummaryEmail({ replies, followups, newEmails, synced, isWeekend })
@@ -269,6 +291,7 @@ export async function GET(request) {
     followupsFailed: followups.failed,
     newEmailsSent: newEmails.sent,
     synced,
+    cachesPurged,
     isWeekend,
   })
 }
