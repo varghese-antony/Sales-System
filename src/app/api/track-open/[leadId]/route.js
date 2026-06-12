@@ -23,6 +23,15 @@ export async function GET(request, { params }) {
       .eq('complete', false)
       .eq('replied', false)
 
+    // Update email_performance — mark most recent email for this lead as opened
+    await supabase
+      .from('email_performance')
+      .update({ opened: true })
+      .eq('lead_id', leadId)
+      .eq('opened', false)
+      .order('sent_at', { ascending: false })
+      .limit(1)
+
   } catch {}
 
   // Always return the pixel image — even if DB update fails
