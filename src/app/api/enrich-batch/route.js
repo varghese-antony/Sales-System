@@ -48,18 +48,19 @@ async function enrichOneLead(lead) {
 }
 
 async function setSetting(supabase, key, value) {
-  await supabase.from('settings').upsert({ key, value, updated_at: new Date().toISOString() })
+  // settings table only has (key, value) — no updated_at column
+  await supabase.from('settings').upsert({ key, value }, { onConflict: 'key' })
 }
 
 // Works for both cron GET and manual POST trigger
 async function processBatch(supabase) {
   // Always stamp the last run time — QA Check 22 (checkEnrichBatchRan) reads this
   // to verify the 3:00 UTC cron is actually firing. Fire-and-forget: don't block batch.
-  supabase.from('settings').upsert({
-    key: 'last_enrich_batch_run',
-    value: new Date().toISOString(),
-    updated_at: new Date().toISOString(),
-  }).then(() => {}).catch(() => {})
+  // settings table only has (key, value) — no updated_at column.
+  supabase.from('settings').upsert(
+    { key: 'last_enrich_batch_run', value: new Date().toISOString() },
+    { onConflict: 'key' }
+  ).then(() => {}).catch(() => {})
 
   // Load current queue
   const { data: rows } = await supabase

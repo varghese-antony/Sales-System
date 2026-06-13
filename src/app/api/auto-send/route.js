@@ -439,6 +439,9 @@ export async function POST(request) {
         angle_number: 2,
         industry: lead.industry || null,
         country: lead.country || null,
+        sent_at: now.toISOString(),
+        opened: false,
+        replied: false,
       }).then(() => {}).catch(() => {})
 
       // Save to Sent folder (best effort)
