@@ -109,7 +109,8 @@ export async function POST(req) {
     if (outreachErr) await logError('send-email', 'outreach-insert-failed', outreachErr, { leadId })
 
     // Write email_performance row at send time (not research time) so only
-    // actually-sent emails appear in performance data
+    // actually-sent emails appear in performance data.
+    // Include all columns so the insert doesn't fail against the full schema.
     if (leadId) {
       supabase.from('email_performance').insert({
         lead_id: leadId,
@@ -119,6 +120,11 @@ export async function POST(req) {
         ai_score: aiScore ?? null,
         personalisation_score: personalisationScore ?? null,
         angle_number: variation,
+        country: country || null,
+        industry: null,     // send-email doesn't receive industry — left null
+        opened: false,
+        replied: false,
+        sent_at: new Date().toISOString(),
       }).then(() => {}).catch(() => {})
     }
 
