@@ -381,8 +381,11 @@ export async function POST(request) {
 
     try {
       // ── First-name quality gate ────────────────────────────────────────────
-      // Never send if we don't have a real human first name. Sending "Hi there,"
-      // or "Hi Brafton," kills reply rates and looks like spam. Skip and log.
+      // If first_name is a real human name → use it.
+      // If first_name is bad BUT the email is a known generic inbox (info@, hello@, etc.)
+      //   → fall back to "{Company} team" so the email still reads naturally.
+      // If first_name is bad AND email is not a generic inbox → skip entirely,
+      //   because we can't address the email without looking spammy.
       const BAD_FIRST_NAMES = new Set([
         '','there','the','a','an','and','or','of','in','at','for','with',
         'ltd','llc','inc','co','corp','pty','group','agency','digital','media',
@@ -391,14 +394,30 @@ export async function POST(request) {
         'management','new','old','one','two','three','four','five','six',
         'seven','eight','nine','ten','first','second','third',
       ])
+      const GENERIC_PREFIXES = new Set([
+        'info','hello','contact','enquiries','enquire','sales','support','admin',
+        'mail','office','team','hi','hey','help','welcome','reception','ops',
+        'operations','hr','jobs','careers','media','press','pr','legal',
+        'finance','billing','accounts','general','newbusiness','clientimpact',
+        'collective','hoot','speaktosleek','talktous','dispatch','faculty',
+        'future','events','secretariat','charities','lainfo','moscowoffice',
+        'vietnam','london','melbourne','salesteam','email','newbusiness',
+      ])
       const rawFirst = (lead.first_name || '').trim()
+      const emailPrefix = (lead.email || '').split('@')[0].toLowerCase().replace(/[^a-z]/g, '')
       const firstIsBad = !rawFirst || BAD_FIRST_NAMES.has(rawFirst.toLowerCase()) || rawFirst.split(' ').length > 2
-      if (firstIsBad) {
+
+      let first
+      if (!firstIsBad) {
+        first = rawFirst
+      } else if (GENERIC_PREFIXES.has(emailPrefix)) {
+        // Generic inbox — address the company team instead of a person
+        const co_short = (lead.company || 'your company').replace(/\s*(ltd|llc|inc|pty|co|corp|group|digital|media|agency|solutions|tech|technologies|consulting|services|global|international|studio|studios|design|creative|marketing|management|plc|limited|pty ltd)\.?$/i, '').trim()
+        first = `${co_short} team`
+      } else {
         results.push({ company: lead.company, email: lead.email, status: 'skipped', reason: `bad first_name: "${rawFirst || 'empty'}" — fix in leads table` })
         continue
       }
-
-      const first = rawFirst
       const co = lead.company || 'your company'
       const country = lead.country || 'your region'
       const tmpl = getTemplate(lead.industry)

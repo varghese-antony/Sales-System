@@ -95,8 +95,8 @@ export async function POST(req) {
   if (!templateFn) return NextResponse.json({ success: false, error: 'Invalid step' }, { status: 400 })
 
   // ── First-name quality gate ──────────────────────────────────────────────────
-  // Mirror the same gate as auto-send. If firstName is bad/missing, block the
-  // follow-up — sending "Hi there," on a follow-up is even worse than on step 1.
+  // Mirror the same gate as auto-send.
+  // Real name → use it. Generic inbox → "{Company} team". Otherwise → block.
   const BAD_FIRST_NAMES = new Set([
     '','there','the','a','an','and','or','of','in','at','for','with',
     'ltd','llc','inc','co','corp','pty','group','agency','digital','media',
@@ -105,16 +105,33 @@ export async function POST(req) {
     'management','new','old','one','two','three','four','five','six',
     'seven','eight','nine','ten','first','second','third',
   ])
+  const GENERIC_PREFIXES = new Set([
+    'info','hello','contact','enquiries','enquire','sales','support','admin',
+    'mail','office','team','hi','hey','help','welcome','reception','ops',
+    'operations','hr','jobs','careers','media','press','pr','legal',
+    'finance','billing','accounts','general','newbusiness','clientimpact',
+    'collective','hoot','speaktosleek','talktous','dispatch','faculty',
+    'future','events','secretariat','charities','lainfo','moscowoffice',
+    'vietnam','london','melbourne','salesteam','email','newbusiness',
+  ])
   const rawFirst = (firstName || '').trim()
+  const emailPrefix = (to || '').split('@')[0].toLowerCase().replace(/[^a-z]/g, '')
   const firstIsBad = !rawFirst || BAD_FIRST_NAMES.has(rawFirst.toLowerCase()) || rawFirst.split(' ').length > 2
-  if (firstIsBad) {
+
+  let first
+  if (!firstIsBad) {
+    first = rawFirst
+  } else if (GENERIC_PREFIXES.has(emailPrefix)) {
+    // Fetch company name from lead record for the fallback greeting
+    const { data: leadRow } = await supabase.from('leads').select('company').eq('id', leadId).single()
+    const co_short = (leadRow?.company || 'your company').replace(/\s*(ltd|llc|inc|pty|co|corp|group|digital|media|agency|solutions|tech|technologies|consulting|services|global|international|studio|studios|design|creative|marketing|management|plc|limited|pty ltd)\.?$/i, '').trim()
+    first = `${co_short} team`
+  } else {
     return NextResponse.json({
       success: false,
       error: `Blocked: bad first_name "${rawFirst || 'empty'}" for lead ${leadId} — fix first_name in leads table before follow-up can send`,
     }, { status: 422 })
   }
-
-  const first = rawFirst
   const body = templateFn(first)
   const subject = `Re: ${originalSubject || seq.original_subject || 'following up'}`
 
