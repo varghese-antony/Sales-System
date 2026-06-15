@@ -94,7 +94,27 @@ export async function POST(req) {
   const templateFn = FOLLOWUP_TEMPLATES[nextStep]
   if (!templateFn) return NextResponse.json({ success: false, error: 'Invalid step' }, { status: 400 })
 
-  const first = firstName || 'there'
+  // ── First-name quality gate ──────────────────────────────────────────────────
+  // Mirror the same gate as auto-send. If firstName is bad/missing, block the
+  // follow-up — sending "Hi there," on a follow-up is even worse than on step 1.
+  const BAD_FIRST_NAMES = new Set([
+    '','there','the','a','an','and','or','of','in','at','for','with',
+    'ltd','llc','inc','co','corp','pty','group','agency','digital','media',
+    'solutions','tech','technologies','consulting','services','global',
+    'international','studio','studios','design','creative','marketing',
+    'management','new','old','one','two','three','four','five','six',
+    'seven','eight','nine','ten','first','second','third',
+  ])
+  const rawFirst = (firstName || '').trim()
+  const firstIsBad = !rawFirst || BAD_FIRST_NAMES.has(rawFirst.toLowerCase()) || rawFirst.split(' ').length > 2
+  if (firstIsBad) {
+    return NextResponse.json({
+      success: false,
+      error: `Blocked: bad first_name "${rawFirst || 'empty'}" for lead ${leadId} — fix first_name in leads table before follow-up can send`,
+    }, { status: 422 })
+  }
+
+  const first = rawFirst
   const body = templateFn(first)
   const subject = `Re: ${originalSubject || seq.original_subject || 'following up'}`
 

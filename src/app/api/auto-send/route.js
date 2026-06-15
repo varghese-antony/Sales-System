@@ -380,7 +380,25 @@ export async function POST(request) {
     }
 
     try {
-      const first = lead.first_name || lead.full_name?.split(' ')[0] || 'there'
+      // ── First-name quality gate ────────────────────────────────────────────
+      // Never send if we don't have a real human first name. Sending "Hi there,"
+      // or "Hi Brafton," kills reply rates and looks like spam. Skip and log.
+      const BAD_FIRST_NAMES = new Set([
+        '','there','the','a','an','and','or','of','in','at','for','with',
+        'ltd','llc','inc','co','corp','pty','group','agency','digital','media',
+        'solutions','tech','technologies','consulting','services','global',
+        'international','studio','studios','design','creative','marketing',
+        'management','new','old','one','two','three','four','five','six',
+        'seven','eight','nine','ten','first','second','third',
+      ])
+      const rawFirst = (lead.first_name || '').trim()
+      const firstIsBad = !rawFirst || BAD_FIRST_NAMES.has(rawFirst.toLowerCase()) || rawFirst.split(' ').length > 2
+      if (firstIsBad) {
+        results.push({ company: lead.company, email: lead.email, status: 'skipped', reason: `bad first_name: "${rawFirst || 'empty'}" — fix in leads table` })
+        continue
+      }
+
+      const first = rawFirst
       const co = lead.company || 'your company'
       const country = lead.country || 'your region'
       const tmpl = getTemplate(lead.industry)

@@ -989,6 +989,52 @@ async function checkIMAP() {
   }
 }
 
+// ── Check 24 — Data quality: first_name gate ──────────────────────────────────
+// Warns if any lead in the active send queue has a bad first_name that would
+// be blocked by the gate in auto-send/send-followup. Catch it here first.
+async function checkDataQuality(supabase) {
+  const BAD_FIRST_NAMES = new Set([
+    '','there','the','a','an','and','or','of','in','at','for','with',
+    'ltd','llc','inc','co','corp','pty','group','agency','digital','media',
+    'solutions','tech','technologies','consulting','services','global',
+    'international','studio','studios','design','creative','marketing',
+    'management','new','old','one','two','three','four','five','six',
+    'seven','eight','nine','ten','first','second','third',
+  ])
+
+  try {
+    // Fetch leads that are in an active sequence (step < 3, not complete, not replied)
+    const { data: activeSeqs } = await supabase
+      .from('sequences')
+      .select('lead_id, leads(first_name, email, company)')
+      .eq('complete', false)
+      .eq('replied', false)
+
+    if (!activeSeqs || activeSeqs.length === 0) {
+      return { name: 'data_quality', status: 'ok', message: 'No active sequences — nothing to check' }
+    }
+
+    const bad = activeSeqs.filter(s => {
+      const raw = (s.leads?.first_name || '').trim()
+      return !raw || BAD_FIRST_NAMES.has(raw.toLowerCase()) || raw.split(' ').length > 2
+    })
+
+    if (bad.length === 0) {
+      return { name: 'data_quality', status: 'ok', message: `All ${activeSeqs.length} active sequences have valid first_name ✓` }
+    }
+
+    const examples = bad.slice(0, 5).map(s => `${s.leads?.email} ("${s.leads?.first_name || 'empty'}")`).join(', ')
+    return {
+      name: 'data_quality',
+      status: 'warn',
+      message: `${bad.length} active sequence(s) have bad first_name — follow-ups will be blocked. Fix in leads table. Examples: ${examples}`,
+      claudeInstruction: `${bad.length} leads in active sequences have bad first_name values — their follow-ups will be blocked by the quality gate. Fix by updating first_name in the leads table for: ${bad.map(s => s.leads?.email).slice(0, 10).join(', ')}`,
+    }
+  } catch (err) {
+    return { name: 'data_quality', status: 'ok', message: `Data quality check skipped: ${err.message}` }
+  }
+}
+
 // ══════════════════════════════════════════════════════════════════════════════
 // Alert email builder
 // ══════════════════════════════════════════════════════════════════════════════
@@ -1107,6 +1153,8 @@ export async function GET() {
       middlewareAuth, trackOpenPixel, emailPerformance, scrapeCache,
       // Layer 5 — gap fixes (checks 21–23)
       autoSendEnabled, enrichBatchRan, imapReachable,
+      // Layer 6 — data quality (check 24)
+      dataQuality,
     ] = await Promise.all([
       checkDailyRunner(supabase),
       checkSequences(supabase),
@@ -1134,6 +1182,8 @@ export async function GET() {
       checkAutoSendEnabled(supabase),
       checkEnrichBatchRan(supabase),
       checkIMAP(),
+      // Layer 6 — data quality (check 24)
+      checkDataQuality(supabase),
     ])
     results = [
       supabaseResult, smtpResult,
@@ -1149,6 +1199,8 @@ export async function GET() {
       middlewareAuth, trackOpenPixel, emailPerformance, scrapeCache,
       // Layer 5
       autoSendEnabled, enrichBatchRan, imapReachable,
+      // Layer 6
+      dataQuality,
     ]
   }
 
