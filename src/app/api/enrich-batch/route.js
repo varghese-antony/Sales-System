@@ -131,10 +131,14 @@ async function processBatch(supabase) {
     // Self-chain: immediately trigger next batch so enrichment continues
     // without needing frequent crons. Each call processes 15 leads then
     // fires the next call — runs until queue is empty.
+    // Must include Authorization header to pass middleware check.
     const appUrl = process.env.NEXT_PUBLIC_APP_URL ||
                    (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : '')
     if (appUrl) {
-      fetch(`${appUrl}/api/enrich-batch`, { method: 'POST' }).catch(() => {})
+      fetch(`${appUrl}/api/enrich-batch`, {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${process.env.CRON_SECRET || ''}` },
+      }).catch(() => {})
     }
   }
 
