@@ -98,6 +98,20 @@ async function processBatch(supabase) {
   let found = parseInt(map['enrich_job_found'] || '0')
   let processed = 0
 
+  // Words that must never be stored as a first_name — same set as the send gates
+  const BAD_FIRST_NAMES = new Set([
+    '','there','the','a','an','and','or','of','in','at','for','with',
+    'ltd','llc','inc','co','corp','pty','group','agency','digital','media',
+    'solutions','tech','technologies','consulting','services','global',
+    'international','studio','studios','design','creative','marketing',
+    'management','new','old','one','two','three','four','five','six',
+    'seven','eight','nine','ten','first','second','third','about','our',
+    'your','we','us','my','contact','hello','hi','hey','info','team',
+    'staff','office','admin','support','sales','help','welcome','name',
+    'principal','corporate','technical','educational','finance','branding',
+    'skip','none','founder','ceo','director','manager',
+  ])
+
   for (const lead of (leads || [])) {
     try {
       const result = await enrichOneLead(lead)
@@ -106,8 +120,21 @@ async function processBatch(supabase) {
         const updates = {}
         if (result.email) updates.email = result.email
         if (result.name && !lead.full_name) {
-          updates.full_name = result.name
-          updates.first_name = result.name.split(' ')[0] || ''
+          // Validate: must look like a real human name, not a company name
+          // e.g. reject "Four Corners Migration", "Agency Hub", "Founder/CEO"
+          const parts = result.name.trim().split(/\s+/)
+          const candidateFirst = (parts[0] || '').toLowerCase()
+          const looksLikePerson = (
+            parts.length <= 4 &&                          // not a long company name
+            !result.name.includes('–') &&                 // not "Company – Title"
+            !result.name.includes('/') &&                 // not "Founder/CEO"
+            !BAD_FIRST_NAMES.has(candidateFirst) &&       // first word is not a bad word
+            /^[A-Z][a-z]{1,}/.test(parts[0])             // starts with capital then lowercase
+          )
+          if (looksLikePerson) {
+            updates.full_name = result.name
+            updates.first_name = parts[0]
+          }
         }
         if (Object.keys(updates).length) {
           await supabase.from('leads').update(updates).eq('id', lead.id)
