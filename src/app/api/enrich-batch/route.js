@@ -155,25 +155,18 @@ async function processBatch(supabase) {
   if (remaining.length === 0) {
     await setSetting(supabase, 'enrich_job_status', 'done')
   } else {
-    // Self-chain: trigger next batch BEFORE returning so Vercel doesn't kill
-    // the fetch. We use a short AbortController timeout so the outer function
-    // doesn't hang — the next batch fires and runs independently.
-    // Must include Authorization header to pass middleware check.
+    // Self-chain: fire next batch. Use fire-and-forget but keep the function
+    // alive briefly with a short delay so Vercel doesn't kill the fetch before
+    // it leaves the process. Cron at 3:00 UTC is the guaranteed fallback.
     const appUrl = process.env.NEXT_PUBLIC_APP_URL ||
                    (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : '')
     if (appUrl) {
-      try {
-        const ctrl = new AbortController()
-        const timer = setTimeout(() => ctrl.abort(), 5000) // wait max 5s for next batch to START
-        await fetch(`${appUrl}/api/enrich-batch`, {
-          method: 'POST',
-          headers: { 'Authorization': `Bearer ${process.env.CRON_SECRET || ''}` },
-          signal: ctrl.signal,
-        })
-        clearTimeout(timer)
-      } catch (_) {
-        // AbortError is expected — it just means the next batch is running
-      }
+      fetch(`${appUrl}/api/enrich-batch`, {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${process.env.CRON_SECRET || ''}` },
+      }).catch(() => {})
+      // Small delay so the outgoing request clears the network stack before exit
+      await new Promise(r => setTimeout(r, 500))
     }
   }
 
