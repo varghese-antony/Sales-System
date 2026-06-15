@@ -1002,8 +1002,19 @@ async function checkDataQuality(supabase) {
     'seven','eight','nine','ten','first','second','third',
   ])
 
+  // Generic email prefixes are handled by the "company team" fallback in the send gate —
+  // they are NOT blocked. Only warn on personal-looking emails with bad/missing first_name.
+  const GENERIC_PREFIXES = new Set([
+    'info','hello','contact','enquiries','enquire','sales','support','admin',
+    'mail','office','team','hi','hey','help','welcome','reception','ops',
+    'operations','hr','jobs','careers','media','press','pr','legal',
+    'finance','billing','accounts','general','newbusiness','clientimpact',
+    'collective','hoot','speaktosleek','talktous','dispatch','faculty',
+    'future','events','secretariat','charities','lainfo','moscowoffice',
+    'vietnam','london','melbourne','salesteam','email',
+  ])
+
   try {
-    // Fetch leads that are in an active sequence (step < 3, not complete, not replied)
     const { data: activeSeqs } = await supabase
       .from('sequences')
       .select('lead_id, leads(first_name, email, company)')
@@ -1016,18 +1027,23 @@ async function checkDataQuality(supabase) {
 
     const bad = activeSeqs.filter(s => {
       const raw = (s.leads?.first_name || '').trim()
-      return !raw || BAD_FIRST_NAMES.has(raw.toLowerCase()) || raw.split(' ').length > 2
+      const firstIsBad = !raw || BAD_FIRST_NAMES.has(raw.toLowerCase()) || raw.split(' ').length > 2
+      if (!firstIsBad) return false
+      // Generic email → "company team" fallback handles it — NOT blocked, don't warn
+      const emailPrefix = ((s.leads?.email || '').split('@')[0] || '').toLowerCase().replace(/[^a-z]/g, '')
+      if (GENERIC_PREFIXES.has(emailPrefix)) return false
+      return true // personal email + bad first_name = genuinely blocked
     })
 
     if (bad.length === 0) {
-      return { name: 'data_quality', status: 'ok', message: `All ${activeSeqs.length} active sequences have valid first_name ✓` }
+      return { name: 'data_quality', status: 'ok', message: `All ${activeSeqs.length} active sequences have valid name or generic-email fallback ✓` }
     }
 
     const examples = bad.slice(0, 5).map(s => `${s.leads?.email} ("${s.leads?.first_name || 'empty'}")`).join(', ')
     return {
       name: 'data_quality',
       status: 'warn',
-      message: `${bad.length} active sequence(s) have bad first_name — follow-ups will be blocked. Fix in leads table. Examples: ${examples}`,
+      message: `${bad.length} active sequence(s) have personal emails but bad/missing first_name — follow-ups WILL be blocked. Fix in leads table. Examples: ${examples}`,
       claudeInstruction: `${bad.length} leads in active sequences have bad first_name values — their follow-ups will be blocked by the quality gate. Fix by updating first_name in the leads table for: ${bad.map(s => s.leads?.email).slice(0, 10).join(', ')}`,
     }
   } catch (err) {
