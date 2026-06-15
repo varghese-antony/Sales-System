@@ -427,9 +427,8 @@ export async function POST(request) {
       }).then(() => {}).catch(() => {})
 
       // Write to email_performance so QA Check 19 shows real data.
-      // auto-send uses industry templates (no AI scoring) so ai_score/personalisation_score are null.
-      // angle_number=2 = proof-first template (the default used by auto-send).
-      supabase.from('email_performance').insert({
+      // Awaited so errors surface in system_errors rather than being swallowed.
+      const { error: perfErr } = await supabase.from('email_performance').insert({
         lead_id: lead.id,
         sequence_step: 1,
         subject,
@@ -442,7 +441,15 @@ export async function POST(request) {
         sent_at: now.toISOString(),
         opened: false,
         replied: false,
-      }).then(() => {}).catch(() => {})
+      })
+      if (perfErr) {
+        await supabase.from('system_errors').insert({
+          source: 'auto-send',
+          type: 'email-performance-insert-failed',
+          message: perfErr.message,
+          context: JSON.stringify({ lead_id: lead.id, code: perfErr.code, details: perfErr.details }),
+        }).catch(() => {})
+      }
 
       // Save to Sent folder (best effort)
       try {

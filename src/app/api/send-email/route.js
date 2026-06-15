@@ -112,7 +112,7 @@ export async function POST(req) {
     // actually-sent emails appear in performance data.
     // Include all columns so the insert doesn't fail against the full schema.
     if (leadId) {
-      supabase.from('email_performance').insert({
+      const { error: perfErr } = await supabase.from('email_performance').insert({
         lead_id: leadId,
         sequence_step: 1,
         subject,
@@ -121,11 +121,12 @@ export async function POST(req) {
         personalisation_score: personalisationScore ?? null,
         angle_number: variation,
         country: country || null,
-        industry: null,     // send-email doesn't receive industry — left null
+        industry: null,
         opened: false,
         replied: false,
         sent_at: new Date().toISOString(),
-      }).then(() => {}).catch(() => {})
+      })
+      if (perfErr) await logError('send-email', 'email-performance-insert-failed', perfErr, { leadId })
     }
 
     const { error: leadErr } = await supabase.from('leads').update({ status:'contacted' }).eq('id', leadId)
