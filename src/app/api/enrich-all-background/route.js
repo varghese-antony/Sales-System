@@ -57,13 +57,14 @@ export async function POST() {
     })
   }
 
-  // Get all leads that need enrichment
+  // Get all leads that need enrichment (override Supabase's default 1000-row limit)
   const { data: leads } = await supabase
     .from('leads')
     .select('id')
     .is('email', null)
     .not('website', 'is', null)
     .neq('website', '')
+    .limit(10000)
 
   const ids = (leads || []).map(l => l.id)
   if (!ids.length) {
