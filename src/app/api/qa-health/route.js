@@ -792,15 +792,39 @@ async function checkEmailPerformanceTable(supabase) {
     const { count: outreachSent } = await supabase
       .from('outreach').select('*', { count: 'exact', head: true }).eq('status', 'sent').eq('type', 'email')
 
-    if ((outreachSent || 0) > 5 && (count || 0) === 0) {
+    // Only flag if emails have been sent AFTER the fix was deployed (2026-06-13T08:00Z).
+    // The 72 emails sent before that date were sent before email_performance inserts
+    // were added to auto-send and send-email — those rows will never appear and that
+    // is expected. We only care that NEW sends (after the fix) are writing rows.
+    const FIX_DEPLOYED_AT = '2026-06-13T08:00:00Z'
+    const { count: recentSent } = await supabase
+      .from('outreach')
+      .select('*', { count: 'exact', head: true })
+      .eq('status', 'sent')
+      .eq('type', 'email')
+      .gte('created_at', FIX_DEPLOYED_AT)
+
+    const { count: recentPerf } = await supabase
+      .from('email_performance')
+      .select('*', { count: 'exact', head: true })
+      .gte('sent_at', FIX_DEPLOYED_AT)
+
+    if ((recentSent || 0) > 0 && (recentPerf || 0) === 0) {
       return {
         name: 'email_performance', status: 'warn',
-        message: `${outreachSent} emails sent but email_performance table is empty — performance tracking broken`,
-        claudeInstruction: `email_performance table has 0 records but ${outreachSent} emails have been sent. Both /api/auto-send and /api/send-email write to this table. The inserts may be failing silently — check that the email_performance table has these columns: id, lead_id, sequence_step, subject, body, ai_score, personalisation_score, angle_number, industry, country, opened, replied, sent_at. Run the migration if any are missing.`,
+        message: `${recentSent} emails sent since fix deployed but email_performance still empty — insert still broken`,
+        claudeInstruction: `email_performance table has 0 records but ${recentSent} emails have been sent since 2026-06-13. Both /api/auto-send and /api/send-email write to this table. The inserts may be failing silently — check that the email_performance table has these columns: id, lead_id, sequence_step, subject, body, ai_score, personalisation_score, angle_number, industry, country, opened, replied, sent_at. Run the migration if any are missing.`,
       }
     }
 
-    return { name: 'email_performance', status: 'ok', message: `${count || 0} email performance records tracked` }
+    // Pre-fix emails (sent before 2026-06-13) never wrote to email_performance — that's expected.
+    const preFixCount = (outreachSent || 0) - (recentSent || 0)
+    const msg = (count || 0) > 0
+      ? `${count} email performance records tracked`
+      : preFixCount > 0
+        ? `${preFixCount} pre-fix emails have no perf record (expected) — next send will populate this table`
+        : 'No emails sent yet'
+    return { name: 'email_performance', status: 'ok', message: msg }
   } catch {
     return { name: 'email_performance', status: 'warn', message: 'Could not check email_performance table' }
   }
