@@ -26,19 +26,25 @@ function buildFollowupHtml(body, leadId) {
 
 // Banks of follow-up variations — pick one randomly per send
 // so no two people get the exact same message. Same tone, slightly different words.
+//
+// Step 2 strategy: don't just "bump" — acknowledge they're busy and lower the friction.
+// Offer email as an alternative to a call, or ask if they can redirect us.
+// This gives them an easy way to respond without committing to a call.
 const FOLLOWUP_2_BANK = [
-  (f) => `Hi ${f},\n\nJust bringing this back up in case it got lost.\n\nVarghese`,
-  (f) => `Hi ${f},\n\nFlagging this again in case the timing is better now.\n\nVarghese`,
-  (f) => `Hi ${f},\n\nDropping this back to the top, thought it was worth a second look.\n\nVarghese`,
-  (f) => `Hi ${f},\n\nJust checking this didn't get buried.\n\nVarghese`,
-  (f) => `Hi ${f},\n\nBringing this back up. Happy to answer any questions if you had a look.\n\nVarghese`,
+  (f) => `Hi ${f},\n\nJust checking this didn't get lost. If a call doesn't suit right now, happy to keep it to a quick email exchange instead — whatever's easier.\n\nVarghese`,
+  (f) => `Hi ${f},\n\nFlagging this in case the timing's changed. And if you're not the right person for this, would you mind pointing me in the right direction?\n\nVarghese`,
+  (f) => `Hi ${f},\n\nBringing this back up. No pressure — even a quick 'not for us right now' is useful. Happy either way.\n\nVarghese`,
+  (f) => `Hi ${f},\n\nDropping this back to the top. If a call doesn't work for you, I'm just as happy to start with a couple of questions over email to see if it's even worth your time.\n\nVarghese`,
+  (f) => `Hi ${f},\n\nJust in case this got buried. If things have moved on or the timing's off, no problem at all — just let me know and I'll leave it there.\n\nVarghese`,
 ]
 
+// Step 3 strategy: close the loop gracefully. Short, warm, no guilt-tripping.
+// Leave the door open without being pushy. This is the last email — make it memorable.
 const FOLLOWUP_3_BANK = [
-  (f) => `Hi ${f},\n\nI'll leave it here. If the timing ever makes sense, you know where to find me.\n\nVarghese`,
-  (f) => `Hi ${f},\n\nLast one from me. If it's ever relevant, I'm easy to find.\n\nVarghese`,
-  (f) => `Hi ${f},\n\nStopping here. If things change, feel free to come back to this.\n\nVarghese`,
-  (f) => `Hi ${f},\n\nI'll get out of your inbox after this. If it ever becomes relevant, you've got my details.\n\nVarghese`,
+  (f) => `Hi ${f},\n\nI'll leave it there — if things change or the timing ever makes sense, you know where to find me.\n\nVarghese`,
+  (f) => `Hi ${f},\n\nLast one from me. If it ever becomes relevant, I'm easy to reach.\n\nVarghese`,
+  (f) => `Hi ${f},\n\nStopping here. If anything changes on your end, feel free to come back to this.\n\nVarghese`,
+  (f) => `Hi ${f},\n\nI'll step out of your inbox after this. If it ever makes sense down the line, my details are below.\n\nVarghese`,
 ]
 
 function pickRandom(arr) {

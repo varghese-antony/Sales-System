@@ -15,18 +15,20 @@ function getDailyLimit(startDateStr) {
   return 60                        // Month 2+: safe cruising speed
 }
 
-// ── EMAIL TEMPLATES (Angle 2 — Proof-first) ──────────────────────────────────
-// Industry-specific so it doesn't feel generic
+// ── EMAIL TEMPLATES ───────────────────────────────────────────────────────────
+// Industry-specific, plain-text style — no hour-counts, no "20-min call" CTA.
+// Subjects: short (4–6 words), pain-point specific, no numbers or action words.
+// Bodies: qualitative outcome, genuine question close — reads like a person wrote it.
 const TEMPLATES = {
   'Marketing Agency': {
-    subject: (co) => `How ${co} could reclaim 12+ hrs/week`,
+    subject: (co) => `Billable time at ${co}`,
     body: (first, co, country) => `Hi ${first},
 
-I work with marketing agencies in ${country} to cut the manual work that eats into billable time — things like client reporting, onboarding, and tool syncing.
+I work with marketing agencies in ${country} on the ops side — specifically the manual work that quietly eats into billable time: client reporting, onboarding, and tool syncing.
 
-For one agency similar to ${co}, we got them 12 hours back per week without hiring anyone new — just better workflows with the tools they already had.
+Worked with one agency recently where these were the same friction points. After cleaning up their workflows they said it was the most capacity they'd recovered without taking on more people.
 
-Worth a 20-min call to see if something similar applies to you?
+Happy to share what that looked like if it's relevant to ${co}.
 
 Varghese
 Blendery`,
@@ -35,102 +37,102 @@ Blendery`,
     subject: (co) => `Ops question for ${co}`,
     body: (first, co, country) => `Hi ${first},
 
-Quick one — I help SaaS teams in ${country} automate the ops work that slows down growth: onboarding flows, support routing, internal reporting.
+Quick one — I help SaaS teams in ${country} clean up the ops work that quietly slows growth: onboarding flows, support handoffs, internal reporting.
 
-Worked with a similar-sized SaaS company recently and cut their weekly manual ops time from 18 hrs to under 5.
+For a similar team we worked with recently, tightening those up made a noticeable difference to how much time their ops function was spending on reactive admin vs. actually building.
 
-If that kind of thing is on your radar, worth a quick chat?
+Worth a conversation if any of that sounds familiar?
 
 Varghese
 Blendery`,
   },
   'Consulting': {
-    subject: (co) => `Freeing up time at ${co}`,
+    subject: (co) => `Admin load at ${co}`,
     body: (first, co, country) => `Hi ${first},
 
-I help consulting firms in ${country} automate the admin that drains billable hours — proposal generation, client updates, CRM entry, reporting.
+I work with consulting firms in ${country} on the admin that quietly drains billable hours — proposal workflows, client updates, CRM entry, reporting.
 
-One firm I worked with went from spending 15+ hrs/week on internal ops to under 4 — without changing their team structure.
+One firm we worked with recently was surprised how much of it could be cleaned up without changing their team structure or switching tools.
 
-Is that kind of efficiency gain on your list for this year?
+Is that kind of thing on the list for ${co} this year?
 
 Varghese
 Blendery`,
   },
   'Recruitment': {
-    subject: (co) => `Automating the manual work at ${co}`,
+    subject: (co) => `Candidate ops at ${co}`,
     body: (first, co, country) => `Hi ${first},
 
-Recruitment teams in ${country} typically lose 10–15 hrs/week to manual candidate comms, CV tracking, and onboarding admin.
+Recruitment teams in ${country} often tell me the same thing — candidate comms, CV tracking, and onboarding admin take up far more of the week than they should.
 
-I helped one agency cut that to under 3 hrs — same tools, better workflows.
+We helped one agency tighten that up significantly using the tools they already had. The team said it changed what their week actually looked like.
 
-If ops efficiency is on your radar, I'd love a quick 20-min call.
+Is ops efficiency something you're thinking about at ${co}?
 
 Varghese
 Blendery`,
   },
   'E-commerce': {
-    subject: (co) => `Ops efficiency question for ${co}`,
+    subject: (co) => `Fulfilment ops at ${co}`,
     body: (first, co, country) => `Hi ${first},
 
-I work with ecommerce businesses in ${country} to automate order processing, inventory syncs, and fulfilment workflows — the manual stuff that slows growth.
+I work with e-commerce businesses in ${country} to clean up the manual side of ops — order processing, inventory syncing, and fulfilment workflows.
 
-Recently helped a similar business save 14 hrs/week. No new software — just connecting what they already had.
+One business we worked with recently was surprised how much of it could be sorted within their existing setup — no new software needed.
 
-Worth a quick call?
+Worth a chat if any of that's on your plate?
 
 Varghese
 Blendery`,
   },
   'Legal Tech SaaS': {
-    subject: (co) => `Question about ops at ${co}`,
+    subject: (co) => `Document workflows at ${co}`,
     body: (first, co, country) => `Hi ${first},
 
-Legal tech teams often tell me the biggest time drain isn't the work itself — it's the admin around it: document flows, compliance tracking, client updates.
+Legal tech teams often tell me the biggest time cost isn't the work itself — it's the admin around it: document flows, compliance tracking, client updates.
 
-I helped a similar firm in ${country} cut their weekly ops overhead by 11 hrs.
+We worked with a firm in ${country} recently where cleaning up those workflows made a meaningful difference to the team's week — without touching their core systems.
 
-If that resonates, worth a 20-min conversation?
+If any of that resonates, happy to share what that looked like.
 
 Varghese
 Blendery`,
   },
   'PropTech SaaS': {
-    subject: (co) => `Ops efficiency for ${co}`,
+    subject: (co) => `Data ops at ${co}`,
     body: (first, co, country) => `Hi ${first},
 
-PropTech companies I work with in ${country} typically spend way too much time on manual data entry, reporting, and lead tracking — work that should be automated.
+PropTech teams I work with in ${country} often spend more time than they'd like on manual data entry, reporting, and lead tracking.
 
-Helped one team get 13 hrs/week back. Same tools, smarter workflows.
+We helped one team clean that up within their existing stack — no new tools, just better connections between the ones they already had.
 
-Open to a quick 20-min call?
+Is that kind of thing relevant at ${co}?
 
 Varghese
 Blendery`,
   },
   'HR Tech': {
-    subject: (co) => `HR ops question for ${co}`,
+    subject: (co) => `Onboarding workflows at ${co}`,
     body: (first, co, country) => `Hi ${first},
 
-HR teams in ${country} often lose a huge chunk of the week to manual onboarding flows, policy tracking, and employee admin.
+HR teams in ${country} often tell me that onboarding workflows, policy tracking, and employee admin take up a disproportionate chunk of the week.
 
-I helped an HR tech company recently cut that from 16 hrs/week to under 4 — without adding headcount.
+We worked with one HR tech company where tightening up those workflows made a real difference — without adding headcount or changing their core tools.
 
-If ops efficiency is something you're thinking about, I'd love a quick chat.
+Is ops efficiency something you're thinking about at ${co}?
 
 Varghese
 Blendery`,
   },
   'FinTech': {
-    subject: (co) => `Manual ops question for ${co}`,
+    subject: (co) => `Compliance ops at ${co}`,
     body: (first, co, country) => `Hi ${first},
 
-FinTech teams in ${country} often tell me compliance reporting, KYC flows, and client reporting eat far more time than they should.
+FinTech teams in ${country} often flag the same thing — compliance reporting, KYC flows, and client ops eat more time than they should.
 
-I worked with a similar-sized firm recently and cut their weekly ops overhead by 12 hrs — all within their existing stack.
+We worked with a similar-sized firm recently and found a lot of that could be cleaned up within their existing setup.
 
-Worth a 20-min call to see if the same applies to you?
+Worth a quick conversation if any of that sounds familiar?
 
 Varghese
 Blendery`,
@@ -139,11 +141,11 @@ Blendery`,
     subject: (co) => `Quick question for ${co}`,
     body: (first, co, country) => `Hi ${first},
 
-I help small businesses in ${country} like ${co} cut 10–20 hrs of manual work per week through ops automation — without buying new software.
+I work with businesses in ${country} on the ops side — specifically the manual, repetitive work that takes up more of the week than it should.
 
-For one similar business, we reduced their weekly admin overhead by 14 hours.
+We've helped a number of similar businesses clean that up without switching tools — just better use of what they already have.
 
-Worth a quick 20-min call to see if the same applies to you?
+Is that kind of thing on your radar at ${co}?
 
 Varghese
 Blendery`,
@@ -180,10 +182,12 @@ async function saveToSent(rawMessage) {
   } catch { try { await client.logout() } catch {} }
 }
 
-// Blendery logo (base64 embedded)
+// Logo only shown on follow-ups (step 2+). Cold step-1 emails are plain-text
+// style — no images. Images on cold emails raise spam scores significantly.
 const LOGO = `<img src="https://sales-system-blendery.vercel.app/blendery-logo.png" width="100" style="margin-bottom:8px;" alt="Blendery"/>`
 
-function buildHtml(bodyText, leadId) {
+// showLogo: false for initial cold email (step 1), true for follow-ups (step 2+)
+function buildHtml(bodyText, leadId, showLogo = false) {
   const lines = bodyText.split('\n').map(l => l.trim() ? `<p style="margin:0 0 12px 0;color:#1a1a1a;font-size:14px;line-height:1.6;">${l}</p>` : '<br/>').join('')
   const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://sales-system-blendery.vercel.app'
   const pixel = `<img src="${appUrl}/api/track-open/${leadId}" width="1" height="1" style="display:none;" />`
@@ -191,7 +195,7 @@ function buildHtml(bodyText, leadId) {
   return `<div style="font-family:Arial,sans-serif;max-width:560px;">
     ${lines}
     <br/>
-    ${LOGO}
+    ${showLogo ? LOGO : ''}
     <p style="margin:20px 0 0;font-family:Arial,sans-serif;font-size:11px;color:#aaa;line-height:1.6;">
       Blendery Tech Solutions &middot; 26th Floor, Amber Gem Tower, UAE<br/>
       <a href="${unsubscribeUrl}" style="color:#aaa;text-decoration:underline;">Unsubscribe</a> from future emails.
@@ -426,7 +430,7 @@ export async function POST(request) {
 
       const subject = tmpl.subject(co)
       const bodyText = tmpl.body(first, co, country)
-      const html = buildHtml(bodyText, lead.id)
+      const html = buildHtml(bodyText, lead.id, false) // no logo on cold step-1
 
       const info = await transport.sendMail({
         from: `Varghese Antony <${process.env.SMTP_USER}>`,
@@ -505,8 +509,8 @@ export async function POST(request) {
       sent++
       results.push({ company: co, email: lead.email, status: 'sent' })
 
-      // 3-second gap between sends — looks natural, avoids rate limits
-      await new Promise(r => setTimeout(r, 3000))
+      // Random 3–9s gap between sends — looks human, avoids burst patterns
+      await new Promise(r => setTimeout(r, 3000 + Math.floor(Math.random() * 6000)))
 
     } catch (err) {
       failed++
