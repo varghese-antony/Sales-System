@@ -402,6 +402,8 @@ export async function POST(request) {
         'collective','hoot','speaktosleek','talktous','dispatch','faculty',
         'future','events','secretariat','charities','lainfo','moscowoffice',
         'vietnam','london','melbourne','salesteam','email','newbusiness',
+        'techsupport','tech','service','services','enquiry','inquiry',
+        'clientservices','customerservice','customersupport','noreply',
       ])
       const rawFirst = (lead.first_name || '').trim()
       const emailPrefix = (lead.email || '').split('@')[0].toLowerCase().replace(/[^a-z]/g, '')

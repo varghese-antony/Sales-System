@@ -113,6 +113,8 @@ export async function POST(req) {
     'collective','hoot','speaktosleek','talktous','dispatch','faculty',
     'future','events','secretariat','charities','lainfo','moscowoffice',
     'vietnam','london','melbourne','salesteam','email','newbusiness',
+    'techsupport','tech','service','services','enquiry','inquiry',
+    'clientservices','customerservice','customersupport','noreply',
   ])
   const rawFirst = (firstName || '').trim()
   const emailPrefix = (to || '').split('@')[0].toLowerCase().replace(/[^a-z]/g, '')
