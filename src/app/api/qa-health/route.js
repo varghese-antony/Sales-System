@@ -266,31 +266,33 @@ async function checkEnrichmentGaps(supabase) {
     .is('email', null)
     .lt('created_at', cutoff)
 
-  if (!count || count === 0) return { name: 'enrichment_gaps', status: 'ok', message: 'All leads enriched' }
+  if (!count || count === 0) return { name: 'enrichment_gaps', status: 'ok', message: 'All leads enriched ✓' }
 
-  // Many sites simply don't list emails publicly — only warn if count is growing
-  // (i.e. enrichment isn't running at all), not just because scraping has limits
   const enrichStatus = await getSetting(supabase, 'enrich_job_status')
+  const lastRun = await getSetting(supabase, 'last_enrich_batch_run')
 
-  // If enrichment is actively running or recently ran, this is normal — not a real gap
+  // Job currently running — normal
   if (enrichStatus === 'running') {
     return { name: 'enrichment_gaps', status: 'ok', message: `${count} leads awaiting enrichment (job running)` }
   }
 
-  // Trigger enrichment if idle
-  let triggered = false
-  if (enrichStatus !== 'running') {
-    const d = await fireAndForget(`${APP_URL}/api/enrich-all-background`, { method: 'POST' })
-    triggered = d.success === true
+  // Enrichment ran recently (within 24h) and status is 'done' — the remaining leads
+  // simply don't publish emails publicly. This is expected, not a problem.
+  if (lastRun) {
+    const minsAgo = (Date.now() - new Date(lastRun).getTime()) / 60000
+    if (minsAgo < 1440) { // 24 hours
+      return { name: 'enrichment_gaps', status: 'ok', message: `${count} leads without email after enrichment — normal (sites don't publish emails)` }
+    }
   }
 
-  // Only alert if count is very high (>500) AND enrichment wasn't running — likely broken
-  if (count > 500) {
+  // Enrichment hasn't run in >24h AND count is very high — likely stuck
+  // Threshold is high (1500) because after a full enrichment run ~1200+ leads
+  // will permanently have no findable email — that's not a bug.
+  if (count > 1500) {
     return {
-      name: 'enrichment_gaps', status: triggered ? 'healed' : 'warn',
-      message: `${count} leads with website but no email (>3 days old)`,
-      healed: triggered ? `Re-triggered enrichment batch for ${count} leads` : null,
-      claudeInstruction: triggered ? null : `${count} leads have websites but no email. Enrichment may be stuck. Check /api/enrich-batch and the enrich-all-background job status.`,
+      name: 'enrichment_gaps', status: 'warn',
+      message: `${count} leads with website but no email — enrichment last ran ${lastRun ? Math.round((Date.now()-new Date(lastRun).getTime())/3600000)+'h ago' : 'never'}`,
+      claudeInstruction: `${count} leads have websites but no email and enrichment hasn't run in over 24h. Trigger enrichment: run the local_enrich.py script or check /api/enrich-batch.`,
     }
   }
 
@@ -1012,6 +1014,8 @@ async function checkDataQuality(supabase) {
     'collective','hoot','speaktosleek','talktous','dispatch','faculty',
     'future','events','secretariat','charities','lainfo','moscowoffice',
     'vietnam','london','melbourne','salesteam','email',
+    'techsupport','tech','service','services','enquiry','inquiry',
+    'clientservices','customerservice','customersupport','hello','noreply',
   ])
 
   try {
