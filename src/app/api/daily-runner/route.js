@@ -199,7 +199,10 @@ async function runQACheck(appUrl, cronSecret) {
 // ── Step 4: send summary notification to Varghese ────────────────────────────
 async function sendSummaryEmail({ replies, followups, newEmails, synced, isWeekend, qa }) {
   const mailer = transport()
-  const to = process.env.SMTP_USER // send to himself
+  // REPORT_TO = the inbox you actually check (e.g. antonyv@blendery.tech or Gmail).
+  // Falls back to SMTP_USER (the Hostinger sending address) if not set — but that
+  // means the report only lands in the Hostinger inbox, not wherever you read email.
+  const to = process.env.REPORT_TO || process.env.SMTP_USER
 
   const totalSent = followups.sent + newEmails.sent
   const totalFailed = followups.failed + newEmails.failed
@@ -366,6 +369,13 @@ export async function GET(request) {
     await sendSummaryEmail({ replies, followups, newEmails, synced, isWeekend, qa })
   } catch (err) {
     console.error('Summary email failed:', err.message)
+    // Log to DB so QA can surface it — previously this failed silently with no trace
+    await supabase.from('system_errors').insert({
+      source: 'daily-runner',
+      type: 'summary-email-failed',
+      message: err.message,
+      context: JSON.stringify({ to: process.env.REPORT_TO || process.env.SMTP_USER }),
+    }).catch(() => {})
   }
 
   return NextResponse.json({
