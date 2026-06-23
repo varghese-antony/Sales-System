@@ -509,12 +509,21 @@ export async function POST(request) {
       sent++
       results.push({ company: co, email: lead.email, status: 'sent' })
 
-      // Random 3–9s gap between sends — looks human, avoids burst patterns
-      await new Promise(r => setTimeout(r, 3000 + Math.floor(Math.random() * 6000)))
+      // Random 2–4s gap between sends — looks human, avoids rate limits,
+      // keeps a 20-email batch under 90s total (safe within 240s caller timeout)
+      await new Promise(r => setTimeout(r, 2000 + Math.floor(Math.random() * 2000)))
 
     } catch (err) {
       failed++
-      results.push({ company: lead.company, email: lead.email, status: 'failed', error: err.message })
+      const errMsg = err.message || String(err)
+      results.push({ company: lead.company, email: lead.email, status: 'failed', error: errMsg })
+      // Log to system_errors so QA health check surfaces the real SMTP error
+      await supabase.from('system_errors').insert({
+        source: 'auto-send',
+        type: 'smtp-send-failed',
+        message: errMsg,
+        context: JSON.stringify({ email: lead.email, company: lead.company }),
+      }).catch(() => {})
     }
   }
 

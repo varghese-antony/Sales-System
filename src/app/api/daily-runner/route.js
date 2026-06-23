@@ -113,7 +113,9 @@ async function sendNewEmails(appUrl, cronSecret) {
     const res = await fetch(`${appUrl}/api/auto-send`, {
       method: 'POST',
       headers: { 'Authorization': `Bearer ${cronSecret}` },
-      signal: AbortSignal.timeout(55000), // auto-send can take up to 50s (enrichment + sends)
+      // 240s: 20 emails × max 4s delay = 80s delays + ~2s send each = ~120s worst case.
+      // Previous 55s caused mid-batch timeouts — all remaining sends failed silently.
+      signal: AbortSignal.timeout(240000),
     })
     const data = await res.json()
     return {
