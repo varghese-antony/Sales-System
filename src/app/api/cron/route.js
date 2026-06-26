@@ -149,8 +149,12 @@ function scoreLead({ industry = '', country = '' }) {
 
 export async function GET(request) {
   const authHeader = request.headers.get('authorization')
-  // Allow Vercel cron calls (with or without CRON_SECRET)
-  // Also allow direct calls for testing
+  // Vercel cron calls include x-vercel-signature — also allow CRON_SECRET for manual triggers
+  const cronSecret = process.env.CRON_SECRET
+  if (cronSecret && authHeader !== `Bearer ${cronSecret}` && !request.headers.get('x-vercel-signature')) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  }
+
   const supabase = createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL,
     process.env.SUPABASE_SERVICE_ROLE_KEY
@@ -227,11 +231,10 @@ export async function GET(request) {
 
   // Advance offset for tomorrow — wraps back to 0 after completing all searches
   const newOffset = (offset + SEARCHES_PER_DAY) % SEARCHES.length
-  await supabase.from('settings').upsert({
-    key: 'maps_search_offset',
-    value: newOffset.toString(),
-    updated_at: new Date().toISOString(),
-  })
+  await supabase.from('settings').upsert(
+    { key: 'maps_search_offset', value: newOffset.toString() },
+    { onConflict: 'key' }
+  )
 
   const runDate = new Date().toISOString().split('T')[0]
   const searchLabels = wrapped.map(s => s.query)

@@ -2,7 +2,8 @@
   "functions": {
     "src/app/api/auto-send/route.js": { "maxDuration": 300 },
     "src/app/api/daily-runner/route.js": { "maxDuration": 300 },
-    "src/app/api/enrich-batch/route.js": { "maxDuration": 300 }
+    "src/app/api/enrich-batch/route.js": { "maxDuration": 300 },
+    "src/app/api/cron/route.js": { "maxDuration": 300 }
   },
   "crons": [
     {
@@ -12,6 +13,10 @@
     {
       "path": "/api/enrich-batch",
       "schedule": "0 3 * * *"
+    },
+    {
+      "path": "/api/cron",
+      "schedule": "0 6 * * 1-5"
     }
   ]
 }
